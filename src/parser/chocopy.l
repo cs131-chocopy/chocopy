@@ -19,39 +19,14 @@ std::stack<int> stack_indent;
 #include <chocopy_parse.hpp>
 #include "chocopy.tab.h"
 
-int e1 = 1, e2 = 1,global_leng=0;
-string info = "";
-
-#define LITERAL(type) \
-    LOG(DEBUG) << #type << /*" " <<  yytext <<*/ " location: "<< yylloc.first_line<<" " << yylloc.first_column<< " " << (e1 = yylloc.last_line) <<" " << (e2 = yylloc.last_column); \
-    return TOKEN_##type;
-
-#define LITERAL_END(type) \
-    LOG(DEBUG) << #type << /*" " <<  yytext <<*/ " location: "<< yylloc.first_line<<" " << yylloc.first_column<< " " << (e1 = yylloc.last_line) <<" " << (e2 = yylloc.last_column); \
-    return TOKEN_##type;
-
 int ColNum = 1;
 int LineNum = 1;
-#define SET_LOCATION yylval.location = new int[4]{LineNum, ColNum, LineNum, ColNum+yyleng-1};
 #define SET_ACTION                                                           \
-  yylloc.first_line = LineNum;                                               \
-  yylloc.first_column = ColNum;                                              \
+  yylloc.first.line = LineNum;                                               \
+  yylloc.first.column = ColNum;                                              \
   ColNum += yyleng;                                                          \
-  yylloc.last_line = LineNum;                                                \
-  yylloc.last_column = ColNum;
-
-#define ANOTHER_LINE                                                         \
-  ColNum = 1;                                                                \
-  LineNum += 1;
-#define CLEAR_ONE                                                         \
-  ColNum -= 4;                                                                \
-
-#define YY_ANOTHER_TAB                                                       \
-  ColNum += 4;
-#define YY_ANOTHER_SPACE                                                     \
-  ColNum += 1;
-#define YY_ANOTHER_STR(i)                                                    \
-  ColNum += (i);
+  yylloc.last.line = LineNum;                                                \
+  yylloc.last.column = ColNum;
 %}
 
 %x CODE
@@ -66,63 +41,62 @@ int LineNum = 1;
 
 %}
 
-<CODE>"True" { SET_LOCATION SET_ACTION LITERAL(TRUE) }
-<CODE>"False" { SET_LOCATION SET_ACTION LITERAL(FALSE) }
-<CODE>"None" { SET_LOCATION SET_ACTION LITERAL(NONE) }
+<CODE>"True" { SET_ACTION return TOKEN_TRUE; }
+<CODE>"False" { SET_ACTION return TOKEN_FALSE; }
+<CODE>"None" { SET_ACTION return TOKEN_NONE; }
 
-<CODE>"and" { SET_LOCATION SET_ACTION LITERAL(AND) }
-<CODE>"not" { SET_LOCATION SET_ACTION LITERAL(NOT) }
-<CODE>"or" { SET_LOCATION SET_ACTION LITERAL(OR) }
+<CODE>"and" { SET_ACTION return TOKEN_AND; }
+<CODE>"not" { SET_ACTION return TOKEN_NOT; }
+<CODE>"or" { SET_ACTION return TOKEN_OR; }
 
-<CODE>"as" { SET_LOCATION SET_ACTION LITERAL(AS) }
-<CODE>"in" { SET_LOCATION SET_ACTION LITERAL(IN) }
-<CODE>"is" { SET_LOCATION SET_ACTION LITERAL(IS) }
+<CODE>"as" { SET_ACTION return TOKEN_AS; }
+<CODE>"in" { SET_ACTION return TOKEN_IN; }
+<CODE>"is" { SET_ACTION return TOKEN_IS; }
 
-<CODE>"global" { SET_LOCATION SET_ACTION LITERAL(GLOBAL) }
-<CODE>"nonlocal" { SET_LOCATION SET_ACTION LITERAL(NONLOCAL) }
+<CODE>"global" { SET_ACTION return TOKEN_GLOBAL; }
+<CODE>"nonlocal" { SET_ACTION return TOKEN_NONLOCAL; }
 
-<CODE>"if" { SET_LOCATION SET_ACTION LITERAL(IF) }
-<CODE>"else" { SET_LOCATION SET_ACTION LITERAL(ELSE) }
-<CODE>"elif" { SET_LOCATION SET_ACTION LITERAL(ELIF) }
+<CODE>"if" { SET_ACTION return TOKEN_IF; }
+<CODE>"else" { SET_ACTION return TOKEN_ELSE; }
+<CODE>"elif" { SET_ACTION return TOKEN_ELIF; }
 
-<CODE>"for" { SET_LOCATION SET_ACTION LITERAL(FOR) }
-<CODE>"while" { SET_LOCATION SET_ACTION LITERAL(WHILE) }
-<CODE>"break" { SET_LOCATION SET_ACTION LITERAL(BREAK) }
+<CODE>"for" { SET_ACTION return TOKEN_FOR; }
+<CODE>"while" { SET_ACTION return TOKEN_WHILE; }
+<CODE>"break" { SET_ACTION return TOKEN_BREAK; }
 
-<CODE>"def" { SET_LOCATION SET_ACTION LITERAL(DEF) }
-<CODE>"return" { SET_LOCATION SET_ACTION LITERAL(RETURN) }
-<CODE>"pass" { SET_LOCATION SET_ACTION LITERAL(PASS) }
+<CODE>"def" { SET_ACTION return TOKEN_DEF; }
+<CODE>"return" { SET_ACTION return TOKEN_RETURN; }
+<CODE>"pass" { SET_ACTION return TOKEN_PASS; }
 
-<CODE>"class" { SET_LOCATION SET_ACTION LITERAL(CLASS) }
+<CODE>"class" { SET_ACTION return TOKEN_CLASS; }
 
-<CODE>"+" { SET_LOCATION SET_ACTION LITERAL(plus) }
-<CODE>"-" { SET_LOCATION SET_ACTION LITERAL(minus) }
-<CODE>"*" { SET_LOCATION SET_ACTION LITERAL(star) }
-<CODE>"//" { SET_LOCATION SET_ACTION LITERAL(slash) }
-<CODE>"%" { SET_LOCATION SET_ACTION LITERAL(percent) }
+<CODE>"+" { SET_ACTION return TOKEN_plus; }
+<CODE>"-" { SET_ACTION return TOKEN_minus; }
+<CODE>"*" { SET_ACTION return TOKEN_star; }
+<CODE>"//" { SET_ACTION return TOKEN_slash; }
+<CODE>"%" { SET_ACTION return TOKEN_percent; }
 
-<CODE>"=" { SET_LOCATION SET_ACTION LITERAL(equal) }
+<CODE>"=" { SET_ACTION return TOKEN_equal; }
 
-<CODE>"<=" { SET_LOCATION SET_ACTION LITERAL(lessequal) }
-<CODE>">=" { SET_LOCATION SET_ACTION LITERAL(greaterequal) }
-<CODE>"==" { SET_LOCATION SET_ACTION LITERAL(equalequal) }
-<CODE>"!=" { SET_LOCATION SET_ACTION LITERAL(exclaimequal) }
-<CODE>"<" { SET_LOCATION SET_ACTION LITERAL(less) }
-<CODE>">" { SET_LOCATION SET_ACTION LITERAL(greater) }
+<CODE>"<=" { SET_ACTION return TOKEN_lessequal; }
+<CODE>">=" { SET_ACTION return TOKEN_greaterequal; }
+<CODE>"==" { SET_ACTION return TOKEN_equalequal; }
+<CODE>"!=" { SET_ACTION return TOKEN_exclaimequal; }
+<CODE>"<" { SET_ACTION return TOKEN_less; }
+<CODE>">" { SET_ACTION return TOKEN_greater; }
 
-<CODE>"(" { SET_LOCATION SET_ACTION LITERAL(l_paren) }
-<CODE>")" { SET_LOCATION SET_ACTION LITERAL(r_paren) }
-<CODE>"[" { SET_LOCATION SET_ACTION LITERAL(l_square) }
-<CODE>"]" { SET_LOCATION SET_ACTION LITERAL(r_square) }
-<CODE>"," { SET_LOCATION SET_ACTION LITERAL(comma) }
-<CODE>":" { SET_LOCATION SET_ACTION LITERAL(colon) }
-<CODE>"." { SET_LOCATION SET_ACTION LITERAL(period) }
-<CODE>"->" { SET_LOCATION SET_ACTION LITERAL(rarrow) }
+<CODE>"(" { SET_ACTION return TOKEN_l_paren; }
+<CODE>")" { SET_ACTION return TOKEN_r_paren; }
+<CODE>"[" { SET_ACTION return TOKEN_l_square; }
+<CODE>"]" { SET_ACTION return TOKEN_r_square; }
+<CODE>"," { SET_ACTION return TOKEN_comma; }
+<CODE>":" { SET_ACTION return TOKEN_colon; }
+<CODE>"." { SET_ACTION return TOKEN_period; }
+<CODE>"->" { SET_ACTION return TOKEN_rarrow; }
 
 <CODE>[0-9]+ {
   yylval.raw_int = atoi(yytext);
   SET_ACTION
-  LOG(DEBUG) << "INTEGER" << /*" " <<  yytext <<*/ " location: "<< yylloc.first_line<<" " << yylloc.first_column<< " " << (e1 = yylloc.last_line) <<" " << (e2 = yylloc.last_column);
   return TOKEN_INTEGER;
 }
 
@@ -134,36 +108,32 @@ int LineNum = 1;
 <CODE>[a-zA-Z_][a-zA-Z_0-9]* {
   yylval.raw_str = strdup(yytext);
   SET_ACTION
-  LITERAL(IDENTIFIER);
+  return TOKEN_IDENTIFIER;;
 }
 
 <CODE>[ \t]* { ColNum += yyleng; }
 <CODE>(#.*)?(\r|(\r?\n)) {
-  // LOG(WARNING) << "INITIAL";
   BEGIN INITIAL;
 
   SET_ACTION
-  ANOTHER_LINE
-  LITERAL_END(NEWLINE);
+  LineNum += 1, ColNum = 1;
+  return TOKEN_NEWLINE;;
 }
 
 ^[ \t]*#.* { }
 
 [ \t]*[^\r\n\t ] {
   static int indent_status = 0;
-
-  int tabs = 0;
-  for(int i = 0; yytext[i] != '\0'; i++) tabs += (yytext[i] == '\t');
-  int spaces = yyleng - 1 + (4-1)*tabs;
+  int spaces = yyleng - 1;
 
   LineNum = yylineno;
   ColNum = 1;
 
-  yylloc.first_line = LineNum;
-  yylloc.first_column = ColNum;
+  yylloc.first.line = LineNum;
+  yylloc.first.column = ColNum;
   ColNum += yyleng - 1;
-  yylloc.last_line = LineNum;
-  yylloc.last_column = ColNum;
+  yylloc.last.line = LineNum;
+  yylloc.last.column = ColNum;
 
   if (stack_indent.top() < spaces) {
     if (indent_status == 1) {
@@ -171,17 +141,16 @@ int LineNum = 1;
     }
     indent_status = 2;
     stack_indent.push(spaces);
-    // LOG(WARNING) << "CODE";
     BEGIN CODE;
     yyless(yyleng - 1);
-    LITERAL(INDENT)
+    return TOKEN_INDENT;
   }
 
   if (stack_indent.top() > spaces) {
     indent_status = 1;
     stack_indent.pop();
     yyless(0);
-    LITERAL(DEDENT)
+    return TOKEN_DEDENT;
   }
 
   // stack_indent.top() == spaces
@@ -195,25 +164,24 @@ int LineNum = 1;
   BEGIN INITIAL;
 
   SET_ACTION ColNum--;
-  LITERAL_END(NEWLINE);
+  return TOKEN_NEWLINE;;
 }
 
 ^[\t ]+ { }
 
-(\r|(\r?\n)) { ANOTHER_LINE }
+(\r|(\r?\n)) { LineNum += 1, ColNum = 1; }
 
 <<EOF>> {
   if (stack_indent.top() != 0) {
     stack_indent.pop();
 
     SET_ACTION
-    LITERAL(DEDENT)
+    return TOKEN_DEDENT;
   }
   return 0;
 }
 
 <CODE>(\"([ -!#-\[\]-~]|(\\(n|t|\\|\")))*\") {
-  // yylval.raw_str = strdup(yytext);
   yylval.raw_str = new char[yyleng+1];
   int len = 0;
 
@@ -227,16 +195,16 @@ int LineNum = 1;
   }
   yylval.raw_str[len] = '\0';
 
-  SET_ACTION LITERAL(STRING)
+  SET_ACTION return TOKEN_STRING;
 }
 
-.   {
+. {
         LOG(ERROR) << "Error: Unrecognized token on line " << yylineno << ": " << yytext;
         return ERROR;
-    }
-<CODE>.   {
+}
+<CODE>. {
         LOG(ERROR) << "Error: Unrecognized token on line " << yylineno << ": " << yytext;
         return ERROR;
-    }
+}
 %%
 

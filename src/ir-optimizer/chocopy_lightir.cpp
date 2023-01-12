@@ -410,8 +410,8 @@ void LightWalker::visit(parser::Program &node) {
 
     null = builder->create_call(noconv_fun,vector<Value*>());
 
-    for (auto decl : *node.declarations) {
-        if (auto node = dynamic_cast<parser::ClassDef*>(decl); node) {
+    for (const auto& decl : node.declarations) {
+        if (auto node = dynamic_cast<parser::ClassDef*>(decl.get()); node) {
             Class* super_class = nullptr;
             for (const auto e : module->get_class()) {
                 if (e->get_name() == node->superClass->name) {
@@ -426,8 +426,8 @@ void LightWalker::visit(parser::Program &node) {
         }
     }
 
-    for (auto decl : *node.declarations) {
-        if (auto node = dynamic_cast<parser::FuncDef*>(decl); node) {
+    for (const auto& decl : node.declarations) {
+        if (auto node = dynamic_cast<parser::FuncDef*>(decl.get()); node) {
             auto& func_name = node->get_id()->name;
             auto func_def_type = sym->declares<semantic::FunctionDefType*>(func_name);
             assert(func_def_type);
@@ -441,18 +441,18 @@ void LightWalker::visit(parser::Program &node) {
         }
     }
 
-    for (auto decl : *node.declarations) {
-        if (auto node = dynamic_cast<parser::VarDef*>(decl); node) {
+    for (const auto& decl : node.declarations) {
+        if (auto node = dynamic_cast<parser::VarDef*>(decl.get()); node) {
             decl->accept(*this);
         }
     }
-    for (auto decl : *node.declarations) {
-        if (auto node = dynamic_cast<parser::VarDef*>(decl); node) {
+    for (const auto& decl : node.declarations) {
+        if (auto node = dynamic_cast<parser::VarDef*>(decl.get()); node) {
         } else {
             decl->accept(*this);
         }
     }
-    for (auto stmt : *node.statements) {
+    for (const auto& stmt : node.statements) {
         stmt->accept(*this);
     }
     /** For Optimization Debug */
@@ -475,7 +475,7 @@ void LightWalker::visit(parser::Program &node) {
 void LightWalker::visit(parser::AssignStmt &node) {
     node.value->accept(*this);
     auto v = visitor_return_value;
-    for(auto &i: *node.targets) {
+    for(auto &i: node.targets) {
         get_lvalue=true;
         i->accept(*this);
         get_lvalue=false;
@@ -666,19 +666,19 @@ void LightWalker::visit(parser::CallExpr &node)
 {
     const auto& func_name = node.function->name;
     if (func_name=="print") { //FIXME: problem here.
-        node.args->at(0)->accept(*this);
+        node.args.at(0)->accept(*this);
         auto v1 = this->visitor_return_value;
         auto put_fun = scope.find_in_global("print");
-        if (node.args->at(0)->inferredType->get_name()=="int") {
+        if (node.args.at(0)->inferredType->get_name()=="int") {
             auto t=builder->create_call(makeint_fun, {v1});
             BitCastInst* t1 = builder->create_bitcast(t,ArrayType::get(union_put));
             builder->create_call(put_fun, {t1});
-        } else if (node.args->at(0)->inferredType->get_name()=="bool") {
+        } else if (node.args.at(0)->inferredType->get_name()=="bool") {
             v1->set_type(IntegerType::get(1,module.get()));
             auto t1 = builder->create_call(makebool_fun, {v1});
             auto t2 = builder->create_bitcast(t1, ArrayType::get(union_put));
             builder->create_call(put_fun, {t2});
-        } else if (node.args->at(0)->inferredType->get_name()=="str") {
+        } else if (node.args.at(0)->inferredType->get_name()=="str") {
             auto t2 = builder->create_bitcast(v1, ArrayType::get(union_put));
             builder->create_call(put_fun, {t2});
         } else {
@@ -690,9 +690,9 @@ void LightWalker::visit(parser::CallExpr &node)
 
     } else if (func_name=="len") { 
         auto len_func = scope.find_in_global("$len");
-        node.args->at(0)->accept(*this);
+        node.args.at(0)->accept(*this);
         auto v1 = this->visitor_return_value;
-        auto arg_type=node.args->at(0)->inferredType;
+        auto arg_type=node.args.at(0)->inferredType;
         if (dynamic_cast<semantic::ListValueType*>(arg_type)==nullptr && arg_type->get_name()!="str") {
             v1=builder->create_load(invalid_value);
         }
@@ -731,7 +731,7 @@ void LightWalker::visit(parser::CallExpr &node)
                 args.emplace_back(class_instance);
             }
         }
-        for (auto arg : *node.args) {
+        for (const auto& arg : node.args) {
             visitor_return_value = nullptr;
             arg->accept(*this);
             assert(visitor_return_value);
@@ -758,20 +758,20 @@ void LightWalker::visit(parser::ClassDef &node) {
     for (const auto method: *super_class->get_method()) {
         class_->add_method(method);
     }
-    for (const auto decl : *node.declaration) {
+    for (const auto& decl : node.declaration) {
         const auto& name = decl->get_id()->name;
-        if (const auto var_def = dynamic_cast<parser::VarDef*>(decl); var_def) {
+        if (const auto var_def = dynamic_cast<parser::VarDef*>(decl.get()); var_def) {
             if (!super_class_type->current_scope->declares(name)) {
                 var_def->var->type->accept(*this);
                 assert(visitor_return_type);
                 const auto attr_type = visitor_return_type;
 
                 if (attr_type->is_integer_type()) {
-                    class_->add_attribute(new AttrInfo(attr_type, name, static_cast<parser::IntegerLiteral*>(var_def->value)->value));
+                    class_->add_attribute(new AttrInfo(attr_type, name, static_cast<parser::IntegerLiteral*>(var_def->value.get())->value));
                 } else if (attr_type->is_bool_type()) {
-                    class_->add_attribute(new AttrInfo(attr_type, name, static_cast<parser::BoolLiteral*>(var_def->value)->bin_value));
+                    class_->add_attribute(new AttrInfo(attr_type, name, static_cast<parser::BoolLiteral*>(var_def->value.get())->bin_value));
                 } else if (attr_type == ptr_vstr_type) {
-                    auto str_literal = dynamic_cast<parser::StringLiteral*>(var_def->value);
+                    const auto& str_literal = dynamic_cast<parser::StringLiteral*>(var_def->value.get());
                     assert(str_literal);
 
                     int id = get_const_type_id();
@@ -786,8 +786,8 @@ void LightWalker::visit(parser::ClassDef &node) {
             }
         }
     }
-    for (const auto decl : *node.declaration) {
-        if (const auto func_def = dynamic_cast<parser::FuncDef*>(decl); func_def) {
+    for (const auto& decl : node.declaration) {
+        if (const auto func_def = dynamic_cast<parser::FuncDef*>(decl.get()); func_def) {
             auto& func_name = func_def->get_id()->name;
             auto func_def_type = sym->declares<semantic::FunctionDefType*>(func_name);
             assert(func_def_type);
@@ -801,8 +801,8 @@ void LightWalker::visit(parser::ClassDef &node) {
             class_->add_method(func);
         }
     }
-    for (const auto decl : *node.declaration) {
-        if (const auto func_def = dynamic_cast<parser::FuncDef*>(decl); func_def) {
+    for (const auto& decl : node.declaration) {
+        if (const auto func_def = dynamic_cast<parser::FuncDef*>(decl.get()); func_def) {
             func_def->accept(*this);
         }
     }
@@ -880,7 +880,7 @@ void LightWalker::visit(parser::ForStmt &node)
 
         builder->create_store(t7, it);
 
-        for(auto s:*node.body) {
+        for(const auto& s:node.body) {
             s->accept(*this);
         }
     } else {
@@ -910,7 +910,7 @@ void LightWalker::visit(parser::ForStmt &node)
             auto t1 = builder->create_bitcast(p_element, ArrayType::get(type));
             auto t2= builder->create_load(t1);
             builder->create_store(t2, it);
-            for(auto s:*node.body) {
+            for(const auto& s:node.body) {
                 s->accept(*this);
             }
         }
@@ -948,8 +948,8 @@ void LightWalker::visit(parser::FuncDef &node) {
     scope.enter();
     auto saved_sym = sym;
     sym = func_def_type->current_scope;
-    for (auto decl : *node.declarations) {
-        if (auto node = dynamic_cast<parser::FuncDef*>(decl); node) {
+    for (const auto& decl : node.declarations) {
+        if (auto node = dynamic_cast<parser::FuncDef*>(decl.get()); node) {
             // lambda function
             auto& func_name = node->get_id()->name;
             auto func_def_type = sym->declares<semantic::FunctionDefType*>(func_name);
@@ -973,8 +973,8 @@ void LightWalker::visit(parser::FuncDef &node) {
         builder->set_insert_point(saved_b);
         auto arg = new Value(arg_types[0], "arg0");
         auto class_instance = scope.find(func_name + "$anon");
-        for(int i = 0; i < node.lambda_params->size(); i++) {
-            auto& capture_name = node.lambda_params->at(i);
+        for(int i = 0; i < node.lambda_params.size(); i++) {
+            auto& capture_name = node.lambda_params.at(i);
             auto capture_value = scope.find(capture_name);
             assert(capture_value);
 
@@ -999,8 +999,8 @@ void LightWalker::visit(parser::FuncDef &node) {
         }
 
         builder->set_insert_point(b);
-        for(int i = 0; i < node.lambda_params->size(); i++) {
-            auto& capture_name = node.lambda_params->at(i);
+        for(int i = 0; i < node.lambda_params.size(); i++) {
+            auto& capture_name = node.lambda_params.at(i);
             auto t = builder->create_gep(arg, CONST(i));
             auto v = builder->create_load(t);
             if (v->get_type()->get_ptr_element_type()->is_class_anon()) {
@@ -1011,9 +1011,9 @@ void LightWalker::visit(parser::FuncDef &node) {
         }
     }
 
-    for (int i = 0, arg_num = anon ? 1 : 0; i < node.params->size(); i++, arg_num++) {
+    for (int i = 0, arg_num = anon ? 1 : 0; i < node.params.size(); i++, arg_num++) {
         auto arg_type = arg_types[arg_num];
-        auto arg = node.params->at(i);
+        const auto& arg = node.params.at(i);
         auto alloca = builder->create_alloca(arg_type);
         builder->create_store(new Value(arg_type, "arg" + std::to_string(arg_num)),alloca);
         scope.push(arg->identifier->name, alloca);
@@ -1022,18 +1022,18 @@ void LightWalker::visit(parser::FuncDef &node) {
     scope.push("$temp_conslist", temp_conslist);
 
 
-    for (auto decl : *node.declarations) {
-        if (auto node = dynamic_cast<parser::VarDef*>(decl); node) {
+    for (const auto& decl : node.declarations) {
+        if (auto node = dynamic_cast<parser::VarDef*>(decl.get()); node) {
             decl->accept(*this);
         }
     }
-    for (auto decl : *node.declarations) {
-        if (auto node = dynamic_cast<parser::VarDef*>(decl); node) {
+    for (const auto& decl : node.declarations) {
+        if (auto node = dynamic_cast<parser::VarDef*>(decl.get()); node) {
         } else {
             decl->accept(*this);
         }
     }
-    for (auto stmt : *node.statements) {
+    for (const auto& stmt : node.statements) {
         stmt->accept(*this);
     }
 
@@ -1130,10 +1130,10 @@ void LightWalker::visit(parser::ListExpr &node)
         para.push_back(t);
     } else {
         auto element_type=type->element_type;
-        para.push_back(CONST(int(node.elements->size())));
+        para.push_back(CONST(int(node.elements.size())));
         //Instruction* temp_conslist=builder->create_alloca(union_conslist);
         auto temp_conslist= scope.find("$temp_conslist");
-        for(auto i:*node.elements) {
+        for(const auto& i:node.elements) {
             i->accept(*this);
             auto v=visitor_return_value;
             if (element_type->get_name()=="int") {
@@ -1223,10 +1223,10 @@ void LightWalker::visit(parser::IfStmt &node)
     auto b = builder->get_insert_block();
     auto b_true = BasicBlock::create(module.get(),"",b->get_parent());
     auto b_end = BasicBlock::create(module.get(),"",b->get_parent());
-    if (node.elseBody==nullptr && node.elifBody==nullptr) {
+    if (node.el == parser::IfStmt::cond::THEN) {
         builder->create_cond_br(cond, b_true, b_end);
         builder->set_insert_point(b_true);
-        for(const auto& stmt : *node.thenBody) {
+        for(const auto& stmt : node.thenBody) {
             stmt->accept(*this);
         }
         builder->create_br(b_end);
@@ -1234,13 +1234,13 @@ void LightWalker::visit(parser::IfStmt &node)
         auto b_false = BasicBlock::create(module.get(),"",b->get_parent());
         builder->create_cond_br(cond, b_true, b_false);
         builder->set_insert_point(b_true);
-        for(const auto& stmt : *node.thenBody) {
+        for(const auto& stmt : node.thenBody) {
             stmt->accept(*this);
         }
         builder->create_br(b_end);
         builder->set_insert_point(b_false);
-        if (node.elseBody!=nullptr) {
-            for(const auto& stmt : *node.elseBody) {
+        if (node.el == parser::IfStmt::cond::THEN_ELSE) {
+            for(const auto& stmt : node.elseBody) {
                 stmt->accept(*this);
             }
         } else {
@@ -1257,7 +1257,7 @@ void LightWalker::visit(parser::MethodCallExpr &node) {
     auto func_type = visitor_return_type;
 
     std::vector<Value*> args{visitor_return_object};
-    for (auto arg : *node.args) {
+    for (const auto& arg : node.args) {
         visitor_return_value = nullptr;
         arg->accept(*this);
         assert(visitor_return_value);
@@ -1362,7 +1362,7 @@ void LightWalker::visit(parser::VarDef & node)
                 ConstantInt::get(node.value->int_value,module.get())
                 );
         } else if (node.var->type->get_name()=="bool") {
-            auto b = dynamic_cast<parser::BoolLiteral*>(node.value);
+            const auto b = dynamic_cast<parser::BoolLiteral*>(node.value.get());
             assert(b);
             t=GlobalVariable::create(
                 node.var->identifier->name,
@@ -1388,12 +1388,12 @@ void LightWalker::visit(parser::VarDef & node)
             if (init_value_type_name == "<None>") {
                 builder->create_store(null, t);
             } else if (init_value_type_name == "int" || init_value_type_name == "str" || init_value_type_name == "bool") {
-                auto g= generate_init_object(node.value);
+                auto g= generate_init_object(node.value.get());
                 builder->create_store(g, t); // 这里为什么用 store 而不是直接给 t 一个初值呢？因为框架限制，ddl 到了没时间重构
             } else {
                 assert(0);
             }
-        } else if (auto list_type=dynamic_cast<parser::ListType*>(node.var->type)) {
+        } else if (dynamic_cast<parser::ListType*>(node.var->type.get())) {
             auto ptr_list_type = ArrayType::get(list_class);
             t=GlobalVariable::create(
                 node.var->identifier->name,
@@ -1414,7 +1414,7 @@ void LightWalker::visit(parser::VarDef & node)
                 t
             );
         } else if (node.var->type->get_name()=="bool") {
-            auto b = dynamic_cast<parser::BoolLiteral*>(node.value);
+            auto b = dynamic_cast<parser::BoolLiteral*>(node.value.get());
             assert(b);
             t = builder->create_alloca(IntegerType::get(1, module.get()));
             builder->create_store(
@@ -1433,12 +1433,12 @@ void LightWalker::visit(parser::VarDef & node)
                 const auto init_val = ConstantNull::get(var_type);
                 builder->create_store(init_val, t);
             } else if (init_value_type_name == "int" || init_value_type_name == "str" || init_value_type_name == "bool") {
-                auto g= generate_init_object(node.value);
+                auto g= generate_init_object(node.value.get());
                 builder->create_store(g, t);
             } else {
                 assert(0);
             }
-        } else if (auto list_type=dynamic_cast<parser::ListType*>(node.var->type)) {
+        } else if (auto list_type=dynamic_cast<parser::ListType*>(node.var->type.get())) {
             auto ptr_list_type = ArrayType::get(list_class);
             t = builder->create_alloca(ptr_list_type);
             builder->create_store(ConstantNull::get(ptr_list_type), t);
@@ -1460,19 +1460,13 @@ void LightWalker::visit(parser::WhileStmt &node)
     auto cond=visitor_return_value;
     builder->create_cond_br(cond,b_body,b_end);
     builder->set_insert_point(b_body);
-    for(const auto& stmt : *node.body) {
+    for(const auto& stmt : node.body) {
         stmt->accept(*this);
     }
     builder->create_br(b_cond);
     builder->set_insert_point(b_end);
 }
-void LightWalker::visit(parser::VarAssignStmt &) {}
-void LightWalker::visit(parser::MemberAssignStmt &) {}
-void LightWalker::visit(parser::IndexAssignStmt &) {}
-void LightWalker::visit(parser::VarAssignExpr &) {}
-void LightWalker::visit(parser::MemberAssignExpr &) {}
-void LightWalker::visit(parser::IndexAssignExpr &){}
-void LightWalker::visit(parser::Err &) {};
+void LightWalker::visit(parser::Errors &) {};
 void LightWalker::visit(parser::Node &) {};
 void LightWalker::visit(parser::IndexExpr &node)
 {
@@ -1632,9 +1626,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    parser::Program *tree = parse(input_path.c_str());
+    auto tree = parse(input_path.c_str());
 
-    auto error = std::make_unique<vector<parser::Err *>>();
+    auto error = std::make_unique<vector<parser::CompilerErr *>>();
 
     auto symboltableGenerator = semantic::SymbolTableGenerator(error.get());
     tree->accept(symboltableGenerator);
@@ -1658,9 +1652,8 @@ int main(int argc, char *argv[]) {
     if (!error->empty()) {
         tree->add_error(error.get());
     } else {
-        cJSON *a = tree->toJSON();
-        char *out = cJSON_Print(a);
-        LOG(INFO) << "ChocoPy Language Server:\n" << out << "\n";
+        auto j = tree->toJSON();
+        LOG(INFO) << "ChocoPy Language Server:\n" << j.dump(2) << "\n";
 
         auto *LightWalker = new lightir::LightWalker(globalScope.get());
         tree->accept(*LightWalker);

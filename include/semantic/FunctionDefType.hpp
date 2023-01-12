@@ -5,11 +5,11 @@
 #ifndef CHOCOPY_COMPILER_FUNCTIONDEFTYPE_HPP
 #define CHOCOPY_COMPILER_FUNCTIONDEFTYPE_HPP
 
-#include <cjson/cJSON.h>
-
 #include "SymbolTable.hpp"
 #include "SymbolType.hpp"
 #include "ValueType.hpp"
+#include <json.hpp>
+using nlohmann::json;
 
 namespace semantic {
 class ValueType;
@@ -55,7 +55,7 @@ class FunctionDefType : public SymbolType {
         return func_type;
     }
     void set_name(string_view className) override;
-    cJSON *toJSON() const;
+    json toJSON() const;
 };
 
 }  // namespace semantic

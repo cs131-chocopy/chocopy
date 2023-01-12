@@ -179,13 +179,7 @@ public:
     void visit(parser::UnaryExpr &) override final;
     void visit(parser::VarDef &) override final;
     void visit(parser::WhileStmt &) override final;
-    void visit(parser::VarAssignStmt &) override final;
-    void visit(parser::MemberAssignStmt &) override final;
-    void visit(parser::IndexAssignStmt &) override final;
-    void visit(parser::VarAssignExpr &) override final;
-    void visit(parser::MemberAssignExpr &) override final;
-    void visit(parser::IndexAssignExpr &) override final;
-    void visit(parser::Err &) override final;
+    void visit(parser::Errors &) override final;
     void visit(parser::Node &) override final;
     void visit(parser::IndexExpr &) override final;
 

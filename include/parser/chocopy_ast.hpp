@@ -47,18 +47,12 @@ class UnaryExpr;
 class VarDef;
 class PassStmt;
 class IfStmt;
-class Err;
+class Errors;
 class WhileStmt;
-class VarAssignStmt;
-class MemberAssignStmt;
-class IndexAssignStmt;
-class VarAssignExpr;
-class MemberAssignExpr;
-class IndexAssignExpr;
 
 } // namespace parser
 
-parser::Program *parse(const char *input_path);
+std::unique_ptr<parser::Program> parse(const char *input_path);
 
 namespace ast {
 class Visitor {
@@ -93,13 +87,7 @@ public:
     virtual void visit(parser::UnaryExpr &) = 0;
     virtual void visit(parser::VarDef &) = 0;
     virtual void visit(parser::WhileStmt &) = 0;
-    virtual void visit(parser::VarAssignStmt &) = 0;
-    virtual void visit(parser::MemberAssignStmt &) = 0;
-    virtual void visit(parser::IndexAssignStmt &) = 0;
-    virtual void visit(parser::VarAssignExpr &) = 0;
-    virtual void visit(parser::MemberAssignExpr &) = 0;
-    virtual void visit(parser::IndexAssignExpr &) = 0;
-    virtual void visit(parser::Err &) = 0;
+    virtual void visit(parser::Errors &) = 0;
     virtual void visit(parser::Node &) = 0;
 };
 

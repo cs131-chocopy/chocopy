@@ -1271,9 +1271,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    parser::Program *tree = parse(input_path.c_str());
+    auto tree = parse(input_path.c_str());
 
-    auto error = std::make_unique<vector<parser::Err *>>();
+    auto error = std::make_unique<vector<parser::CompilerErr *>>();
 
     auto symboltableGenerator = semantic::SymbolTableGenerator(error.get());
     tree->accept(symboltableGenerator);
@@ -1297,9 +1297,8 @@ int main(int argc, char *argv[]) {
     if (!error->empty()) {
         tree->add_error(error.get());
     } else {
-        cJSON *a = tree->toJSON();
-        char *out = cJSON_Print(a);
-        LOG(INFO) << "ChocoPy Language Server:\n" << out << "\n";
+        auto j = tree->toJSON();
+        LOG(INFO) << "ChocoPy Language Server:\n" << j.dump(2) << "\n";
 
         auto *LightWalker = new lightir::LightWalker(globalScope.get());
         tree->accept(*LightWalker);
@@ -1437,9 +1436,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    parser::Program *tree = parse(input_path.c_str());
+    auto tree = parse(input_path.c_str());
 
-    auto error = std::make_unique<vector<parser::Err *>>();
+    auto error = std::make_unique<vector<parser::CompilerErr *>>();
 
     auto symboltableGenerator = semantic::SymbolTableGenerator(error.get());
     tree->accept(symboltableGenerator);
@@ -1463,9 +1462,8 @@ int main(int argc, char *argv[]) {
     if (!error->empty()) {
         tree->add_error(error.get());
     } else {
-        cJSON *a = tree->toJSON();
-        char *out = cJSON_Print(a);
-        LOG(INFO) << "ChocoPy Language Server:\n" << out << "\n";
+        json j = tree->toJSON();
+        LOG(INFO) << "ChocoPy Language Server:\n" << j.dump(2) << "\n";
 
         auto *LightWalker = new lightir::LightWalker(globalScope.get());
         tree->accept(*LightWalker);

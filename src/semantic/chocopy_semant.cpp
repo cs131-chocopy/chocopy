@@ -35,36 +35,30 @@ template <class Key, class T> set<string> key_to_set(const std::map<Key, T> &map
 }
 
 namespace semantic {
-cJSON *FunctionDefType::toJSON() const {
-    cJSON *d = cJSON_CreateObject();
+json FunctionDefType::toJSON() const {
+    json d;
+    d["kind"] = "FuncType";
+    for (auto &parameter : *this->params) {
+        auto type_name = parameter->get_type();
+        if (dynamic_cast<ListValueType *>(parameter)) {
+            d["parameters"].emplace_back(json::object({
+                {"kind", type_name},
+                {"elementType", parser::add_inferred_type(((ListValueType *)parameter)->element_type)},
 
-    cJSON_AddStringToObject(d, "kind", "FuncType");
-    auto param = cJSON_CreateArray();
-
-    if (!this->params->empty())
-        for (auto &parameter : *this->params) {
-            auto type_name = parameter->get_type().c_str();
-            auto tmp_param = cJSON_CreateObject();
-
-            if (dynamic_cast<ListValueType *>(parameter)) {
-                cJSON_AddStringToObject(tmp_param, "kind", type_name);
-                cJSON_AddItemToObject(tmp_param, "elementType",
-                                      parser::add_inferred_type(((ListValueType *)parameter)->element_type));
-                cJSON_AddItemToArray(param, tmp_param);
-            } else {
-                auto param_name = ((ClassValueType *)parameter)->class_name.c_str();
-                cJSON_AddStringToObject(tmp_param, "kind", type_name);
-                cJSON_AddStringToObject(tmp_param, "className", param_name);
-                cJSON_AddItemToArray(param, tmp_param);
-            }
+            }));
+        } else {
+            d["parameters"].emplace_back(json::object({
+                {"kind", type_name},
+                {"className", ((ClassValueType *)parameter)->class_name},
+            }));
         }
-    cJSON_AddItemToObject(d, "parameters", param);
+    }
 
     auto class_name = ((ClassValueType *)this->return_type)->class_name.c_str();
-    auto tmp_return = cJSON_CreateObject();
-    cJSON_AddStringToObject(tmp_return, "kind", "ClassValueType");
-    cJSON_AddStringToObject(tmp_return, "className", class_name);
-    cJSON_AddItemToObject(d, "returnType", tmp_return);
+    d["returnType"] = {
+        {"kind", "ClassValueType"},
+        {"className", class_name}
+    };
     return d;
 }
 void FunctionDefType::set_name(string_view className) { ((ClassValueType *)this->return_type)->class_name = className; }
@@ -85,15 +79,15 @@ template <typename Ty> bool SymbolType::eq(const Ty &Value) const  {
 template <typename Ty> bool SymbolType::neq(const Ty &Value) const { return !(this->eq(Value)); }
 
 void SymbolTableGenerator::visit(parser::Program &program) {
-    for(const auto decl : *program.declarations) {
+    for(const auto& decl : program.declarations) {
         auto id = decl->get_id();
         const auto &name = id->name;
         ret = nullptr;
         decl->accept(*this);
 
         if (sym->declares(name)) {
-            errors->emplace_back(new SemanticError(id, "Duplicate declaration of identifier in same scope: " + name));
-            ignore.emplace_back(decl);
+            errors->emplace_back(new SemanticError(id->location, "Duplicate declaration of identifier in same scope: " + name));
+            ignore.emplace_back(decl.get());
             delete ret;
         } else {
             sym->put(name, ret);
@@ -104,14 +98,14 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
     const auto& super_name = class_def.superClass->name;
     const auto _super_class = globals->get<SymbolType*>(super_name);
     if (_super_class == nullptr) {
-        errors->emplace_back(new SemanticError(class_def.superClass, "Super-class not defined: " + super_name));
+        errors->emplace_back(new SemanticError(class_def.superClass->location, "Super-class not defined: " + super_name));
     }
     const auto super_class = dynamic_cast<ClassDefType*>(_super_class);
     if (_super_class != nullptr && super_class == nullptr) {
-        errors->emplace_back(new SemanticError(class_def.superClass, "Super-class must be a class: " + super_name));
+        errors->emplace_back(new SemanticError(class_def.superClass->location, "Super-class must be a class: " + super_name));
     }
     if (super_name == "int" || super_name == "str" || super_name == "bool") {
-        errors->emplace_back(new SemanticError(class_def.superClass, "Cannot extend special class: " + super_name));
+        errors->emplace_back(new SemanticError(class_def.superClass->location, "Cannot extend special class: " + super_name));
     }
     SymbolTable const *const super_scope = super_class == nullptr ? nullptr : super_class->current_scope;
 
@@ -121,13 +115,13 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
 
     this->sym = cur->current_scope;
 
-    for(const auto decl : *class_def.declaration) {
+    for(const auto& decl : class_def.declaration) {
         const auto id = decl->get_id();
         const auto& name = id->name;
 
         if (sym->declares(name)) {
-            errors->emplace_back(new SemanticError(id, "Duplicate declaration of identifier in same scope: " + name));
-            ignore.emplace_back(decl);
+            errors->emplace_back(new SemanticError(id->location, "Duplicate declaration of identifier in same scope: " + name));
+            ignore.emplace_back(decl.get());
             continue;
         }
 
@@ -137,7 +131,7 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
 
         if (dynamic_cast<ValueType*>(ret)) {
             if (super_scope->declares(name)) {
-                errors->emplace_back(new SemanticError(id, "Cannot re-define attribute: " + name));
+                errors->emplace_back(new SemanticError(id->location, "Cannot re-define attribute: " + name));
             }
             sym->put(name, ret);
         } else {
@@ -145,7 +139,7 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
             assert(func);
             const auto params = func->params;
             if (params->size() < 1 || dynamic_cast<ClassValueType*>(params->front()) == nullptr || params->front()->get_name() != class_name) {
-                errors->emplace_back(new SemanticError(id, "First parameter of the following method must be of the enclosing class: " + name));
+                errors->emplace_back(new SemanticError(id->location, "First parameter of the following method must be of the enclosing class: " + name));
             }
             if (name != "__init__" && super_scope->declares(name)) {
                 auto super_func = super_class->current_scope->get<FunctionDefType*>(name);
@@ -153,12 +147,12 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
                     if (*super_func == *func) {
                         sym->put(name, func);
                     } else {
-                        ignore.emplace_back(decl);
-                        errors->emplace_back(new SemanticError(id, "Method overridden with different type signature: " + name));
+                        ignore.emplace_back(decl.get());
+                        errors->emplace_back(new SemanticError(id->location, "Method overridden with different type signature: " + name));
                     }
                 } else {
-                    ignore.emplace_back(decl);
-                    errors->emplace_back(new SemanticError(id, "Cannot re-define attribute: " + name));
+                    ignore.emplace_back(decl.get());
+                    errors->emplace_back(new SemanticError(id->location, "Cannot re-define attribute: " + name));
                 }
             } else {
                 sym->put(name, func);
@@ -188,15 +182,15 @@ void SymbolTableGenerator::visit(parser::FuncDef & func_def) {
     cur->func_name = name;
     cur->return_type = ValueType::annotate_to_val(func_def.returnType);
 
-    for (const auto param : *func_def.params) {
-        const auto id = param->identifier;
+    for (const auto& param : func_def.params) {
+        const auto id = param->identifier.get();
         const auto& name = id->name;
 
         const auto type = ValueType::annotate_to_val(param->type);
         cur->params->emplace_back(type);
 
         if (sym->declares(name)) {
-            errors->emplace_back(new SemanticError(id, "Duplicate declaration of identifier in same scope: " + name));
+            errors->emplace_back(new SemanticError(id->location, "Duplicate declaration of identifier in same scope: " + name));
             continue;
         }
 
@@ -204,13 +198,13 @@ void SymbolTableGenerator::visit(parser::FuncDef & func_def) {
     }
 
 
-    for(const auto& decl : *func_def.declarations) {
+    for(const auto& decl : func_def.declarations) {
         const auto id = decl->get_id();
         const auto& name = id->name;
 
         if (sym->declares(name)) {
-            errors->emplace_back(new SemanticError(id, "Duplicate declaration of identifier in same scope: " + name));
-            ignore.emplace_back(decl);
+            errors->emplace_back(new SemanticError(id->location, "Duplicate declaration of identifier in same scope: " + name));
+            ignore.emplace_back(decl.get());
             continue;
         }
 
@@ -253,24 +247,27 @@ void DeclarationAnalyzer::debug_sym() {
     }
 }
 void DeclarationAnalyzer::visit(parser::Program &program) {
-    for(const auto decl : *program.declarations) {
-        if (ignore(decl)) continue;
+    for(const auto& decl : program.declarations) {
+        if (ignore(decl.get())) continue;
         decl->accept(*this);
     }
 
-    for(const auto stmt : *program.statements) {
-        if (dynamic_cast<parser::ReturnStmt*>(stmt)) {
-            errors->emplace_back(new SemanticError(stmt, "Return statement cannot appear at the top level"));
+    for(const auto& stmt : program.statements) {
+        if (dynamic_cast<parser::ReturnStmt*>(stmt.get())) {
+            errors->emplace_back(new SemanticError(stmt->location, "Return statement cannot appear at the top level"));
         }
     }
 }
 void DeclarationAnalyzer::visit(parser::VarDef &var_def) {
-    const auto id = var_def.var->identifier;
+    const auto& id = var_def.var->identifier;
     const auto& name = id->name;
 
     assert(sym->get<ValueType*>(name));
 
-    checkShadowClass(name, id);
+    if (getClass(name)) {
+        errors->emplace_back(
+            new SemanticError(id->location, "Cannot shadow class name: " + name));
+    }
     checkValueType(sym->get<ValueType*>(name), var_def.var->type);
 }
 void DeclarationAnalyzer::visit(parser::ClassDef &class_def) {
@@ -280,10 +277,10 @@ void DeclarationAnalyzer::visit(parser::ClassDef &class_def) {
     current_class = class_type;
     sym = class_type->current_scope;
 
-    for(const auto decl : *class_def.declaration) {
-        if (ignore(decl)) continue;
-        if (const auto var_def = dynamic_cast<parser::VarDef*>(decl); var_def) {
-            const auto id = var_def->var->identifier;
+    for(const auto& decl : class_def.declaration) {
+        if (ignore(decl.get())) continue;
+        if (const auto var_def = dynamic_cast<parser::VarDef*>(decl.get()); var_def) {
+            const auto& id = var_def->var->identifier;
             const auto& name = id->name;
             assert(sym->get<ValueType*>(name));
             checkValueType(sym->get<ValueType*>(name), var_def->var->type);
@@ -306,17 +303,17 @@ void DeclarationAnalyzer::visit(parser::FuncDef &func_def) {
     sym = func_type->current_scope;
 
     for(int i = 0; i < func_type->params->size(); i++) {
-        const auto annoation = func_def.params->at(i)->type;
+        const auto& annoation = func_def.params.at(i)->type;
         const auto value_type = dynamic_cast<ValueType*>(func_type->params->at(i));
         assert(value_type);
         checkValueType(value_type, annoation);
     }
 
-    for(const auto& decl : *func_def.declarations) {
-        if (ignore(decl)) {
-            if (dynamic_cast<parser::VarDef*>(decl)) {
-                const auto t = ValueType::annotate_to_val(((parser::VarDef*)decl)->var->type);
-                checkValueType(t, ((parser::VarDef*)decl)->var->type);
+    for(const auto& decl : func_def.declarations) {
+        if (ignore(decl.get())) {
+            if (dynamic_cast<parser::VarDef*>(decl.get())) {
+                const auto t = ValueType::annotate_to_val(((parser::VarDef*)decl.get())->var->type);
+                checkValueType(t, ((parser::VarDef*)decl.get())->var->type);
                 delete t;
             }
             continue;
@@ -325,9 +322,9 @@ void DeclarationAnalyzer::visit(parser::FuncDef &func_def) {
     }
 
     if (name == "__init__" && current_class) {
-        for (const auto stmt : *func_def.statements) {
-            if (dynamic_cast<parser::ReturnStmt*>(stmt)) {
-                errors->emplace_back(new SemanticError(stmt, "Return statements should not appear in method: __init__"));
+        for (const auto& stmt : func_def.statements) {
+            if (dynamic_cast<parser::ReturnStmt*>(stmt.get())) {
+                errors->emplace_back(new SemanticError(stmt->location, "Return statements should not appear in method: __init__"));
             }
         }
     }
@@ -341,7 +338,7 @@ void DeclarationAnalyzer::visit(parser::GlobalDecl &global_decl) {
     assert(type);
 
     const auto real_type = globals->declares<ValueType*>(name);
-    if (!real_type) errors->emplace_back(new SemanticError(id, "Not a global variable: " + name));
+    if (!real_type) errors->emplace_back(new SemanticError(id->location, "Not a global variable: " + name));
 
     delete type;
     sym->put(name, real_type);
@@ -358,7 +355,7 @@ void DeclarationAnalyzer::visit(parser::NonlocalDecl &nonlocal_decl) {
         real_type = table->declares<ValueType*>(name);
         table = table->parent;
     }
-    if (!real_type) errors->emplace_back(new SemanticError(id, "Not a nonlocal variable: " + name));
+    if (!real_type) errors->emplace_back(new SemanticError(id->location, "Not a nonlocal variable: " + name));
 
     delete type;
     sym->put(name, real_type);
@@ -377,10 +374,10 @@ void TypeChecker::typeError(parser::Node *node, const string &message) {
 }
 void TypeChecker::visit(parser::Program &program) {
 
-    for (auto decl : *program.declarations) {
+    for (const auto& decl : program.declarations) {
         decl->accept(*this);
     }
-    for (auto stmt : *program.statements) {
+    for (const auto& stmt : program.statements) {
         stmt->accept(*this);
     }
 }
@@ -464,23 +461,23 @@ void TypeChecker::visit(parser::CallExpr &node) {
 
     std::vector<SymbolType*>::const_iterator param;
     if (func != nullptr) {
-        if (node.args->size() != func->params->size()) {
-            typeError(&node, fmt::format("Expected {} arguments; got {}", func->params->size(), node.args->size()));
+        if (node.args.size() != func->params->size()) {
+            typeError(&node, fmt::format("Expected {} arguments; got {}", func->params->size(), node.args.size()));
             return;
         }
         param = func->params->cbegin();
     } else {
         const auto init_func = class_->current_scope->get<FunctionDefType*>("__init__");
-        if (node.args->size() != init_func->params->size() - 1) {
-            typeError(&node, fmt::format("Expected {} arguments; got {}", init_func->params->size() - 1, node.args->size()));
+        if (node.args.size() != init_func->params->size() - 1) {
+            typeError(&node, fmt::format("Expected {} arguments; got {}", init_func->params->size() - 1, node.args.size()));
             return;
         }
         param = init_func->params->cbegin();
         param++;
     }
 
-    for(int i = 0; i < node.args->size(); i++) {
-        const auto arg = node.args->at(i);
+    for(int i = 0; i < node.args.size(); i++) {
+        const auto& arg = node.args.at(i);
         arg->accept(*this);
         const auto arg_type = arg->inferredType;
         const auto param_type = *(param++);
@@ -502,7 +499,7 @@ void TypeChecker::visit(parser::ExprStmt &node) {
 void TypeChecker::visit(parser::ForStmt &node)
 {
     node.iterable->accept(*this);
-    for(auto s:*node.body) {
+    for(const auto& s:node.body) {
         s->accept(*this);
     }
     is_lvalue = true; node.identifier->accept(*this); is_lvalue = false;
@@ -533,7 +530,7 @@ void TypeChecker::visit(parser::ClassDef &node)
 {
     saved.push(sym);
     sym = sym->get<ClassDefType*>(node.name->name)->current_scope;
-    for(auto s:*node.declaration) {
+    for(const auto& s:node.declaration) {
         s->accept(*this);
     }
     sym=saved.top();
@@ -548,39 +545,38 @@ void TypeChecker::visit(parser::FuncDef &node)
     sym = curr_func->current_scope;
     
     std::set<std::string> declared_local_vars;
-    for(auto s:*node.declarations) {
+    for(const auto& s:node.declarations) {
         s->accept(*this);
-        if (dynamic_cast<parser::VarDef*>(s) || dynamic_cast<parser::FuncDef*>(s)) {
+        if (dynamic_cast<parser::VarDef*>(s.get()) || dynamic_cast<parser::FuncDef*>(s.get())) {
             declared_local_vars.insert(s->get_id()->name);
         }
-        if (dynamic_cast<parser::NonlocalDecl*>(s)) {
-            node.lambda_params->emplace_back(s->get_id()->name);
+        if (dynamic_cast<parser::NonlocalDecl*>(s.get())) {
+            node.lambda_params.emplace_back(s->get_id()->name);
         }
-        if (dynamic_cast<parser::FuncDef*>(s)) {
-            for (auto& x : *((parser::FuncDef*)s)->lambda_params)
-                node.lambda_params->emplace_back(x);
+        if (dynamic_cast<parser::FuncDef*>(s.get())) {
+            for (auto& x : ((parser::FuncDef*)s.get())->lambda_params)
+                node.lambda_params.emplace_back(x);
         }
     }
 
     bool have_return = is_subtype("<None>", curr_func->return_type);
-    curr_lambda_params = node.lambda_params;
-    for(auto s:*node.statements) {
+    curr_lambda_params = &node.lambda_params;
+    for(const auto& s:node.statements) {
         s->accept(*this);
         if (s->is_return) {
             have_return=true;
         }
     }
 
-    node.lambda_params = new std::vector<std::string>();
-    std::copy_if(curr_lambda_params->begin(), curr_lambda_params->end(), std::back_inserter(*node.lambda_params), [&declared_local_vars](const std::string& x) {
+    std::vector<std::string> new_lambda_params;
+    std::copy_if(curr_lambda_params->begin(), curr_lambda_params->end(), std::back_inserter(new_lambda_params), [&declared_local_vars](const std::string& x) {
         return declared_local_vars.find(x) == declared_local_vars.end();
     });
-    delete curr_lambda_params;
     curr_lambda_params = nullptr;
-    // std::cerr << node.name->name << " lambda_params: "; for (auto& x : *node.lambda_params) std::cerr << x << ' '; std::cerr << std::endl;
+    node.lambda_params = std::move(new_lambda_params);
 
     if (!have_return && node.returnType!=nullptr) {
-        this->errors->push_back(new SemanticError(node.name,fmt::format("All paths in this function/method must have a return statement: {}",node.name->name)));
+        this->errors->push_back(new SemanticError(node.name->location,fmt::format("All paths in this function/method must have a return statement: {}",node.name->name)));
         typeError(&node,fmt::format("All paths in this function/method must have a return statement: {}",node.name->name));
     }
 
@@ -595,7 +591,7 @@ void TypeChecker::visit(parser::Ident &node) {
         type = sym->get<SymbolType*>(node.name);
         if (type) {
             if (is_lvalue) {
-                this->errors->push_back(new SemanticError(&node,fmt::format("Cannot assign to variable that is not explicitly declared in this scope: {}", node.name)));
+                this->errors->push_back(new SemanticError(node.location,fmt::format("Cannot assign to variable that is not explicitly declared in this scope: {}", node.name)));
             } else {
                 if (curr_lambda_params && global->get<SymbolType*>(node.name) != type) {
                     curr_lambda_params->emplace_back(node.name);
@@ -603,13 +599,13 @@ void TypeChecker::visit(parser::Ident &node) {
                 node.inferredType = type;
             }
         } else {
-            this->errors->push_back(new SemanticError(&node,fmt::format("Not a variable: {}", node.name)));
+            this->errors->push_back(new SemanticError(node.location,fmt::format("Not a variable: {}", node.name)));
         }
     } else {
         if (type->is_value_type()) {
             node.inferredType = type;
         } else {
-            this->errors->push_back(new SemanticError(&node,fmt::format("Not a variable: {}", node.name)));
+            this->errors->push_back(new SemanticError(node.location,fmt::format("Not a variable: {}", node.name)));
             node.inferredType = new ClassValueType("object");
         }
     }
@@ -618,23 +614,22 @@ void TypeChecker::visit(parser::IfStmt &node)
 {
     bool is_return_t=false,is_return_f=false;
     node.condition->accept(*this);
-    if (node.thenBody!= nullptr) {
-        for (auto s:*node.thenBody) {
-            s->accept(*this);
-            if (s->is_return) {
-                is_return_t=true;
-            }
+    for (const auto& s:node.thenBody) {
+        s->accept(*this);
+        if (s->is_return) {
+            is_return_t=true;
         }
     }
-    if (node.elseBody!=nullptr) {
-        for (auto s:*node.elseBody) {
+    if (node.el == parser::IfStmt::cond::THEN_ELSE) {
+        for (const auto& s:node.elseBody) {
             s->accept(*this);
             if (s->is_return) {
                 is_return_f=true;
             }
         }
     }
-    if (node.elifBody!=nullptr) {
+    if (node.el == parser::IfStmt::cond::THEN_ELIF) {
+        assert(node.elifBody);
         node.elifBody->accept(*this);
         if (node.elifBody->is_return) {
             is_return_f=true;
@@ -682,15 +677,15 @@ void TypeChecker::visit(parser::IntegerLiteral &node)
 }
 void TypeChecker::visit(parser::ListExpr &node)
 {
-    if (node.elements->empty()) {
+    if (node.elements.empty()) {
         node.inferredType = new ClassValueType("<Empty>");
         return;
     } 
     ValueType* v=nullptr;
-    for(auto e:*node.elements) {
+    for(auto& e:node.elements) {
         e->accept(*this);
     }
-    for(auto e:*node.elements) {
+    for(auto& e:node.elements) {
         if(auto T=dynamic_cast<ClassValueType*>(e->inferredType)) {
             if( v==nullptr) {
                 v = new ClassValueType(T->get_name());
@@ -750,13 +745,13 @@ void TypeChecker::visit(parser::MethodCallExpr &node) {
         return;
     }
 
-    if (node.args->size() != func->params->size() - 1) {
-        typeError(&node, fmt::format("Expected {} arguments; got {}", func->params->size() - 1, node.args->size()));
+    if (node.args.size() != func->params->size() - 1) {
+        typeError(&node, fmt::format("Expected {} arguments; got {}", func->params->size() - 1, node.args.size()));
         return;
     }
 
-    for(int i = 0; i < node.args->size(); i++) {
-        const auto arg = node.args->at(i);
+    for(int i = 0; i < node.args.size(); i++) {
+        const auto& arg = node.args.at(i);
         arg->accept(*this);
         const auto arg_type = arg->inferredType;
         const auto param_type = func->params->at(i + 1);
@@ -815,13 +810,13 @@ void TypeChecker::visit(parser::UnaryExpr &node)
 void TypeChecker::visit(parser::VarDef &node)
 {
     node.value->accept(*this);
-    auto listType = dynamic_cast<parser::ListType*>(node.var->type);
+    auto listType = dynamic_cast<parser::ListType*>(node.var->type.get());
     if(listType!=nullptr) {
         if (node.value->inferredType->get_name()!="<None>") {
             typeError(&node, fmt::format("Cannot use literal value type {} to declare list value {}",node.value->inferredType->get_name(),listType->get_name()));
         }
     } else {
-        auto classType = dynamic_cast<parser::ClassType*>(node.var->type);
+        auto classType = dynamic_cast<parser::ClassType*>(node.var->type.get());
         assert(classType!=nullptr);
         auto valueType = ClassValueType(classType);
         if (!(classType->className=="object" || classType->className == node.value->inferredType->get_name() || (valueType.is_special_type() && node.value->inferredType->get_name()=="<None>"))) {
@@ -831,52 +826,26 @@ void TypeChecker::visit(parser::VarDef &node)
 }
 void TypeChecker::visit(parser::WhileStmt &node) {
     node.condition->accept(*this);
-    for(auto s:*node.body) {
+    for(const auto& s:node.body) {
         s->accept(*this);
     }
     if (node.condition->inferredType->get_name()!="bool") {
         typeError(&node,fmt::format("Type of condition of if must be bool"));
     }
 }
-void TypeChecker::visit(parser::VarAssignStmt &node) {
-    // The function seems useless.
-    /*
-    auto varType = sym->get<SymbolType*>(node.var->name);
-    if (varType==nullptr) {
-        typeError(&node, "Undefined variable: " + node.var->name);
-        return;
-    }
-    node.value->accept(*this);
-    auto *valueType = dynamic_cast<ValueType *>(this->passing_type);
-    if (valueType==nullptr) {
-        typeError(&node, "TypeError: Right of assignment is not a value");
-    }*/
-}
-void TypeChecker::visit(parser::MemberAssignStmt &) {
-    // The function seems useless.
-}
-void TypeChecker::visit(parser::IndexAssignStmt &) {
-    // The function seems useless.
-}
-void TypeChecker::visit(parser::VarAssignExpr &) {
-    // The function seems useless.
-}
-void TypeChecker::visit(parser::IndexAssignExpr &) {
-    // The function seems useless.
-}
 void TypeChecker::visit(parser::AssignStmt& node) {
     node.value->accept(*this);
     auto T0=node.value->inferredType;
     bool is_error=false;
-    if (node.targets->size()>1 && T0->get_name()=="[<None>]") {
+    if (node.targets.size()>1 && T0->get_name()=="[<None>]") {
         typeError(&node,"Right-hand side of multiple assignment may not be [<None>]");
         is_error=true;
     }
-    for(auto s:*node.targets) {
+    for(const auto& s:node.targets) {
         is_lvalue = true; s->accept(*this); is_lvalue = false;
         auto T = s->inferredType;
         if (is_error) continue;
-        if (auto index = dynamic_cast<parser::IndexExpr*>(s); index!=nullptr && index->list->inferredType->get_name()=="str") {
+        if (auto index = dynamic_cast<parser::IndexExpr*>(s.get()); index!=nullptr && index->list->inferredType->get_name()=="str") {
             typeError(&node,"Cannot assign to string index");
         } else if (!is_subtype(T0, T)) {
             typeError(&node, fmt::format("Expected type `{}`; got type `{}`", T->get_name(), T0->get_name()));
@@ -1020,7 +989,7 @@ void TypeChecker::setup_num_to_class() {
 }
 
 
-    ValueType *ValueType::annotate_to_val(parser::TypeAnnotation *annotation) {
+ValueType *ValueType::annotate_to_val(parser::TypeAnnotation *annotation) {
     if (dynamic_cast<parser::ClassType *>(annotation)) {
         return new ClassValueType((parser::ClassType *)annotation);
     } else {
@@ -1031,17 +1000,15 @@ void TypeChecker::setup_num_to_class() {
     }
     return nullptr;
 }
+ValueType *ValueType::annotate_to_val(std::unique_ptr<parser::TypeAnnotation>& annotation) {
+    return annotate_to_val(annotation.get());
+}
 
 ListValueType::ListValueType(parser::ListType *typeAnnotation)
     : element_type(ValueType::annotate_to_val(typeAnnotation->elementType)) {}
 
 ClassValueType::ClassValueType(parser::ClassType *classTypeAnnotation) : class_name(classTypeAnnotation->className) {}
 
-cJSON *SemanticError::toJSON() {
-    cJSON *d = parser::Err::toJSON();
-    cJSON_AddStringToObject(d, "message", this->message.c_str());
-    return d;
-}
 const string ValueType::get_name() const { return ((ClassValueType *)this)->class_name; }
 } // namespace semantic
 
@@ -1051,7 +1018,7 @@ int main(int argc, char *argv[]) {
     //std::freopen("bad_unary_expr.py","r",stdin);
     std::unique_ptr<parser::Program> tree(parse(argv[1]));
 
-    auto error = std::make_unique<vector<parser::Err *>>();
+    auto error = std::make_unique<vector<parser::CompilerErr *>>();
 
     auto symboltableGenerator = semantic::SymbolTableGenerator(error.get());
     tree->accept(symboltableGenerator);
@@ -1070,8 +1037,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    cJSON *a = tree->toJSON();
-    char *out = cJSON_Print(a);
-    cout << out;
+    auto j = tree->toJSON();
+    std::cout << j.dump(2) << std::endl;
+
 }
 #endif

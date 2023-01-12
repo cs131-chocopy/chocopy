@@ -32,12 +32,5 @@ void parser::TypedVar::accept(ast::Visitor &visitor) { visitor.visit(*this); }
 void parser::UnaryExpr::accept(ast::Visitor &visitor) { visitor.visit(*this); }
 void parser::VarDef::accept(ast::Visitor &visitor) { visitor.visit(*this); }
 void parser::WhileStmt::accept(ast::Visitor &visitor) { visitor.visit(*this); }
-void parser::VarAssignStmt::accept(ast::Visitor &visitor) { visitor.visit(*this); }
-void parser::MemberAssignStmt::accept(ast::Visitor &visitor) { visitor.visit(*this); }
-void parser::IndexAssignStmt::accept(ast::Visitor &visitor) { visitor.visit(*this); }
-void parser::VarAssignExpr::accept(ast::Visitor &visitor) { visitor.visit(*this); }
-void parser::MemberAssignExpr::accept(ast::Visitor &visitor) { visitor.visit(*this); }
-void parser::IndexAssignExpr::accept(ast::Visitor &visitor) { visitor.visit(*this); }
-void parser::AccOptions::accept(ast::Visitor &visitor) { visitor.visit(*this); }
-void parser::Err::accept(ast::Visitor &visitor) { visitor.visit(*this); }
+void parser::Errors::accept(ast::Visitor &visitor) { visitor.visit(*this); }
 void parser::Node::accept(ast::Visitor &visitor) { visitor.visit(*this); }

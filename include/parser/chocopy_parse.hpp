@@ -6,19 +6,18 @@
 
 #pragma once
 
+#include <memory>
 #include "FunctionDefType.hpp"
 #include "ValueType.hpp"
 #include <chocopy_ast.hpp>
 #include <chocopy_logging.hpp>
-#include <cjson/cJSON.h>
+#include <json.hpp>
 #include <iostream>
 #include <utility>
 #include <vector>
 
-extern int e1, e2;
-extern string info;
-
 using namespace std;
+using json = nlohmann::json;
 
 namespace semantic {
 class SymbolType;
@@ -67,14 +66,18 @@ class VarDef;
 class WhileStmt;
 class PassStmt;
 
-class VarAssignStmt;
-class MemberAssignStmt;
-class IndexAssignStmt;
-class VarAssignExpr;
-class MemberAssignExpr;
-class IndexAssignExpr;
+struct LocationUnit {
+    int line;
+    int column;
+    LocationUnit(int line = 0, int column = 0);
+};
+struct Location {
+    LocationUnit first, last;
+    Location();
+    Location(LocationUnit first, LocationUnit last);
+    Location(Location front, Location back);
+};
 
-class AccOptions;
 /**
  * Root of the AST class hierarchy.  Every node has a left and right
  * location, indicating the start and end of the represented construct
@@ -93,32 +96,28 @@ public:
     string error_msg;
     string typeError;
 
-    int *location;
-    /** Return my source location as
-     *     { <first line>, <first column>, <last line>, <last column> }.
-     *  Result should not be modified, and contents will change after
-     *  setLocation(). */
-    virtual int *get_location() { return nullptr; };
+    Location location;
 
     /** Multiple Constructor. */
-    explicit Node(int *location) {
+    explicit Node(Location location) {
         this->location = location;
         this->kind.clear();
         this->error_msg.clear();
     }
-    Node(int *location, string kind) {
+    Node(Location location, string kind) {
         this->location = location;
         this->kind = std::move(kind);
     }
-    Node(int *location, string kind, string errorMsg) {
+    Node(Location location, string kind, string errorMsg) {
         this->location = location;
         this->kind = std::move(kind);
         this->error_msg = std::move(errorMsg);
     }
+    virtual ~Node() = default;
 
-    virtual bool has_err() { return !this->error_msg.empty(); }
-    virtual bool has_type_err() { return !this->typeError.empty(); }
-    virtual cJSON *toJSON();
+    virtual bool has_err() const { return !this->error_msg.empty(); }
+    virtual bool has_type_err() const { return !this->typeError.empty(); }
+    virtual json toJSON() const;
     virtual void accept(ast::Visitor &visitor);
 
     /** Add a new semantic error message attributed to NODE, with message
@@ -136,9 +135,9 @@ public:
 class Decl : public Node {
 public:
     /** A definition or declaration spanning source locations [LEFT..RIGHT]. */
-    explicit Decl(int *location) : Node(location) {}
-    Decl(int *location, string kind) : Node(location, std::move(kind)) {}
-    Decl(int *location, string kind, string errMsg) : Node(location, std::move(kind), std::move(errMsg)) {}
+    explicit Decl(Location location) : Node(location) {}
+    Decl(Location location, string kind) : Node(location, std::move(kind)) {}
+    Decl(Location location, string kind, string errMsg) : Node(location, std::move(kind), std::move(errMsg)) {}
 
     virtual Ident *get_id() { return nullptr; };
 };
@@ -152,72 +151,51 @@ public:
 
     /** Represents an error with message MESSAGE.  Iff SYNTAX, it is a
      *  syntactic error.  The error applies to source text at [LEFT..RIGHT]. */
-    CompilerErr(int *location, string message, bool syntax) : Node(location, "CompilerError") {
+    CompilerErr(Location location, string message, bool syntax) : Node(location, "CompilerError") {
         this->message = std::move(message);
         this->syntax = syntax;
     };
 
-    int *get_location() override { return this->location; }
-
-    CompilerErr(int *location, string message) : Node(location, "CompilerError") { this->message = std::move(message); }
-    cJSON *toJSON() override;
+    CompilerErr(Location location, string message) : Node(location, "CompilerError") { this->message = std::move(message); }
+    json toJSON() const override;
 };
 
 /** Collects the error messages in a Program.  There is exactly one per
  *  Program node. */
-class Err : public Node {
+class Errors : public Node {
 public:
     /** The accumulated error messages in the order added. */
-    vector<Err *> *errors;
-    vector<CompilerErr *> *compiler_errors{};
-    bool allow_multi_errors = true;
-    bool top_level = true;
+    vector<std::unique_ptr<CompilerErr>> compiler_errors;
+    explicit Errors(Location location) : Node(location, "Errors") {  }
 
-    /** An Errors whose list of CompilerErrors is ERRORS.  The list should be
-     *  modified using this.Add. */
-    Err(int *location, vector<Err *> *errors) : Node(location, "Errors") {
-        ((Node *)this)->error_msg = "Error";
-        this->errors = errors;
-    }
-    explicit Err(int *location) : Node(location, "Errors") { this->errors = new vector<Err *>(); }
+    bool has_compiler_errors() const { return compiler_errors.size(); }
 
-    Err(int *location, bool top) : Node(location, "Errors"), top_level(top) { this->errors = new vector<Err *>(); }
-
-    bool has_compiler_errors() const { return compiler_errors != nullptr; }
-
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
 /** An identifier with attached type annotation. */
 class TypedVar : public Node {
 public:
-    Ident *identifier;
-    TypeAnnotation *type;
+    std::unique_ptr<Ident> identifier;
+    std::unique_ptr<TypeAnnotation> type;
 
     /** The AST for
      *       IDENTIFIER : TYPE.
      *  spanning source locations [LEFT..RIGHT].
      */
-    TypedVar(int *location, Ident *identifier, TypeAnnotation *type) : Node(location, "TypedVar") {
-        this->identifier = identifier;
-        this->type = type;
-    }
+    TypedVar(Location location, Ident *identifier, TypeAnnotation *type) : Node(location, "TypedVar"), identifier(identifier), type(type) { }
 
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
 class Stmt : public Node {
 public:
     bool is_return = false;
-    explicit Stmt(int *location) : Node(location) {}
-    Stmt(int *location, string kind) : Node(location, std::move(kind)) {}
-    Stmt(int *location, string kind, string errMsg) : Node(location, std::move(kind), std::move(errMsg)) {}
+    explicit Stmt(Location location) : Node(location) {}
+    Stmt(Location location, string kind) : Node(location, std::move(kind)) {}
+    Stmt(Location location, string kind, string errMsg) : Node(location, std::move(kind), std::move(errMsg)) {}
 };
 
 /**
@@ -232,15 +210,13 @@ public:
 class Expr : public Node {
 public:
     /** A Python expression spanning source locations [LEFT..RIGHT]. */
-    explicit Expr(int *location);
-    Expr(int *location, string kind);
-    Expr(int *location, string kind, string errMsg);
+    explicit Expr(Location location);
+    Expr(Location location, string kind);
+    Expr(Location location, string kind, string errMsg);
 
-    virtual bool emit_inferred();
+    virtual bool emit_inferred() const;
 
-    int *get_location() override { return nullptr; };
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
     /**
      * The type of the value that this expression evaluates to.
      *
@@ -261,13 +237,11 @@ class Ident : public Expr {
 public:
     /** An AST for the variable, method, or parameter named NAME, spanning
      *  source locations [LEFT..RIGHT]. */
-    Ident(int *location, string name) : Expr(location, "Identifier") { this->name = std::move(name); }
-
-    int *get_location() override { return this->location; };
+    Ident(Location location, string name) : Expr(location, "Identifier") { this->name = std::move(name); }
 
     string name;
 
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
@@ -280,13 +254,11 @@ public:
 class Literal : public Expr {
 public:
     /** A literal spanning source locations [LEFT..RIGHT]. */
-    explicit Literal(int *location) : Expr(location){};
-    Literal(int *location, string kind) : Expr(location, std::move(kind)){};
-    Literal(int *location, string kind, int value) : Expr(location, std::move(kind)), int_value(value), is_init(true){};
-    Literal(int *location, string kind, string value)
+    explicit Literal(Location location) : Expr(location){};
+    Literal(Location location, string kind) : Expr(location, std::move(kind)){};
+    Literal(Location location, string kind, int value) : Expr(location, std::move(kind)), int_value(value), is_init(true){};
+    Literal(Location location, string kind, string value)
         : Expr(location, std::move(kind)), value(std::move(value)), is_init(true){};
-
-    cJSON *toJSON() override;
 
     string value;
     int int_value{};
@@ -300,9 +272,9 @@ public:
 class TypeAnnotation : public Node {
 public:
     /** An annotation spanning source locations [LEFT..RIGHT]. */
-    explicit TypeAnnotation(int *location) : Node(location){};
-    TypeAnnotation(int *location, string kind) : Node(location, std::move(kind)){};
-    TypeAnnotation(int *location, string kind, string errMsg) : Node(location, std::move(kind), std::move(errMsg)){};
+    explicit TypeAnnotation(Location location) : Node(location){};
+    TypeAnnotation(Location location, string kind) : Node(location, std::move(kind)){};
+    TypeAnnotation(Location location, string kind, string errMsg) : Node(location, std::move(kind), std::move(errMsg)){};
 
     string get_name();
 };
@@ -310,20 +282,17 @@ public:
 /** Single and multiple assignments. DEPRECATED from semantic */
 class AssignStmt : public Stmt {
 public:
-    vector<Expr *> *targets;
-    Expr *value;
+    vector<std::unique_ptr<Expr>> targets;
+    std::unique_ptr<Expr> value;
 
     /** AST for TARGETS[0] = TARGETS[1] = ... = VALUE spanning source locations
      *  [LEFT..RIGHT].
      */
-    AssignStmt(int *location, vector<Expr *> *target, Expr *value) : Stmt(location, "AssignStmt") {
-        this->targets = target;
-        this->value = value;
+    AssignStmt(Location location, Expr* target, Expr *value) : Stmt(location, "AssignStmt"), value(value) {
+        this->targets.emplace_back(target);
     }
 
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
@@ -348,15 +317,13 @@ public:
         Unknown
     };
 
-    Expr *left;
+    std::unique_ptr<Expr> left;
     string operator_;
-    Expr *right;
+    std::unique_ptr<Expr> right;
 
     /** An AST for expressions of the form LEFTEXPR OP RIGHTEXPR
      *  from text in range [LEFTLOC..RIGHTLOC]. */
-    BinaryExpr(int *location, Expr *leftExpr, string op, Expr *rightExpr) : Expr(location, "BinaryExpr") {
-        this->left = leftExpr;
-        this->right = rightExpr;
+    BinaryExpr(Location location, Expr *leftExpr, string op, Expr *rightExpr) : Expr(location, "BinaryExpr"), left(leftExpr), right(rightExpr) {
         this->operator_ = std::move(op);
     }
 
@@ -391,9 +358,8 @@ public:
             return operator_code::Is;
         return operator_code::Unknown;
     }
-    int *get_location() override { return this->location; }
 
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
@@ -405,11 +371,9 @@ public:
 
     /** An AST for the token True or False at [LEFT..RIGHT], depending on
      *  VALUE. */
-    BoolLiteral(int *location, bool value) : Literal(location, "BooleanLiteral") { this->bin_value = value; }
+    BoolLiteral(Location location, bool value) : Literal(location, "BooleanLiteral") { this->bin_value = value; }
 
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
 
     void accept(ast::Visitor &visitor) override;
 };
@@ -417,44 +381,35 @@ public:
 /** A function call. */
 class CallExpr : public Expr {
 public:
-    Ident *function;
-    vector<Expr *> *args{};
-    bool has_args;
+    std::unique_ptr<Ident> function;
+    vector<std::unique_ptr<Expr>> args;
 
-    CallExpr(int *location, Ident *function, vector<Expr *> *args) : Expr(location, "CallExpr") {
-        this->function = function;
-        this->args = args;
-        this->has_args = args->size() > 0;
+    CallExpr(Location location, Ident *function, vector<std::unique_ptr<Expr>>* args) : Expr(location, "CallExpr"), function(function) {
+        this->args = std::move(*args);
+        delete args;
     }
 
-    CallExpr(int *location, Ident *function) : Expr(location, "CallExpr") {
-        this->function = function;
-        this->has_args = false;
-    }
+    CallExpr(Location location, Ident *function) : Expr(location, "CallExpr"), function(function) { }
 
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
 /** A class definition. */
 class ClassDef : public Decl {
 public:
-    Ident *name;
-    Ident *superClass;
-    vector<Decl *> *declaration;
+    std::unique_ptr<Ident> name;
+    std::unique_ptr<Ident> superClass;
+    vector<std::unique_ptr<Decl>> declaration;
 
     /** A class definition. */
-    ClassDef(int *location, Ident *name, Ident *superClass, vector<Decl *> *declaration) : Decl(location, "ClassDef") {
-        this->name = name;
-        this->superClass = superClass;
-        this->declaration = declaration;
+    ClassDef(Location location, Ident *name, Ident *superClass, vector<std::unique_ptr<Decl>> *declaration) : Decl(location, "ClassDef"), name(name), superClass(superClass) {
+        this->declaration = std::move(*declaration);
+        delete declaration;
     }
 
-    int *get_location() override { return this->location; }
-    Ident *get_id() override { return this->name; }
-    cJSON *toJSON() override;
+    Ident *get_id() override { return this->name.get(); }
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
@@ -463,73 +418,54 @@ class ClassType : public TypeAnnotation {
 public:
     string className;
     /** An AST denoting a type named CLASSNAME0 at [LEFT..RIGHT]. */
-    ClassType(int *location, string className) : TypeAnnotation(location, "ClassType") {
+    ClassType(Location location, string className) : TypeAnnotation(location, "ClassType") {
         this->className = std::move(className);
     }
 
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
 /** A statement containing only an expression. */
 class ExprStmt : public Stmt {
 public:
-    Expr *expr;
-    ExprStmt(int *location, Expr *expr) : Stmt(location, "ExprStmt") { this->expr = expr; }
+    std::unique_ptr<Expr> expr;
+    ExprStmt(Location location, Expr *expr) : Stmt(location, "ExprStmt"), expr(expr) { }
 
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
 /** For statements. */
 class ForStmt : public Stmt {
 public:
-    Ident *identifier;
-    Expr *iterable;
-    vector<Stmt *> *body;
-    AccOptions *accOptions = nullptr;
+    std::unique_ptr<Ident> identifier;
+    std::unique_ptr<Expr> iterable;
+    vector<std::unique_ptr<parser::Stmt>> body;
 
     /** The AST for
      *      for IDENTIFIER in ITERABLE:
      *          BODY
      *  spanning source locations [LEFT..RIGHT].
      */
-    ForStmt(int *location, Ident *identifier, Expr *iterable, vector<Stmt *> *body) : Stmt(location, "ForStmt") {
-        this->identifier = identifier;
-        this->iterable = iterable;
-        this->body = body;
+    ForStmt(Location location, Ident *identifier, Expr *iterable, vector<std::unique_ptr<parser::Stmt>> *body) : Stmt(location, "ForStmt"), identifier(identifier), iterable(iterable) {
+        this->body = std::move(*body);
+        delete body;
     }
 
-    /** The AST for
-     *      for IDENTIFIER in ITERABLE:
-     *          BODY
-     *  spanning source locations [LEFT..RIGHT].
-     */
-    ForStmt(int *location, AccOptions *accOptions, Ident *identifier, Expr *iterable, vector<Stmt *> *body)
-        : ForStmt(location, identifier, iterable, body) {
-        this->accOptions = accOptions;
-    }
-
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
 /** Def statements. */
 class FuncDef : public Decl {
 public:
-    Ident *name;
-    Ident *decorator = nullptr;
-    vector<TypedVar *> *params;
-    TypeAnnotation *returnType = nullptr;
-    vector<Decl *> *declarations;
-    vector<Stmt *> *statements;
-    vector<string> *lambda_params = new vector<string>();
+    std::unique_ptr<Ident> name;
+    vector<std::unique_ptr<TypedVar>> params;
+    std::unique_ptr<TypeAnnotation> returnType;
+    vector<std::unique_ptr<Decl>> declarations;
+    vector<std::unique_ptr<parser::Stmt>> statements;
+    vector<string> lambda_params;
 
     /** The AST for
      *     def NAME(PARAMS) -> RETURNTYPE:
@@ -537,53 +473,26 @@ public:
      *         STATEMENTS
      *  spanning source locations [LEFT..RIGHT].
      */
-    FuncDef(int *location, Ident *name, vector<TypedVar *> *params, TypeAnnotation *returnType,
-            vector<Decl *> *declarations, vector<Stmt *> *statements)
-        : Decl(location, "FuncDef") {
-        this->name = name;
-        this->params = params;
-        this->returnType = returnType;
-        this->declarations = declarations;
-        this->statements = statements;
+    FuncDef(Location location, Ident *name, vector<std::unique_ptr<TypedVar>> *params, TypeAnnotation *returnType,
+            vector<std::unique_ptr<Decl>> *declarations, vector<std::unique_ptr<parser::Stmt>> *statements)
+        : Decl(location, "FuncDef"), name(name), returnType(returnType) {
+        this->params = std::move(*params);
+        delete params;
+        this->declarations = std::move(*declarations);
+        delete declarations;
+        this->statements = std::move(*statements);
+        delete statements;
     }
-    /** The AST for
-     *     def NAME(PARAMS):
-     *         DECLARATIONS
-     *         STATEMENTS
-     *  spanning source locations [LEFT..RIGHT].
-     */
-    FuncDef(int *location, Ident *name, vector<TypedVar *> *params, vector<Decl *> *declarations,
-            vector<Stmt *> *statements)
-        : Decl(location, "FuncDef") {
-        this->name = name;
-        this->params = params;
-        this->declarations = declarations;
-        this->statements = statements;
-    }
-    /** The AST for
-     *     @decorator
-     *     def NAME(PARAMS):
-     *         DECLARATIONS
-     *         STATEMENTS
-     *  spanning source locations [LEFT..RIGHT].
-     */
-    FuncDef(int *location, Ident *decorator, Ident *name, vector<TypedVar *> *params, TypeAnnotation *returnType,
-            vector<Decl *> *declarations, vector<Stmt *> *statements)
-        : FuncDef(location, name, params, returnType, declarations, statements) {
-        this->decorator = decorator;
-    }
-    int *get_location() override { return this->location; }
-    Ident *get_id() override { return this->name; }
-    cJSON *toJSON() override;
+    Ident *get_id() override { return this->name.get(); }
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
 class GlobalDecl : public Decl {
 public:
     Ident *variable;
-    GlobalDecl(int *location, Ident *variable) : Decl(location, "GlobalDecl") { this->variable = variable; }
-    int *get_location() override { return this->location; }
-    cJSON *toJSON() override;
+    GlobalDecl(Location location, Ident *variable) : Decl(location, "GlobalDecl") { this->variable = variable; }
+    json toJSON() const override;
 
     Ident *get_id() override { return this->variable; }
     void accept(ast::Visitor &visitor) override;
@@ -594,12 +503,12 @@ class IfStmt : public Stmt {
 public:
     enum cond { THEN_ELSE = 0, THEN_ELIF, THEN };
     /** Test condition. */
-    Expr *condition{};
+    std::unique_ptr<Expr> condition;
     /** "True" branch. */
-    vector<Stmt *> *thenBody{};
+    vector<std::unique_ptr<parser::Stmt>> thenBody;
     /** "False" branch. */
-    vector<Stmt *> *elseBody{};
-    IfStmt *elifBody{};
+    vector<std::unique_ptr<parser::Stmt>> elseBody;
+    std::unique_ptr<IfStmt> elifBody;
     /** Bool manifest else or elif or int */
     char el = cond::THEN;
     /** The AST for
@@ -609,30 +518,28 @@ public:
      *          ELSEBODY
      *  spanning source locations [LEFT..RIGHT].
      */
-    IfStmt(int *location, Expr *condition, vector<Stmt *> *thenBody, vector<Stmt *> *elseBody)
-        : Stmt(location, "IfStmt") {
-        this->condition = condition;
-        this->thenBody = thenBody;
-        this->elseBody = elseBody;
-        this->el = cond::THEN_ELSE;
+    IfStmt(Location location, Expr *condition, vector<std::unique_ptr<parser::Stmt>> *thenBody, vector<std::unique_ptr<parser::Stmt>> *elseBody)
+        : Stmt(location, "IfStmt"), el(cond::THEN_ELSE), condition(condition) {
+        this->thenBody = std::move(*thenBody);
+        delete thenBody;
+        this->elseBody = std::move(*elseBody);
+        delete elseBody;
     }
 
     /** elseBody can be IfStmt to support polymorphism */
-    IfStmt(int *location, Expr *condition, vector<Stmt *> *thenBody, IfStmt *elifBody) : Stmt(location, "IfStmt") {
-        this->condition = condition;
-        this->thenBody = thenBody;
-        this->elifBody = elifBody;
-        this->el = cond::THEN_ELIF;
+    IfStmt(Location location, Expr *condition, vector<std::unique_ptr<parser::Stmt>> *thenBody, IfStmt *elifBody)
+        : Stmt(location, "IfStmt"), el(cond::THEN_ELIF),condition(condition), elifBody(elifBody)  {
+        this->thenBody = std::move(*thenBody);
+        delete thenBody;
     }
 
-    IfStmt(int *location, Expr *condition, vector<Stmt *> *thenBody) : Stmt(location, "IfStmt") {
-        this->condition = condition;
-        this->thenBody = thenBody;
+    IfStmt(Location location, Expr *condition, vector<std::unique_ptr<parser::Stmt>> *thenBody) : Stmt(location, "IfStmt"), condition(condition)  {
+        this->thenBody = std::move(*thenBody);
+        delete thenBody;
     }
 
-    int *get_location() override { return this->location; }
 
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
@@ -640,25 +547,21 @@ public:
 class IfExpr : public Expr {
 public:
     /** Boolean condition. */
-    Expr *condition;
+    std::unique_ptr<Expr> condition;
     /** True branch. */
-    Expr *thenExpr;
+    std::unique_ptr<Expr> thenExpr;
     /** False branch. */
-    Expr *elseExpr;
+    std::unique_ptr<Expr> elseExpr;
 
     /** The AST for
      *     THENEXPR if CONDITION else ELSEEXPR
      *  spanning source locations [LEFT..RIGHT].
      */
-    IfExpr(int *location, Expr *condition, Expr *thenExpr, Expr *elseExpr) : Expr(location, "IfExpr") {
-        this->condition = condition;
-        this->thenExpr = thenExpr;
-        this->elseExpr = elseExpr;
-    }
+    IfExpr(Location location, Expr *condition, Expr *thenExpr, Expr *elseExpr)
+        : Expr(location, "IfExpr"), condition(condition), thenExpr(thenExpr), elseExpr(elseExpr) {}
 
-    int *get_location() override { return this->location; }
 
-    cJSON *toJSON() override;
+    json toJSON() const override;
 
     void accept(ast::Visitor &visitor) override;
 };
@@ -675,14 +578,12 @@ public:
      *      LIST[INDEX].
      *  spanning source locations [LEFT..RIGHT].
      */
-    IndexExpr(int *location, Expr *list, Expr *index) : Expr(location, "IndexExpr") {
+    IndexExpr(Location location, Expr *list, Expr *index) : Expr(location, "IndexExpr") {
         this->list = list;
         this->index = index;
     }
 
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
 
     void accept(ast::Visitor &visitor) override;
 };
@@ -695,11 +596,9 @@ public:
 
     /** The AST for the literal VALUE, spanning source
      *  locations [LEFT..RIGHT]. */
-    IntegerLiteral(int *location, int value) : Literal(location, "IntegerLiteral", value) { this->value = value; }
+    IntegerLiteral(Location location, int value) : Literal(location, "IntegerLiteral", value) { this->value = value; }
 
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
 
     void accept(ast::Visitor &visitor) override;
 };
@@ -708,22 +607,19 @@ public:
 class ListExpr : public Expr {
 public:
     /** List of element expressions. */
-    vector<Expr *> *elements{};
-    bool has_expr;
+    vector<std::unique_ptr<Expr>> elements;
 
     /** The AST for
      *      [ ELEMENTS ].
      *  spanning source locations [LEFT..RIGHT].
      */
-    ListExpr(int *location, vector<Expr *> *elements) : Expr(location, "ListExpr") {
-        this->elements = elements;
-        this->has_expr = elements->size() > 0;
+    ListExpr(Location location, vector<std::unique_ptr<Expr>>* elements) : Expr(location, "ListExpr") {
+        this->elements = std::move(*elements);
+        delete elements;
     }
-    explicit ListExpr(int *location) : Expr(location, "ListExpr") { this->has_expr = false; }
+    explicit ListExpr(Location location) : Expr(location, "ListExpr") { }
 
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
 
     void accept(ast::Visitor &visitor) override;
 };
@@ -731,40 +627,32 @@ public:
 /** Type denotation for a list type. */
 class ListType : public TypeAnnotation {
 public:
-    TypeAnnotation *elementType;
+    std::unique_ptr<TypeAnnotation> elementType;
     /** The AST for the type annotation
      *       [ ELEMENTTYPE ].
      *  spanning source locations [LEFT..RIGHT].
      */
-    ListType(int *location, TypeAnnotation *element) : TypeAnnotation(location, "ListType") {
-        this->elementType = element;
-    }
+    ListType(Location location, TypeAnnotation *element) : TypeAnnotation(location, "ListType"), elementType(element) {}
 
-    int *get_location() override { return this->location; }
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
 /** Attribute accessor. */
 class MemberExpr : public Expr {
 public:
-    Expr *object;
-    Ident *member;
+    std::unique_ptr<Expr> object;
+    std::unique_ptr<Ident> member;
     /** The AST for
      *     OBJECT.MEMBER.
      *  spanning source locations [LEFT..RIGHT].
      */
-    MemberExpr(int *location, Expr *object, Ident *member) : Expr(location, "MemberExpr") {
-        this->object = object;
-        this->member = member;
-    }
+    MemberExpr(Location location, Expr *object, Ident *member) : Expr(location, "MemberExpr"), object(object), member(member) {}
 
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 
-    Ident *get_id() { return (Ident *)object; }
+    Ident *get_id() { return static_cast<Ident*>(object.get()); }
 
     bool is_function_call = false;
 };
@@ -773,30 +661,21 @@ public:
 class MethodCallExpr : public Expr {
 public:
     /** Expression for the bound method to be called. */
-    MemberExpr *method;
+    std::unique_ptr<MemberExpr> method;
     /** Actual parameters. */
-    vector<Expr *> *args{};
-    bool has_args;
+    vector<std::unique_ptr<Expr>> args;
     /** The AST for
      *      METHOD(ARGS).
      *  spanning source locations [LEFT..RIGHT].
      */
-    MethodCallExpr(int *location, MemberExpr *method, vector<Expr *> *args) : Expr(location, "MethodCallExpr") {
-        this->location = location;
-        this->args = args;
-        this->method = method;
-        this->has_args = args->size() > 0;
+    MethodCallExpr(Location location, MemberExpr *method, vector<std::unique_ptr<Expr>> *args) : Expr(location, "MethodCallExpr"), method(method) {
+        this->args = std::move(*args);
+        delete args;
     }
     /** The initializer for unintialised args*/
-    MethodCallExpr(int *location, MemberExpr *method) : Expr(location, "MethodCallExpr") {
-        this->location = location;
-        this->method = method;
-        this->has_args = false;
-    }
+    MethodCallExpr(Location location, MemberExpr *method) : Expr(location, "MethodCallExpr"), method(method) {}
 
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
@@ -804,76 +683,55 @@ public:
 class NoneLiteral : public Literal {
 public:
     /** The AST for None, spanning source locations [LEFT..RIGHT]. */
-    explicit NoneLiteral(int *location) : Literal(location, "NoneLiteral") {}
+    explicit NoneLiteral(Location location) : Literal(location, "NoneLiteral") {}
 
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
 /** Nonlocal declaration. */
 class NonlocalDecl : public Decl {
 public:
-    Ident *variable;
+    std::unique_ptr<Ident> variable;
     /** The AST for
      *      nonlocal VARIABLE
      *  spanning source locations [LEFT..RIGHT].
      */
-    NonlocalDecl(int *location, Ident *variable) : Decl(location, "NonLocalDecl") { this->variable = variable; }
+    NonlocalDecl(Location location, Ident *variable) : Decl(location, "NonLocalDecl"), variable(variable) { }
 
-    int *get_location() override { return this->location; }
-    Ident *get_id() override { return this->variable; }
-    cJSON *toJSON() override;
+    Ident *get_id() override { return this->variable.get(); }
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
 class Program : public Node {
 public:
-    vector<Stmt *> *statements = new vector<Stmt *>();
-    Err *errors{};
-    bool has_compiler_errors = false;
-    bool has_semantic_errors = false;
-    vector<Decl *> *declarations = new vector<Decl *>();
-    int *location;
+    vector<std::unique_ptr<parser::Stmt>> statements;
+    std::unique_ptr<Errors> errors{new Errors({})};
+    vector<std::unique_ptr<Decl>> declarations;
 
-    Program(int *location, vector<Decl *> *declarations, vector<Stmt *> *statements) : Node(location, "Program") {
-        /* self.declarations = [d for d in declarations if d is not None] */
-        // printf("sv");
-        if (!declarations->empty()) {
-            this->declarations = declarations;
-        } else {
-            this->declarations = new vector<Decl *>();
-        }
-        /* self.statements = [s for s in statements if s is not None] */
-        if (!statements->empty()) {
-            this->statements = statements;
-        } else {
-            this->statements = new vector<Stmt *>();
-        }
-        /* Fix */
-        int *i = new int[4]{0};
-        this->location = location;
-        this->errors = new Err(i);
+    Program(Location location, vector<std::unique_ptr<Decl>> *declarations, vector<std::unique_ptr<parser::Stmt>> *statements) : Node(location, "Program") {
+        this->declarations = std::move(*declarations);
+        delete declarations;
+        this->statements = std::move(*statements);
+        delete statements;
     };
 
-    explicit Program(int *location) : Node(location, "Program") {
-        int *i = new int[4]{0};
-        this->location = location;
-        this->errors = new Err(i);
+    Program(Location location, vector<std::unique_ptr<Decl>> *declarations) : Node(location, "Program") {
+        this->declarations = std::move(*declarations);
+        delete declarations;
     };
 
-    int *get_location() override { return this->location; }
-    void add_error(Err *err) {
-        this->errors = err;
-        this->has_semantic_errors = true;
-    }
-    void add_error(vector<Err *> *err) {
-        this->errors->errors = err;
-        this->has_semantic_errors = true;
+    explicit Program(Location location) : Node(location, "Program") {};
+
+    void add_error(vector<CompilerErr *> *errs) {
+        for (auto& err : *errs) {
+            this->errors->compiler_errors.emplace_back(std::move(err));
+        }
+        errs->clear();
     }
 
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
@@ -881,22 +739,19 @@ public:
 class ReturnStmt : public Stmt {
 public:
     /** Returned value. */
-    Expr *value;
+    std::unique_ptr<Expr> value;
     /** The AST for
      *     return VALUE
      *  spanning source locations [LEFT..RIGHT].
      */
-    ReturnStmt(int *location, Expr *value) : Stmt(location, "ReturnStmt") {
-        this->value = value;
+    ReturnStmt(Location location, Expr *value) : Stmt(location, "ReturnStmt"), value(value) {
         this->is_return = true;
     }
-    explicit ReturnStmt(int *location) : Stmt(location, "ReturnStmt") {
-        this->value = nullptr;
+    explicit ReturnStmt(Location location) : Stmt(location, "ReturnStmt") {
         this->is_return = true;
     }
-    int *get_location() override { return this->location; }
 
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
@@ -907,9 +762,8 @@ public:
     string value;
     /** The AST for a string literal containing VALUE, spanning source
      *  locations [LEFT..RIGHT]. */
-    StringLiteral(int *location, const string &value);
-
-    int *get_location() override { return this->location; }
+    StringLiteral(Location location, const string &value);
+    json toJSON() const override;
 
     void accept(ast::Visitor &visitor) override;
 };
@@ -920,14 +774,13 @@ public:
     enum class operator_code { Minus = 0, Not, Unknown };
 
     string operator_;
-    Expr *operand;
+    std::unique_ptr<Expr> operand;
 
     /** The AST for
      *      OPERATOR OPERAND
      *  spanning source locations [LEFT..RIGHT].
      */
-    UnaryExpr(int *location, string operator_, Expr *operand) : Expr(location, "UnaryExpr") {
-        this->operand = operand;
+    UnaryExpr(Location location, string operator_, Expr *operand) : Expr(location, "UnaryExpr"), operand(operand) {
         this->operator_ = std::move(operator_);
     }
 
@@ -939,9 +792,7 @@ public:
         return operator_code::Unknown;
     }
 
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
@@ -949,22 +800,19 @@ public:
 class VarDef : public Decl {
 public:
     /** The variable and its assigned type. */
-    TypedVar *var;
+    std::unique_ptr<TypedVar> var;
     /** The initial value assigned. */
-    Literal *value;
+    std::unique_ptr<Literal> value;
 
     /** The AST for
      *      VAR = VALUE
      *  where VAR has a type annotation, and spanning source
      *  locations [LEFT..RIGHT]. */
-    VarDef(int *location, TypedVar *var, Literal *value) : Decl(location, "VarDef") {
-        this->var = var;
-        this->value = value;
+    VarDef(Location location, TypedVar *var, Literal *value) : Decl(location, "VarDef"), var(var), value(value) {
     }
 
-    Ident *get_id() override { return var->identifier; }
-    int *get_location() override { return this->location; }
-    cJSON *toJSON() override;
+    Ident *get_id() override { return var->identifier.get(); }
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
@@ -972,23 +820,21 @@ public:
 class WhileStmt : public Stmt {
 public:
     /** Test for whether to continue. */
-    Expr *condition;
+    std::unique_ptr<Expr> condition;
     /** Loop body. */
-    vector<Stmt *> *body;
+    vector<std::unique_ptr<parser::Stmt>> body;
 
     /** The AST for
      *      while CONDITION:
      *          BODY
      *  spanning source locations [LEFT..RIGHT].
      */
-    WhileStmt(int *location, Expr *condition, vector<Stmt *> *body) : Stmt(location, "WhileStmt") {
-        this->condition = condition;
-        this->body = body;
+    WhileStmt(Location location, Expr *condition, vector<std::unique_ptr<parser::Stmt>> *body) : Stmt(location, "WhileStmt"), condition(condition) {
+        this->body = std::move(*body);
+        delete body;
     }
 
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
+    json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
@@ -999,140 +845,10 @@ public:
      *      PASS
      *  spanning source locations [LEFT..RIGHT].
      */
-    explicit PassStmt(int *location) : Stmt(location, "PassStmt"), Decl(location,"PassStmt") {}
+    explicit PassStmt(Location location) : Stmt(location, "PassStmt"), Decl(location,"PassStmt") {}
     void accept(ast::Visitor &visitor) override;
 };
-
-/** Var assignment expr. */
-class VarAssignExpr : public Expr {
-public:
-    Ident *var;
-    Expr *value;
-
-    VarAssignExpr(int *location, Ident *var, Expr *value) : Expr(location, "VarAssignExpr") {
-        this->var = var;
-        this->value = value;
-    }
-
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
-
-    void accept(ast::Visitor &visitor) override;
-};
-
-/** Member assignment expr. */
-class MemberAssignExpr : public Expr {
-public:
-    MemberExpr *objectMember;
-    Expr *value;
-
-    MemberAssignExpr(int *location, MemberExpr *objectMember, Expr *value) : Expr(location, "MemberAssignExpr") {
-        this->objectMember = objectMember;
-        this->value = value;
-    }
-
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
-
-    void accept(ast::Visitor &visitor) override;
-};
-
-/** Index assignment expr. */
-class IndexAssignExpr : public Expr {
-public:
-    IndexExpr *listElement;
-    Expr *value;
-
-    IndexAssignExpr(int *location, IndexExpr *listElement, Expr *value) : Expr(location, "IndexAssignExpr") {
-        this->listElement = listElement;
-        this->value = value;
-    }
-
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
-
-    void accept(ast::Visitor &visitor) override;
-};
-
-/** Var assignment stmt. */
-class VarAssignStmt : public Stmt {
-public:
-    Ident *var;
-    Expr *value;
-
-    VarAssignStmt(int *location, Ident *var, Expr *value) : Stmt(location, "VarAssignStmt") {
-        this->var = var;
-        this->value = value;
-    }
-
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
-
-    void accept(ast::Visitor &visitor) override;
-};
-
-/** Member assignment stmt. */
-class MemberAssignStmt : public Stmt {
-public:
-    MemberExpr *objectMember;
-    Expr *value;
-
-    MemberAssignStmt(int *location, MemberExpr *objectMember, Expr *value) : Stmt(location, "MemberAssignStmt") {
-        this->objectMember = objectMember;
-        this->value = value;
-    }
-
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
-
-    void accept(ast::Visitor &visitor) override;
-};
-
-/** Index assignment stmt. */
-class IndexAssignStmt : public Stmt {
-public:
-    IndexExpr *listElement;
-    Expr *value;
-
-    IndexAssignStmt(int *location, IndexExpr *listElement, Expr *value) : Stmt(location, "AssignStmt") {
-        this->listElement = listElement;
-        this->value = value;
-    }
-
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
-
-    void accept(ast::Visitor &visitor) override;
-};
-
-class AccOptions : public Node {
-public:
-    enum class AccType { VECTOR, WORKER };
-
-    AccType accType;
-    int num;
-    /** The AST for
-     *      #acc parallel loop worker/vector(x)
-     *  spanning source locations [LEFT..RIGHT].
-     */
-    AccOptions(int *location, int type, int num) : Node(location, "AccOptions") {
-        this->accType = (AccType)type;
-        this->num = num;
-    }
-
-    int *get_location() override { return this->location; }
-
-    cJSON *toJSON() override;
-
-    void accept(ast::Visitor &visitor) override;
-};
-cJSON *add_inferred_type(semantic::SymbolType *class_);
+json add_inferred_type(semantic::SymbolType *class_);
 } // namespace parser
 
 #endif // CHOCOPY_COMPILER_PARSE_HPP

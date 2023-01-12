@@ -8,7 +8,7 @@
 */
 #include "debug.h"
 
-extern write(int, char *, int);
+extern int write(int, char *, int);
 
 static void printchar(char **str, char c) {
     if (str) {
@@ -127,13 +127,13 @@ int myprintf(char *format, int varg) {
                 /** check the first letter is char or the type is char* */
                 bool is_str = false;
                 for (int i = 0; i < 3; i++) {
-                    if(i==0){
-                        is_str=isascii(*((char *)varg + i));
+                    if (i == 0) {
+                        is_str = isascii(*((char *)varg + i));
                     }
                     is_str &= isalpha(*((char *)varg + i)) || isupper(*((char *)varg + i));
                 }
                 if (is_str)
-                    pc += prints(0, varg, width, pad);
+                    pc += prints(0, (const char*)varg, width, pad);
                 else if (*(char **)varg) {
                     pc += prints(0, *(char **)varg, width, pad);
                 } else

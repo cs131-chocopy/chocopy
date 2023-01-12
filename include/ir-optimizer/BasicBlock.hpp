@@ -52,7 +52,6 @@ public:
     void add_instr_begin(Instruction *instr);
     void delete_instr(Instruction *instr);
     void insert_instr(Instruction *pos, Instruction *insert);
-    void set_mark(parser::AccOptions::AccType mar) { marked = mar; };
 
     bool empty() { return instr_list_.empty(); }
     int get_num_of_instr() { return instr_list_.size(); }
@@ -67,7 +66,6 @@ private:
     list<BasicBlock *> succ_bbs_;
     list<Instruction *> instr_list_;
     Function *parent_;
-    parser::AccOptions::AccType marked{};
 };
 } // namespace lightir
 #endif // CHOCOPY_COMPILER_BASICBLOCK_HPP

@@ -58,14 +58,8 @@ class UnaryExpr;
 class VarDef;
 class PassStmt;
 class IfStmt;
-class Err;
+class Errors;
 class WhileStmt;
-class VarAssignStmt;
-class MemberAssignStmt;
-class IndexAssignStmt;
-class VarAssignExpr;
-class MemberAssignExpr;
-class IndexAssignExpr;
 
 }  // namespace parser
 
@@ -78,7 +72,7 @@ class ASTAnalyzer : public Visitor {
    public:
     virtual void visit(parser::BinaryExpr &node){};
     virtual void visit(parser::Node &node){};
-    virtual void visit(parser::Err &node){};
+    virtual void visit(parser::Errors &node){};
     virtual void visit(parser::PassStmt &node){};
     virtual void visit(parser::BoolLiteral &node){};
     virtual void visit(parser::CallExpr &node){};
@@ -105,12 +99,6 @@ class ASTAnalyzer : public Visitor {
     virtual void visit(parser::UnaryExpr &node){};
     virtual void visit(parser::VarDef &node){};
     virtual void visit(parser::WhileStmt &node){};
-    virtual void visit(parser::VarAssignStmt &){};
-    virtual void visit(parser::MemberAssignStmt &){};
-    virtual void visit(parser::IndexAssignStmt &){};
-    virtual void visit(parser::VarAssignExpr &){};
-    virtual void visit(parser::MemberAssignExpr &){};
-    virtual void visit(parser::IndexAssignExpr &){};
     virtual void visit(parser::TypeAnnotation &){};
     virtual void visit(parser::AssignStmt &node){};
     virtual void visit(parser::Program &node){};
@@ -120,18 +108,11 @@ class ASTAnalyzer : public Visitor {
 
 namespace semantic {
 
-class SemanticError : public parser::Err {
+class SemanticError : public parser::CompilerErr {
    public:
-    SemanticError(Node *node, const string &message)
-        : Err(nullptr, false), message(message) {
-        if (node->location != nullptr) {
-            this->location = node->get_location();
-        }
-        ((parser::Node *)this)->error_msg = message;
-        ((parser::Node *)this)->kind = "SemanticError";
-    }
+    SemanticError(parser::Location location, const string &message)
+        : CompilerErr(location, message, false) {}
 
-    cJSON *toJSON() override;
     string message;
 };
 
@@ -160,11 +141,6 @@ class TypeChecker : public ast::ASTAnalyzer {
     void visit(parser::UnaryExpr &node) override;
     void visit(parser::VarDef &node) override;
     void visit(parser::WhileStmt &node) override;
-    void visit(parser::VarAssignStmt &) override;
-    void visit(parser::MemberAssignStmt &) override;
-    void visit(parser::IndexAssignStmt &) override;
-    void visit(parser::VarAssignExpr &) override;
-    void visit(parser::IndexAssignExpr &) override;
     void visit(parser::Program &node) override;
     void visit(parser::AssignStmt &node) override;
 
@@ -173,7 +149,7 @@ class TypeChecker : public ast::ASTAnalyzer {
      * M : classes
      * C : currentClass
      * R : expReturnType */
-    TypeChecker(SymbolTable *globalSymbols, vector<parser::Err *> *errors0) {
+    TypeChecker(SymbolTable *globalSymbols, vector<parser::CompilerErr *> *errors0) {
         this->sym = globalSymbols;
         this->global = globalSymbols;
         this->errors = errors0;
@@ -195,14 +171,14 @@ class TypeChecker : public ast::ASTAnalyzer {
 
     /** For the nested function declaration */
     FunctionDefType *curr_func = nullptr;
-    std::vector<std::string>* curr_lambda_params{nullptr};
+    std::vector<std::string> *curr_lambda_params;
     stack<FunctionDefType *> saved_func{};
 
     SymbolType *passing_type{};
     bool is_lvalue{false};
 
     /** Collector for errors. */
-    vector<parser::Err *> *errors;
+    vector<parser::CompilerErr *> *errors;
 
     /** set up default class hierarchy
      * <None> <= object
@@ -214,11 +190,12 @@ class TypeChecker : public ast::ASTAnalyzer {
         {"int", "object"},   {"bool", "int"},      {"none", "object"},
         {"empty", "object"}, {"<None>", "object"}, {"<Empty>", "object"}};
 
-    const string get_common_type(SymbolType const * const first, SymbolType const * const second);
+    const string get_common_type(SymbolType const *const first,
+                                 SymbolType const *const second);
     // The function can check both ClassType and ListType
-    SymbolType* get_common_type_2(SymbolType * const, SymbolType * const);
+    SymbolType *get_common_type_2(SymbolType *const, SymbolType *const);
     bool is_subtype(SymbolType const *, SymbolType const *);
-    bool is_subtype(const string&, SymbolType const *);
+    bool is_subtype(const string &, SymbolType const *);
     void setup_num_to_class();
 
     /** linear-list-stored graph for the object graph
@@ -259,8 +236,7 @@ class TypeChecker : public ast::ASTAnalyzer {
 
 class SymbolTableGenerator : public ast::ASTAnalyzer {
    public:
-    SymbolTableGenerator(vector<parser::Err *> *e) : errors(e) {
-
+    SymbolTableGenerator(vector<parser::CompilerErr *> *e) : errors(e) {
         auto *foo = new ClassDefType("", "object");
         auto *init = new FunctionDefType();
         init->func_name = "__init__";
@@ -327,7 +303,7 @@ class SymbolTableGenerator : public ast::ASTAnalyzer {
     SymbolType *ret = nullptr;
     std::unique_ptr<SymbolTable> globals = std::make_unique<SymbolTable>();
     SymbolTable *sym = globals.get();
-    vector<parser::Err *> *errors;
+    vector<parser::CompilerErr *> *errors;
     vector<parser::Node *> ignore;
 };
 
@@ -343,7 +319,7 @@ class DeclarationAnalyzer : public ast::ASTAnalyzer {
     void visit(parser::VarDef &varDef) override;
     void visit(parser::Program &program) override;
 
-    explicit DeclarationAnalyzer(vector<parser::Err *> *errors,
+    explicit DeclarationAnalyzer(vector<parser::CompilerErr *> *errors,
                                  const std::vector<parser::Node *> &ignore,
                                  std::unique_ptr<SymbolTable> globals) {
         this->errors = errors;
@@ -353,7 +329,7 @@ class DeclarationAnalyzer : public ast::ASTAnalyzer {
     }
 
     /** Collector for errors. */
-    vector<parser::Err *> *errors;
+    vector<parser::CompilerErr *> *errors;
 
     std::unique_ptr<SymbolTable> globals;
 
@@ -366,13 +342,9 @@ class DeclarationAnalyzer : public ast::ASTAnalyzer {
     ClassDefType *getClass(const string &name) {
         return globals->declares<ClassDefType *>(name);
     }
-    void checkShadowClass(const string &name, parser::Ident *id) {
-        if (getClass(name)) {
-            errors->emplace_back(
-                new SemanticError(id, "Cannot shadow class name: " + name));
-        }
-    }
-    void checkValueType(ValueType *type, parser::TypeAnnotation *annoation) {
+    void checkValueType(
+        ValueType *type,
+        const std::unique_ptr<parser::TypeAnnotation> &annoation) {
         while (dynamic_cast<ListValueType *>(type)) {
             type = ((ListValueType *)type)->element_type;
         }
@@ -381,7 +353,7 @@ class DeclarationAnalyzer : public ast::ASTAnalyzer {
 
         if (getClass(class_name) == nullptr) {
             errors->emplace_back(new SemanticError(
-                annoation,
+                annoation->location,
                 "Invalid type annotation; there is no class named: " +
                     class_name));
         }
@@ -389,20 +361,20 @@ class DeclarationAnalyzer : public ast::ASTAnalyzer {
 };
 
 // check if b is super class of a
-inline bool is_super_class(SymbolTable* sym,string a,string b) {
-    if (b=="object") {
+inline bool is_super_class(SymbolTable *sym, string a, string b) {
+    if (b == "object") {
         return true;
     }
-    auto p=a;
-    while(p!="object" && p!=b) {
-        if (auto t=sym->get<ClassDefType*>(p); t!=nullptr) {
-            p=t->super_class;
+    auto p = a;
+    while (p != "object" && p != b) {
+        if (auto t = sym->get<ClassDefType *>(p); t != nullptr) {
+            p = t->super_class;
         } else {
-            //throw(string("Error: super class is not a class!"));
+            // throw(string("Error: super class is not a class!"));
             return false;
         }
     }
-    return (p==b);
+    return (p == b);
 }
 
 }  // namespace semantic

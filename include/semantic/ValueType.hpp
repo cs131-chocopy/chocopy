@@ -8,7 +8,7 @@
 #include "SymbolType.hpp"
 #include <chocopy_ast.hpp>
 #include <chocopy_logging.hpp>
-#include <cjson/cJSON.h>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -59,6 +59,7 @@ public:
 
     bool is_value_type() const override { return true; }
 
+    static ValueType *annotate_to_val(std::unique_ptr<parser::TypeAnnotation> &annotation);
     static ValueType *annotate_to_val(parser::TypeAnnotation *annotation);
 
     const string get_name() const override;
