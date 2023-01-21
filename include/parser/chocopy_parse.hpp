@@ -9,8 +9,8 @@
 #include <chocopy_ast.hpp>
 #include <chocopy_logging.hpp>
 #include <iostream>
-#include <json.hpp>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <utility>
 #include <vector>
 

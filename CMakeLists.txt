@@ -7,7 +7,6 @@ find_package(FLEX REQUIRED)
 find_package(BISON REQUIRED)
 find_package(FMT REQUIRED)
 # find_package(LLVM REQUIRED CONFIG)
-include_directories(${PROJECT_SOURCE_DIR}/src/)
 
 # llvm environment set
 # message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
@@ -48,6 +47,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O4 -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
 
 # Add block directories
+add_subdirectory(libs)
 add_subdirectory(src/cgen/stdlib)
 add_subdirectory(src/parser)
 add_subdirectory(src/semantic)

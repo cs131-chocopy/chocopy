@@ -5,7 +5,7 @@
 #ifndef CHOCOPY_COMPILER_FUNCTIONDEFTYPE_HPP
 #define CHOCOPY_COMPILER_FUNCTIONDEFTYPE_HPP
 
-#include <json.hpp>
+#include <nlohmann/json.hpp>
 
 #include "SymbolTable.hpp"
 #include "SymbolType.hpp"
