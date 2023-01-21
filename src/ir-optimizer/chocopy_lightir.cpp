@@ -1,3 +1,11 @@
+#include <cassert>
+#include <chocopy_lightir.hpp>
+#include <chocopy_parse.hpp>
+#include <chocopy_semant.hpp>
+#include <fstream>
+#include <string>
+#include <utility>
+
 #include "BasicBlock.hpp"
 #include "Class.hpp"
 #include "ClassDefType.hpp"
@@ -8,13 +16,6 @@
 #include "Module.hpp"
 #include "Type.hpp"
 #include "Value.hpp"
-#include <cassert>
-#include <chocopy_lightir.hpp>
-#include <chocopy_parse.hpp>
-#include <chocopy_semant.hpp>
-#include <fstream>
-#include <string>
-#include <utility>
 #if __cplusplus > 202000L && !defined(__clang__)
 #include <ranges>
 #endif
@@ -25,7 +26,7 @@ class SemanticError;
 class SymbolTable;
 class DeclarationAnalyzer;
 class TypeChecker;
-} // namespace semantic
+}  // namespace semantic
 namespace lightir {
 Type *VOID_T;
 Type *BOOL_T;
@@ -67,40 +68,48 @@ int LightWalker::get_next_type_id() { return next_type_id++; }
 
 int LightWalker::get_const_type_id() { return next_const_id++; }
 
-int LightWalker::get_class_id(const string &name) const { return sym->class_tag_[name]; }
+int LightWalker::get_class_id(const string &name) const {
+    return sym->class_tag_[name];
+}
 
-string LightWalker::get_nested_func_name(semantic::FunctionDefType const * const func, bool with_start_dollar = true) {
+string LightWalker::get_nested_func_name(
+    semantic::FunctionDefType const *const func,
+    bool with_start_dollar = true) {
     const auto parent_sym = func->current_scope->parent;
     const auto grand_parent_sym = parent_sym->parent;
     if (grand_parent_sym) {
-        for(auto& x : *grand_parent_sym->tab) {
-            auto parent_func = dynamic_cast<semantic::FunctionDefType*>(x.second);
+        for (auto &x : *grand_parent_sym->tab) {
+            auto parent_func =
+                dynamic_cast<semantic::FunctionDefType *>(x.second);
             if (parent_func) {
                 if (parent_func->current_scope == parent_sym) {
                     return with_start_dollar
-                    ? "$" + get_nested_func_name(parent_func, false) + "." + func->get_name()
-                    : get_nested_func_name(parent_func, false) + "." + func->get_name();
+                               ? "$" +
+                                     get_nested_func_name(parent_func, false) +
+                                     "." + func->get_name()
+                               : get_nested_func_name(parent_func, false) +
+                                     "." + func->get_name();
                 }
             }
-            auto parent_class = dynamic_cast<semantic::ClassDefType*>(x.second);
+            auto parent_class =
+                dynamic_cast<semantic::ClassDefType *>(x.second);
             if (parent_class) {
                 if (parent_class->current_scope == parent_sym) {
-                    return "$$METHOD$$" + parent_class->get_name() + "." + func->get_name();
+                    return "$$METHOD$$" + parent_class->get_name() + "." +
+                           func->get_name();
                 }
             }
         }
         assert(0 && "No parent function found");
     } else {
-        return with_start_dollar
-            ? "$" + func->get_name()
-            : func->get_name();
+        return with_start_dollar ? "$" + func->get_name() : func->get_name();
     }
 }
 
-Type* LightWalker::semantic_type_to_llvm_type(semantic::SymbolType *type) {
+Type *LightWalker::semantic_type_to_llvm_type(semantic::SymbolType *type) {
     if (type->is_list_type()) {
         return ArrayType::get(list_class);
-    } else if (dynamic_cast<semantic::ClassValueType*>(type)) {
+    } else if (dynamic_cast<semantic::ClassValueType *>(type)) {
         if (type->get_name() == "int") {
             return IntegerType::get(32, module.get());
         } else if (type->get_name() == "bool") {
@@ -111,18 +120,21 @@ Type* LightWalker::semantic_type_to_llvm_type(semantic::SymbolType *type) {
             // ! FIXME: actually I don't know what I should do here.
             return ArrayType::get(object_class);
         } else {
-            const auto class_ = dynamic_cast<Class*>(scope.find_in_global(type->get_name()));
+            const auto class_ =
+                dynamic_cast<Class *>(scope.find_in_global(type->get_name()));
             assert(class_);
             return ArrayType::get(class_);
         }
     } else if (type->is_func_type()) {
         // only support global function
-        const auto func_def_type = dynamic_cast<semantic::FunctionDefType*>(type);
-        std::vector<Type*> arg_types;
-        for(auto param : *func_def_type->params) {
+        const auto func_def_type =
+            dynamic_cast<semantic::FunctionDefType *>(type);
+        std::vector<Type *> arg_types;
+        for (auto param : *func_def_type->params) {
             arg_types.emplace_back(semantic_type_to_llvm_type(param));
         }
-        auto func_return_type = semantic_type_to_llvm_type(func_def_type->return_type);
+        auto func_return_type =
+            semantic_type_to_llvm_type(func_def_type->return_type);
         auto func_type = FunctionType::get(func_return_type, arg_types);
         return func_type;
     }
@@ -145,33 +157,34 @@ LightWalker::LightWalker(semantic::SymbolTable *sym) : sym(sym) {
     /** Get the class ready. */
     std::vector<Type *> object_params;
 
-    object_class = new Class(&*module, "object", get_next_type_id(), nullptr, true, true);
+    object_class =
+        new Class(&*module, "object", get_next_type_id(), nullptr, true, true);
     auto TyObject = object_class->get_type();
     auto TyPtrObject = ArrayType::get(object_class);
     object_params.emplace_back(TyPtrObject);
-    auto object_init = new Function(FunctionType::get(TyPtrObject, object_params), "$object.__init__", &*module);
+    auto object_init =
+        new Function(FunctionType::get(TyPtrObject, object_params),
+                     "$object.__init__", &*module);
     object_class->add_method(object_init);
-    int_class = new Class(&*module, "int", get_next_type_id(), nullptr, true, true);
+    int_class =
+        new Class(&*module, "int", get_next_type_id(), nullptr, true, true);
     auto TyIntClass = int_class->get_type();
     int_class->add_method(object_init);
     int_class->add_attribute(new AttrInfo(TyI32, "__int__"));
-    bool_class = new Class(&*module, "bool", get_next_type_id(), nullptr, true, true);
+    bool_class =
+        new Class(&*module, "bool", get_next_type_id(), nullptr, true, true);
     auto TyBoolClass = bool_class->get_type();
     bool_class->add_method(object_init);
     bool_class->add_attribute(new AttrInfo(TyI1, "__bool__"));
-    str_class = new Class(&*module, "str", get_next_type_id(), nullptr, true, true);
+    str_class =
+        new Class(&*module, "str", get_next_type_id(), nullptr, true, true);
     auto TyStrClass = str_class->get_type();
     str_class->add_method(object_init);
     str_class->add_attribute(new AttrInfo(TyI32, "__len__", 0));
     str_class->add_attribute(new AttrInfo(TyString, "__str__"));
 
-    Class* virtual_str = new Class(module.get(), 
-                                   "str", 
-                                   get_next_type_id(), 
-                                   object_class, 
-                                   true, 
-                                   false, 
-                                   false);
+    Class *virtual_str = new Class(module.get(), "str", get_next_type_id(),
+                                   object_class, true, false, false);
     virtual_str->add_method(object_init);
     virtual_str->add_attribute(new AttrInfo(TyI32, "__len__", 0));
     virtual_str->add_attribute(new AttrInfo(TyString, "__str__"));
@@ -187,7 +200,8 @@ LightWalker::LightWalker(semantic::SymbolTable *sym) : sym(sym) {
     auto union_list = new Union(union_vec, "type");
     list_class = new Class(&*module, ".list", -1, nullptr, false);
     list_class->add_method(object_init);
-    list_class->add_attribute(new AttrInfo(ArrayType::get(union_list), "", union_list));
+    list_class->add_attribute(
+        new AttrInfo(ArrayType::get(union_list), "", union_list));
     list_class->add_attribute(new AttrInfo(TyI32, "__len__", 0));
 
     auto TyListClass = list_class->get_type();
@@ -208,13 +222,16 @@ LightWalker::LightWalker(semantic::SymbolTable *sym) : sym(sym) {
 
     std::vector<Type *> error_oob_params;
     auto error_oob_type = FunctionType::get(TyVoid, error_oob_params);
-    auto error_oob_fun = Function::create(error_oob_type, "error.OOB", module.get());
+    auto error_oob_fun =
+        Function::create(error_oob_type, "error.OOB", module.get());
     std::vector<Type *> error_none_params;
     auto error_none_type = FunctionType::get(TyVoid, error_none_params);
-    auto error_none_fun = Function::create(error_none_type, "error.None", module.get());
+    auto error_none_fun =
+        Function::create(error_none_type, "error.None", module.get());
     std::vector<Type *> error_div_params;
     auto error_div_type = FunctionType::get(TyVoid, error_div_params);
-    auto error_div_fun = Function::create(error_none_type, "error.Div", module.get());
+    auto error_div_fun =
+        Function::create(error_none_type, "error.Div", module.get());
 
     scope.enter();
     scope.push_in_global(union_list->get_name(), union_list);
@@ -232,11 +249,11 @@ LightWalker::LightWalker(semantic::SymbolTable *sym) : sym(sym) {
 
     module->add_union(union_list);
 
-    //scope.push_in_global("str", str_class);
+    // scope.push_in_global("str", str_class);
     scope.push_in_global("virtual_str_1145141919810", virtual_str);
     vstr_type = virtual_str;
-    i32_type=IntegerType::get(32,module.get());
-    i1_type=IntegerType::get(1,module.get());
+    i32_type = IntegerType::get(32, module.get());
+    i1_type = IntegerType::get(1, module.get());
     ptr_vstr_type = ArrayType::get(vstr_type);
 }
 
@@ -253,9 +270,12 @@ void LightWalker::visit(parser::Program &node) {
 
     for (const auto &obj_type : sym->class_tag_) {
         if (obj_type.first == "list")
-            module->add_class_type(new Class(&*module, ".list", obj_type.second, nullptr));
-        else if (obj_type.first == "str" || obj_type.first == "int" || obj_type.first == "bool")
-            module->add_class_type(new Class(&*module, obj_type.first, obj_type.second, nullptr));
+            module->add_class_type(
+                new Class(&*module, ".list", obj_type.second, nullptr));
+        else if (obj_type.first == "str" || obj_type.first == "int" ||
+                 obj_type.first == "bool")
+            module->add_class_type(
+                new Class(&*module, obj_type.first, obj_type.second, nullptr));
     }
     for (int i = 0; i < sym->class_tag_.size(); i++) {
         OBJ_T->emplace_back(Type::get_class_type(module.get(), i));
@@ -264,7 +284,9 @@ void LightWalker::visit(parser::Program &node) {
     /** Some function that requires the OBJ_T to define */
     auto TyPtrList = ArrayType::get(list_class->get_type());
     auto TyPtrObj = ArrayType::get(module->get_class().front());
-    // FIXME: auto TyPtrObj = LabelType::get("$object$prototype_type",get_module()->get_class().front(), module.get());
+    // FIXME: auto TyPtrObj =
+    // LabelType::get("$object$prototype_type",get_module()->get_class().front(),
+    // module.get());
     auto TyPtrInt = ArrayType::get(OBJ_T->at(1));
     auto TyPtrBool = ArrayType::get(OBJ_T->at(2));
     auto TyPtrStr = ArrayType::get(OBJ_T->at(3));
@@ -283,7 +305,8 @@ void LightWalker::visit(parser::Program &node) {
     union_len = new Union(union_len_vec, "len");
     union_put = new Union(union_put_vec, "put");
     union_conslist = new Union(union_conslist_vec, "conslist");
-    list_class->add_attribute(new AttrInfo(ArrayType::get(union_conslist), "__list__", 0));
+    list_class->add_attribute(
+        new AttrInfo(ArrayType::get(union_conslist), "__list__", 0));
     std::vector<Type *> concat_params;
     std::vector<Type *> conslist_params;
     concat_params.emplace_back(TyPtrList);
@@ -329,7 +352,7 @@ void LightWalker::visit(parser::Program &node) {
     str_params.emplace_back(TyPtrStr);
     strcat_params.emplace_back(TyPtrStr);
     strcat_params.emplace_back(TyPtrStr);
-    std::vector<Type*> vstr_params;
+    std::vector<Type *> vstr_params;
     vstr_params.emplace_back(ptr_vstr_type);
     vstr_params.emplace_back(ptr_vstr_type);
     auto str_type = FunctionType::get(BOOL_T, vstr_params);
@@ -349,12 +372,16 @@ void LightWalker::visit(parser::Program &node) {
     GlobalVariable *const_;
     auto const_vect = {0, 1};
     for (auto &&num : const_vect) {
-        const_ = GlobalVariable::create(fmt::format("const_{}", num), &*this->module, OBJ_T->at(2), false, nullptr);
+        const_ =
+            GlobalVariable::create(fmt::format("const_{}", num), &*this->module,
+                                   OBJ_T->at(2), false, nullptr);
         scope.push_in_global(fmt::format("const_{}", num), const_);
     }
     auto const_vect_1 = {2, 3, 4, 5, 6, 7};
     for (auto &&num : const_vect_1) {
-        const_ = GlobalVariable::create(fmt::format("const_{}", num), &*this->module, OBJ_T->at(3), false, nullptr);
+        const_ =
+            GlobalVariable::create(fmt::format("const_{}", num), &*this->module,
+                                   OBJ_T->at(3), false, nullptr);
         scope.push_in_global(fmt::format("const_{}", num), const_);
     }
 
@@ -369,14 +396,18 @@ void LightWalker::visit(parser::Program &node) {
     builder->create_asm("lui a0, 8192\\0A\tadd s11, zero, a0");
     vector<Value *> arg_params;
     builder->create_call(heap_init_fun, arg_params);
-    builder->create_asm("mv s10, gp\\0A\tadd s11, s11, s10\\0A\tmv fp, zero\\0A\tlw ra, 8(sp)\\0A\taddi "
-                        "sp, sp, 16\\0A\tret");
+    builder->create_asm(
+        "mv s10, gp\\0A\tadd s11, s11, s10\\0A\tmv fp, zero\\0A\tlw ra, "
+        "8(sp)\\0A\taddi "
+        "sp, sp, 16\\0A\tret");
 #else
     builder->create_asm("lui a0, 8192\\0A\tadd s11, zero, a0");
     vector<Value *> arg_params;
     builder->create_call(heap_init_fun, arg_params);
-    builder->create_asm("mv s10, gp\\0A\tadd s11, s11, s10\\0A\tmv fp, zero\\0A\tlw ra, 12(sp)\\0A\taddi "
-                        "sp, sp, 16\\0A\tret");
+    builder->create_asm(
+        "mv s10, gp\\0A\tadd s11, s11, s10\\0A\tmv fp, zero\\0A\tlw ra, "
+        "12(sp)\\0A\taddi "
+        "sp, sp, 16\\0A\tret");
 #endif
     /** Proceed in phases:
      * 1. Analyze all global variable declarations.
@@ -386,9 +417,6 @@ void LightWalker::visit(parser::Program &node) {
      *    are in the symbol table.
      */
 
-
-
-
     curr_func = Function::create(func_type, "main", module.get());
     auto baseBB = BasicBlock::create(&*module, "", curr_func);
     base_layer.emplace_back(baseBB);
@@ -397,22 +425,18 @@ void LightWalker::visit(parser::Program &node) {
 
     auto ptr_list_type = ArrayType::get(list_class);
 
-    invalid_value=GlobalVariable::create(
-        "invalid_list_pointer",
-        module.get(),
-        ptr_list_type,
-        false,
-        ConstantNull::get(ptr_list_type)
-    );
+    invalid_value = GlobalVariable::create("invalid_list_pointer", module.get(),
+                                           ptr_list_type, false,
+                                           ConstantNull::get(ptr_list_type));
 
-    Instruction* temp_conslist=builder->create_alloca(union_conslist);
+    Instruction *temp_conslist = builder->create_alloca(union_conslist);
     scope.push("$temp_conslist", temp_conslist);
 
-    null = builder->create_call(noconv_fun,vector<Value*>());
+    null = builder->create_call(noconv_fun, vector<Value *>());
 
-    for (const auto& decl : node.declarations) {
-        if (auto node = dynamic_cast<parser::ClassDef*>(decl.get()); node) {
-            Class* super_class = nullptr;
+    for (const auto &decl : node.declarations) {
+        if (auto node = dynamic_cast<parser::ClassDef *>(decl.get()); node) {
+            Class *super_class = nullptr;
             for (const auto e : module->get_class()) {
                 if (e->get_name() == node->superClass->name) {
                     super_class = e;
@@ -421,38 +445,43 @@ void LightWalker::visit(parser::Program &node) {
             }
             assert(super_class);
 
-            auto class_ = new Class(module.get(), node->name->name, get_next_type_id(), super_class, true, false, true);
+            auto class_ =
+                new Class(module.get(), node->name->name, get_next_type_id(),
+                          super_class, true, false, true);
             scope.push(node->name->name, class_);
         }
     }
 
-    for (const auto& decl : node.declarations) {
-        if (auto node = dynamic_cast<parser::FuncDef*>(decl.get()); node) {
-            auto& func_name = node->get_id()->name;
-            auto func_def_type = sym->declares<semantic::FunctionDefType*>(func_name);
+    for (const auto &decl : node.declarations) {
+        if (auto node = dynamic_cast<parser::FuncDef *>(decl.get()); node) {
+            auto &func_name = node->get_id()->name;
+            auto func_def_type =
+                sym->declares<semantic::FunctionDefType *>(func_name);
             assert(func_def_type);
             auto unique_func_name = get_nested_func_name(func_def_type);
 
-            auto func_type = dynamic_cast<FunctionType*>(semantic_type_to_llvm_type(func_def_type));
+            auto func_type = dynamic_cast<FunctionType *>(
+                semantic_type_to_llvm_type(func_def_type));
             assert(func_type);
 
-            auto func = Function::create(func_type, unique_func_name, module.get());
+            auto func =
+                Function::create(func_type, unique_func_name, module.get());
             scope.push(func_name, func);
         }
     }
 
-    for (const auto& decl : node.declarations) {
-        if (auto node = dynamic_cast<parser::VarDef*>(decl.get()); node) {
+    for (const auto &decl : node.declarations) {
+        if (auto node = dynamic_cast<parser::VarDef *>(decl.get()); node) {
             decl->accept(*this);
         }
     }
-    for (const auto& decl : node.declarations) {
-        if (auto node = dynamic_cast<parser::VarDef*>(decl.get()); node) {
+    for (const auto &decl : node.declarations) {
+        if (auto node = dynamic_cast<parser::VarDef *>(decl.get()); node) {
         } else {
             decl->accept(*this);
         }
     }
-    for (const auto& stmt : node.statements) {
+    for (const auto &stmt : node.statements) {
         stmt->accept(*this);
     }
     /** For Optimization Debug */
@@ -466,61 +495,64 @@ void LightWalker::visit(parser::Program &node) {
     t1->set_name("1");
     builder->create_call(put_fun, {t1});*/
 
-    builder->create_asm("li a0, 0 \\0A"
+    builder->create_asm(
+        "li a0, 0 \\0A"
         "li a7, 93 #exit system call\\0A"
-                        "ecall");
+        "ecall");
     builder->create_void_ret();
 }
 
 void LightWalker::visit(parser::AssignStmt &node) {
     node.value->accept(*this);
     auto v = visitor_return_value;
-    for(auto &i: node.targets) {
-        get_lvalue=true;
+    for (auto &i : node.targets) {
+        get_lvalue = true;
         i->accept(*this);
-        get_lvalue=false;
+        get_lvalue = false;
         auto address = visitor_return_value;
-        if (node.value->inferredType->get_name()=="int") {
-            if (i->inferredType->get_name()=="int") {
-                builder->create_store(v,address);
-            } else {
-                v=builder->create_call(makeint_fun,{v});
-                builder->create_store(v,address);
-            }
-        } else if (node.value->inferredType->get_name()=="bool") {
-            if (i->inferredType->get_name()=="bool") {
-                builder->create_store(v,address);
-            } else {
-                v=builder->create_call(makebool_fun,{v});
-                builder->create_store(v,address);
-            }
-        } else if (node.value->inferredType->get_name()=="str") {
-            if (i->inferredType->get_name()=="str") {
+        if (node.value->inferredType->get_name() == "int") {
+            if (i->inferredType->get_name() == "int") {
                 builder->create_store(v, address);
             } else {
-                auto t=builder->create_bitcast(v, ArrayType::get(object_class));
+                v = builder->create_call(makeint_fun, {v});
+                builder->create_store(v, address);
+            }
+        } else if (node.value->inferredType->get_name() == "bool") {
+            if (i->inferredType->get_name() == "bool") {
+                builder->create_store(v, address);
+            } else {
+                v = builder->create_call(makebool_fun, {v});
+                builder->create_store(v, address);
+            }
+        } else if (node.value->inferredType->get_name() == "str") {
+            if (i->inferredType->get_name() == "str") {
+                builder->create_store(v, address);
+            } else {
+                auto t =
+                    builder->create_bitcast(v, ArrayType::get(object_class));
                 builder->create_store(t, address);
-            }  
+            }
         } else {
             // class assignment
-            auto ty = (dynamic_cast<GlobalVariable*>(address))? address->get_type():address->get_type()->get_ptr_element_type();
-            auto t = builder->create_bitcast(v,ty);
-            builder->create_store(t,address);
+            auto ty = (dynamic_cast<GlobalVariable *>(address))
+                          ? address->get_type()
+                          : address->get_type()->get_ptr_element_type();
+            auto t = builder->create_bitcast(v, ty);
+            builder->create_store(t, address);
         }
     }
 }
 void LightWalker::visit(parser::PassStmt &) {}
-void LightWalker::visit(parser::BinaryExpr &node)
-{
+void LightWalker::visit(parser::BinaryExpr &node) {
     node.left->accept(*this);
     auto v1 = this->visitor_return_value;
-    Instruction* res;
-    if (node.operator_=="and" || node.operator_=="or") { //short circuit
+    Instruction *res;
+    if (node.operator_ == "and" || node.operator_ == "or") {  // short circuit
         auto b = builder->get_insert_block();
-        auto b_run = BasicBlock::create(module.get(), "", b->get_parent());   
-        auto b_norun = BasicBlock::create(module.get(), "", b->get_parent());   
-        auto b_end = BasicBlock::create(module.get(), "", b->get_parent());   
-        if (node.operator_=="and") {
+        auto b_run = BasicBlock::create(module.get(), "", b->get_parent());
+        auto b_norun = BasicBlock::create(module.get(), "", b->get_parent());
+        auto b_end = BasicBlock::create(module.get(), "", b->get_parent());
+        if (node.operator_ == "and") {
             builder->create_cond_br(v1, b_run, b_norun);
         } else {
             builder->create_cond_br(v1, b_norun, b_run);
@@ -528,9 +560,9 @@ void LightWalker::visit(parser::BinaryExpr &node)
         builder->set_insert_point(b_run);
         node.right->accept(*this);
         auto v2 = this->visitor_return_value;
-        auto b_run_end=builder->get_insert_block();
-        Instruction* run_res=nullptr;
-        if (node.operator_=="and") {
+        auto b_run_end = builder->get_insert_block();
+        Instruction *run_res = nullptr;
+        if (node.operator_ == "and") {
             run_res = builder->create_iand(v1, v2);
             run_res->set_type(i1_type);
         } else {
@@ -539,116 +571,124 @@ void LightWalker::visit(parser::BinaryExpr &node)
         }
         builder->create_br(b_end);
         builder->set_insert_point(b_norun);
-        Value* norun_res=nullptr;
-        if (node.operator_=="and") {
+        Value *norun_res = nullptr;
+        if (node.operator_ == "and") {
             norun_res = CONST(false);
         } else {
             norun_res = CONST(true);
         }
         builder->create_br(b_end);
         builder->set_insert_point(b_end);
-        auto phi=builder->create_phi(i1_type);
+        auto phi = builder->create_phi(i1_type);
         phi->set_lval(run_res);
         phi->add_phi_pair_operand(run_res, b_run_end);
         phi->add_phi_pair_operand(norun_res, b_norun);
         b_end->add_instr_begin(phi);
         res = phi;
-    }  else {
+    } else {
         node.right->accept(*this);
         auto v2 = this->visitor_return_value;
-        if (node.operator_=="+") {
-            if (node.left->inferredType->get_name()=="int") {
+        if (node.operator_ == "+") {
+            if (node.left->inferredType->get_name() == "int") {
                 res = builder->create_iadd(v1, v2);
-            } else if (node.left->inferredType->get_name()=="str") {
-                vector<Value*> params;
+            } else if (node.left->inferredType->get_name() == "str") {
+                vector<Value *> params;
                 params.push_back(v1);
                 params.push_back(v2);
-                res = builder->create_call(strcat_fun,params);
+                res = builder->create_call(strcat_fun, params);
                 res->set_type(ptr_vstr_type);
             } else {
-                vector<Value*> params;
+                vector<Value *> params;
                 params.push_back(v1);
                 params.push_back(v2);
-                res = builder->create_call(concat_fun,params);
+                res = builder->create_call(concat_fun, params);
             }
-        } else if (node.operator_=="-") {
+        } else if (node.operator_ == "-") {
             res = builder->create_isub(v1, v2);
-        } else if (node.operator_=="*") {
+        } else if (node.operator_ == "*") {
             res = builder->create_imul(v1, v2);
-        } else if (node.operator_=="//") {
+        } else if (node.operator_ == "//") {
             auto div_0_fun = scope.find_in_global("error.Div");
             auto t1 = builder->create_icmp_eq(v2, CONST(0));
             auto b = builder->get_insert_block();
-            auto b1 = BasicBlock::create(module.get(),"",b->get_parent());
-            auto b2 = BasicBlock::create(module.get(),"",b->get_parent());
+            auto b1 = BasicBlock::create(module.get(), "", b->get_parent());
+            auto b2 = BasicBlock::create(module.get(), "", b->get_parent());
             /*b->add_succ_basic_block(b1);
             b->add_succ_basic_block(b2);
             b1->add_pre_basic_block(b);
             b2->add_pre_basic_block(b);
-            // To make LLVM happy, b1 will jump to b2. However this won't happen. So b1 -> b2 is not nessary.*/
-            auto t2 = builder->create_cond_br(t1, b1,b2);
+            // To make LLVM happy, b1 will jump to b2. However this won't
+            happen. So b1 -> b2 is not nessary.*/
+            auto t2 = builder->create_cond_br(t1, b1, b2);
             builder->set_insert_point(b1);
             builder->create_call(div_0_fun, {});
             builder->create_br(b2);
             builder->set_insert_point(b2);
-            auto t3=builder->create_isdiv(v1, v2);
+            auto t3 = builder->create_isdiv(v1, v2);
             res = t3;
-        } else if (node.operator_=="%") {
+        } else if (node.operator_ == "%") {
             auto div_0_fun = scope.find_in_global("error.Div");
             auto t1 = builder->create_icmp_eq(v2, CONST(0));
             auto b = builder->get_insert_block();
-            auto b1 = BasicBlock::create(module.get(),"",b->get_parent());
-            auto b2 = BasicBlock::create(module.get(),"",b->get_parent());
+            auto b1 = BasicBlock::create(module.get(), "", b->get_parent());
+            auto b2 = BasicBlock::create(module.get(), "", b->get_parent());
             /*b->add_succ_basic_block(b1);
             b->add_succ_basic_block(b2);
             b1->add_pre_basic_block(b);
             b2->add_pre_basic_block(b);
-            // To make LLVM happy, b1 will jump to b2. However this won't happen. So b1 -> b2 is not nessary.*/
-            auto t2 = builder->create_cond_br(t1, b1,b2);
+            // To make LLVM happy, b1 will jump to b2. However this won't
+            happen. So b1 -> b2 is not nessary.*/
+            auto t2 = builder->create_cond_br(t1, b1, b2);
             builder->set_insert_point(b1);
             builder->create_call(div_0_fun, {});
             builder->create_br(b2);
             builder->set_insert_point(b2);
-            auto t3=builder->create_irem(v1, v2);
+            auto t3 = builder->create_irem(v1, v2);
             res = t3;
-        } else if (node.operator_=="<") {
+        } else if (node.operator_ == "<") {
             res = builder->create_icmp_lt(v1, v2);
-        } else if (node.operator_=="<=") {
+        } else if (node.operator_ == "<=") {
             res = builder->create_icmp_le(v1, v2);
-        } else if (node.operator_=="==") {
-            if (node.left->inferredType->get_name()=="bool") {
-                auto v1_32 = builder->create_zext(v1, IntegerType::get(32, module.get()));
-                auto v2_32 = builder->create_zext(v2, IntegerType::get(32, module.get()));
+        } else if (node.operator_ == "==") {
+            if (node.left->inferredType->get_name() == "bool") {
+                auto v1_32 = builder->create_zext(
+                    v1, IntegerType::get(32, module.get()));
+                auto v2_32 = builder->create_zext(
+                    v2, IntegerType::get(32, module.get()));
                 res = builder->create_icmp_eq(v1_32, v2_32);
-            } else if (node.left->inferredType->get_name()=="int") {
+            } else if (node.left->inferredType->get_name() == "int") {
                 res = builder->create_icmp_eq(v1, v2);
             } else {
-                vector<Value*> params;
+                vector<Value *> params;
                 params.push_back(v1);
                 params.push_back(v2);
-                res = builder->create_call(streql_fun,params);
+                res = builder->create_call(streql_fun, params);
             }
-        } else if (node.operator_=="!=") {
-            if (node.left->inferredType->get_name()=="bool") {
-                auto v1_32 = builder->create_zext(v1, IntegerType::get(32, module.get()));
-                auto v2_32 = builder->create_zext(v2, IntegerType::get(32, module.get()));
+        } else if (node.operator_ == "!=") {
+            if (node.left->inferredType->get_name() == "bool") {
+                auto v1_32 = builder->create_zext(
+                    v1, IntegerType::get(32, module.get()));
+                auto v2_32 = builder->create_zext(
+                    v2, IntegerType::get(32, module.get()));
                 res = builder->create_icmp_ne(v1_32, v2_32);
-            } else if (node.left->inferredType->get_name()=="int") {
+            } else if (node.left->inferredType->get_name() == "int") {
                 res = builder->create_icmp_ne(v1, v2);
             } else {
-                vector<Value*> params;
+                vector<Value *> params;
                 params.push_back(v1);
                 params.push_back(v2);
-                res = builder->create_call(strneql_fun,params);
+                res = builder->create_call(strneql_fun, params);
             }
-        } else if (node.operator_==">") {
+        } else if (node.operator_ == ">") {
             res = builder->create_icmp_gt(v1, v2);
-        } else if (node.operator_==">=") {
+        } else if (node.operator_ == ">=") {
             res = builder->create_icmp_ge(v1, v2);
-        } else if (node.operator_=="is"){
-            get_lvalue = false; node.left->accept(*this);
+        } else if (node.operator_ == "is") {
+            get_lvalue = false;
+            node.left->accept(*this);
             auto l = visitor_return_value;
-            get_lvalue = false; node.right->accept(*this);
+            get_lvalue = false;
+            node.right->accept(*this);
             auto r = visitor_return_value;
             res = builder->create_icmp_eq(l, r);
         } else {
@@ -657,81 +697,86 @@ void LightWalker::visit(parser::BinaryExpr &node)
     }
     visitor_return_value = res;
 }
-void LightWalker::visit(parser::BoolLiteral &node)
-{
+void LightWalker::visit(parser::BoolLiteral &node) {
     auto C = CONST(node.bin_value);
     visitor_return_value = C;
 }
-void LightWalker::visit(parser::CallExpr &node)
-{
-    const auto& func_name = node.function->name;
-    if (func_name=="print") { //FIXME: problem here.
+void LightWalker::visit(parser::CallExpr &node) {
+    const auto &func_name = node.function->name;
+    if (func_name == "print") {  // FIXME: problem here.
         node.args.at(0)->accept(*this);
         auto v1 = this->visitor_return_value;
         auto put_fun = scope.find_in_global("print");
-        if (node.args.at(0)->inferredType->get_name()=="int") {
-            auto t=builder->create_call(makeint_fun, {v1});
-            BitCastInst* t1 = builder->create_bitcast(t,ArrayType::get(union_put));
+        if (node.args.at(0)->inferredType->get_name() == "int") {
+            auto t = builder->create_call(makeint_fun, {v1});
+            BitCastInst *t1 =
+                builder->create_bitcast(t, ArrayType::get(union_put));
             builder->create_call(put_fun, {t1});
-        } else if (node.args.at(0)->inferredType->get_name()=="bool") {
-            v1->set_type(IntegerType::get(1,module.get()));
+        } else if (node.args.at(0)->inferredType->get_name() == "bool") {
+            v1->set_type(IntegerType::get(1, module.get()));
             auto t1 = builder->create_call(makebool_fun, {v1});
             auto t2 = builder->create_bitcast(t1, ArrayType::get(union_put));
             builder->create_call(put_fun, {t2});
-        } else if (node.args.at(0)->inferredType->get_name()=="str") {
+        } else if (node.args.at(0)->inferredType->get_name() == "str") {
             auto t2 = builder->create_bitcast(v1, ArrayType::get(union_put));
             builder->create_call(put_fun, {t2});
         } else {
             builder->create_call(put_fun, {v1});
         }
-    } else if (func_name=="input") {
-        auto input_fun=scope.find_in_global("$input");
-        visitor_return_value = builder->create_call(input_fun,vector<Value*>());
+    } else if (func_name == "input") {
+        auto input_fun = scope.find_in_global("$input");
+        visitor_return_value =
+            builder->create_call(input_fun, vector<Value *>());
 
-    } else if (func_name=="len") { 
+    } else if (func_name == "len") {
         auto len_func = scope.find_in_global("$len");
         node.args.at(0)->accept(*this);
         auto v1 = this->visitor_return_value;
-        auto arg_type=node.args.at(0)->inferredType;
-        if (dynamic_cast<semantic::ListValueType*>(arg_type)==nullptr && arg_type->get_name()!="str") {
-            v1=builder->create_load(invalid_value);
+        auto arg_type = node.args.at(0)->inferredType;
+        if (dynamic_cast<semantic::ListValueType *>(arg_type) == nullptr &&
+            arg_type->get_name() != "str") {
+            v1 = builder->create_load(invalid_value);
         }
         auto t1 = builder->create_bitcast(v1, ArrayType::get(union_len));
-        auto v_len = builder->create_call(len_func,{t1});
-        visitor_return_value=v_len;
+        auto v_len = builder->create_call(len_func, {t1});
+        visitor_return_value = v_len;
     } else if (func_name == "int") {
         visitor_return_value = CONST(0);
     } else if (func_name == "bool") {
         visitor_return_value = ConstantInt::get(false, module.get());
     } else {
-        Function* func;
-        std::vector<Value*> args;
-        auto is_object_init = sym->get<semantic::ClassDefType*>(func_name);
+        Function *func;
+        std::vector<Value *> args;
+        auto is_object_init = sym->get<semantic::ClassDefType *>(func_name);
         if (is_object_init) {
-            auto class_type = dynamic_cast<Class*>(scope.find_in_global(func_name));
+            auto class_type =
+                dynamic_cast<Class *>(scope.find_in_global(func_name));
             assert(class_type);
             auto pointer_class_type = ArrayType::get(class_type);
 
             auto alloc_type = alloc_fun->get_args().front()->type_;
-            
+
             auto op = builder->create_bitcast(class_type, alloc_type);
             auto alloc_call = builder->create_call(alloc_fun, {op});
 
-            func = dynamic_cast<Function*>(class_type->get_method()->at(0));
-            assert(func);            
-            visitor_return_value = builder->create_bitcast(alloc_call, pointer_class_type);
-            args.emplace_back(builder->create_bitcast(alloc_call, func->get_function_type()->get_arg_type(0)));
+            func = dynamic_cast<Function *>(class_type->get_method()->at(0));
+            assert(func);
+            visitor_return_value =
+                builder->create_bitcast(alloc_call, pointer_class_type);
+            args.emplace_back(builder->create_bitcast(
+                alloc_call, func->get_function_type()->get_arg_type(0)));
         } else {
-            func = dynamic_cast<Function*>(scope.find_in_global(func_name));
+            func = dynamic_cast<Function *>(scope.find_in_global(func_name));
             if (func == nullptr) {
                 // lambda function
-                func = dynamic_cast<Function*>(scope.find(func_name));
+                func = dynamic_cast<Function *>(scope.find(func_name));
                 auto class_instance = scope.find(func_name + "$anon");
-                assert(func); assert(class_instance);
+                assert(func);
+                assert(class_instance);
                 args.emplace_back(class_instance);
             }
         }
-        for (const auto& arg : node.args) {
+        for (const auto &arg : node.args) {
             visitor_return_value = nullptr;
             arg->accept(*this);
             assert(visitor_return_value);
@@ -742,41 +787,54 @@ void LightWalker::visit(parser::CallExpr &node)
     }
 }
 void LightWalker::visit(parser::ClassDef &node) {
-    const auto class_type = sym->get<semantic::ClassDefType*>(node.name->name);
-    const auto super_class_type = sym->get<semantic::ClassDefType*>(node.superClass->name);
+    const auto class_type = sym->get<semantic::ClassDefType *>(node.name->name);
+    const auto super_class_type =
+        sym->get<semantic::ClassDefType *>(node.superClass->name);
     assert(super_class_type);
     auto saved_sym = sym;
     sym = class_type->current_scope;
 
-    auto class_ = dynamic_cast<Class*>(scope.find_in_global(node.name->name));
+    auto class_ = dynamic_cast<Class *>(scope.find_in_global(node.name->name));
     assert(class_);
     auto super_class = class_->super_class_info_;
 
     for (const auto attr : *super_class->get_attribute()) {
         class_->add_attribute(attr);
     }
-    for (const auto method: *super_class->get_method()) {
+    for (const auto method : *super_class->get_method()) {
         class_->add_method(method);
     }
-    for (const auto& decl : node.declaration) {
-        const auto& name = decl->get_id()->name;
-        if (const auto var_def = dynamic_cast<parser::VarDef*>(decl.get()); var_def) {
+    for (const auto &decl : node.declaration) {
+        const auto &name = decl->get_id()->name;
+        if (const auto var_def = dynamic_cast<parser::VarDef *>(decl.get());
+            var_def) {
             if (!super_class_type->current_scope->declares(name)) {
                 var_def->var->type->accept(*this);
                 assert(visitor_return_type);
                 const auto attr_type = visitor_return_type;
 
                 if (attr_type->is_integer_type()) {
-                    class_->add_attribute(new AttrInfo(attr_type, name, static_cast<parser::IntegerLiteral*>(var_def->value.get())->value));
+                    class_->add_attribute(
+                        new AttrInfo(attr_type, name,
+                                     static_cast<parser::IntegerLiteral *>(
+                                         var_def->value.get())
+                                         ->value));
                 } else if (attr_type->is_bool_type()) {
-                    class_->add_attribute(new AttrInfo(attr_type, name, static_cast<parser::BoolLiteral*>(var_def->value.get())->bin_value));
+                    class_->add_attribute(new AttrInfo(
+                        attr_type, name,
+                        static_cast<parser::BoolLiteral *>(var_def->value.get())
+                            ->bin_value));
                 } else if (attr_type == ptr_vstr_type) {
-                    const auto& str_literal = dynamic_cast<parser::StringLiteral*>(var_def->value.get());
+                    const auto &str_literal =
+                        dynamic_cast<parser::StringLiteral *>(
+                            var_def->value.get());
                     assert(str_literal);
 
                     int id = get_const_type_id();
-                    auto C = ConstantStr::get(str_literal->value, id, module.get());
-                    auto t = GlobalVariable::create("const_" + std::to_string(id),module.get(),C);
+                    auto C =
+                        ConstantStr::get(str_literal->value, id, module.get());
+                    auto t = GlobalVariable::create(
+                        "const_" + std::to_string(id), module.get(), C);
                     t->set_type(ptr_vstr_type);
 
                     class_->add_attribute(new AttrInfo(attr_type, name, t));
@@ -786,23 +844,28 @@ void LightWalker::visit(parser::ClassDef &node) {
             }
         }
     }
-    for (const auto& decl : node.declaration) {
-        if (const auto func_def = dynamic_cast<parser::FuncDef*>(decl.get()); func_def) {
-            auto& func_name = func_def->get_id()->name;
-            auto func_def_type = sym->declares<semantic::FunctionDefType*>(func_name);
+    for (const auto &decl : node.declaration) {
+        if (const auto func_def = dynamic_cast<parser::FuncDef *>(decl.get());
+            func_def) {
+            auto &func_name = func_def->get_id()->name;
+            auto func_def_type =
+                sym->declares<semantic::FunctionDefType *>(func_name);
             assert(func_def_type);
             auto unique_func_name = get_nested_func_name(func_def_type);
 
-            auto func_type = dynamic_cast<FunctionType*>(semantic_type_to_llvm_type(func_def_type));
+            auto func_type = dynamic_cast<FunctionType *>(
+                semantic_type_to_llvm_type(func_def_type));
             assert(func_type);
 
-            auto func = Function::create(func_type, unique_func_name, module.get());
+            auto func =
+                Function::create(func_type, unique_func_name, module.get());
             scope.push(unique_func_name, func);
             class_->add_method(func);
         }
     }
-    for (const auto& decl : node.declaration) {
-        if (const auto func_def = dynamic_cast<parser::FuncDef*>(decl.get()); func_def) {
+    for (const auto &decl : node.declaration) {
+        if (const auto func_def = dynamic_cast<parser::FuncDef *>(decl.get());
+            func_def) {
             func_def->accept(*this);
         }
     }
@@ -812,9 +875,10 @@ void LightWalker::visit(parser::ClassType &node) {
     if (node.className == "<None>") {
         // ! FIXME: actually I don't know what I should do here.
         visitor_return_type = ArrayType::get(object_class);
-        return; 
+        return;
     }
-    const auto class_ = dynamic_cast<Class*>(scope.find_in_global(node.className));
+    const auto class_ =
+        dynamic_cast<Class *>(scope.find_in_global(node.className));
     assert(class_);
     if (node.get_name() == "int") {
         visitor_return_type = IntegerType::get(32, module.get());
@@ -826,121 +890,125 @@ void LightWalker::visit(parser::ClassType &node) {
         visitor_return_type = ArrayType::get(class_);
     }
 }
-void LightWalker::visit(parser::ExprStmt &node) 
-{
-    node.expr->accept(*this);
-}
-void LightWalker::visit(parser::ForStmt &node) 
-{
+void LightWalker::visit(parser::ExprStmt &node) { node.expr->accept(*this); }
+void LightWalker::visit(parser::ForStmt &node) {
     node.iterable->accept(*this);
     auto list = visitor_return_value;
 
-    auto null= builder->create_call(noconv_fun,vector<Value*>());
-    auto cond_null=builder->create_icmp_eq(list, null);
+    auto null = builder->create_call(noconv_fun, vector<Value *>());
+    auto cond_null = builder->create_icmp_eq(list, null);
     auto b_before_null = builder->get_insert_block();
-    auto b_null_true= BasicBlock::create(module.get(), "", b_before_null->get_parent());
-    auto b_null_false = BasicBlock::create(module.get(), "", b_before_null->get_parent());
+    auto b_null_true =
+        BasicBlock::create(module.get(), "", b_before_null->get_parent());
+    auto b_null_false =
+        BasicBlock::create(module.get(), "", b_before_null->get_parent());
     builder->create_cond_br(cond_null, b_null_true, b_null_false);
     builder->set_insert_point(b_null_true);
-    auto none_func=scope.find_in_global("error.None");
-    builder->create_call(none_func,vector<Value*>());
+    auto none_func = scope.find_in_global("error.None");
+    builder->create_call(none_func, vector<Value *>());
     builder->create_br(b_null_false);
     builder->set_insert_point(b_null_false);
 
     auto it = scope.find(node.identifier->name);
-    //auto i = builder->create_alloca(IntegerType::get(32, module.get()));
+    // auto i = builder->create_alloca(IntegerType::get(32, module.get()));
     auto i_begin = CONST(0);
-    //builder->create_store(CONST(0), i);
+    // builder->create_store(CONST(0), i);
     auto len_func = scope.find_in_global("$len");
     auto t1 = builder->create_bitcast(list, ArrayType::get(union_len));
-    auto v_len = builder->create_call(len_func,{t1});
-    auto b= builder->get_insert_block();
+    auto v_len = builder->create_call(len_func, {t1});
+    auto b = builder->get_insert_block();
     auto b_cond = BasicBlock::create(module.get(), "", b->get_parent());
     auto b_body = BasicBlock::create(module.get(), "", b->get_parent());
     auto b_end = BasicBlock::create(module.get(), "", b->get_parent());
     builder->create_br(b_cond);
     builder->set_insert_point(b_cond);
-    //auto ii =builder->create_load(i);
+    // auto ii =builder->create_load(i);
     auto i = builder->create_phi(i32_type);
     i->set_lval(i_begin);
     i->add_phi_pair_operand(i_begin, b);
     b_cond->add_instr_begin(i);
-    auto cond=builder->create_icmp_lt(i, v_len);
+    auto cond = builder->create_icmp_lt(i, v_len);
     builder->create_cond_br(cond, b_body, b_end);
     builder->set_insert_point(b_body);
-    if (node.iterable->inferredType->get_name()=="str") {
+    if (node.iterable->inferredType->get_name() == "str") {
         auto p_str = builder->create_gep(list, CONST(4));
         auto str = builder->create_load(p_str);
         str->set_type(ArrayType::get(IntegerType::get(8, module.get())));
         auto p_char = builder->create_gep(str, i);
         auto i_char = builder->create_load(p_char);
-        vector<Value*> makestr_para;
+        vector<Value *> makestr_para;
         makestr_para.push_back(i_char);
-        auto t7=builder->create_call(makestr_fun,makestr_para);
+        auto t7 = builder->create_call(makestr_fun, makestr_para);
 
         builder->create_store(t7, it);
 
-        for(const auto& s:node.body) {
+        for (const auto &s : node.body) {
             s->accept(*this);
         }
     } else {
-        auto list_type=dynamic_cast<semantic::ListValueType*>(node.iterable->inferredType);
-        if (list_type!=nullptr) {
-            auto element_type=list_type->element_type;
+        auto list_type = dynamic_cast<semantic::ListValueType *>(
+            node.iterable->inferredType);
+        if (list_type != nullptr) {
+            auto element_type = list_type->element_type;
             auto p_actual_list = builder->create_gep(list, CONST(4));
-            p_actual_list->set_type(ArrayType::get(ArrayType::get(this->union_conslist)));
+            p_actual_list->set_type(
+                ArrayType::get(ArrayType::get(this->union_conslist)));
             auto actual_list = builder->create_load(p_actual_list);
             auto p_element = builder->create_gep(actual_list, i);
-            Type* type=nullptr;
-            if (element_type->get_name()=="int") {
-                type=i32_type;
-            } else if (element_type->get_name()=="bool") {
-                type=i1_type;
-            } else if (element_type->get_name()=="str") {
+            Type *type = nullptr;
+            if (element_type->get_name() == "int") {
+                type = i32_type;
+            } else if (element_type->get_name() == "bool") {
+                type = i1_type;
+            } else if (element_type->get_name() == "str") {
                 type = ArrayType::get(vstr_type);
             } else {
                 if (element_type->is_list_type()) {
-                    type=ArrayType::get(list_class);
+                    type = ArrayType::get(list_class);
                 } else {
-                    type=dynamic_cast<Type*>(scope.find_in_global(element_type->get_name()));
-                    assert(type!=nullptr);
-                    type=ArrayType::get(type);
+                    type = dynamic_cast<Type *>(
+                        scope.find_in_global(element_type->get_name()));
+                    assert(type != nullptr);
+                    type = ArrayType::get(type);
                 }
             }
             auto t1 = builder->create_bitcast(p_element, ArrayType::get(type));
-            auto t2= builder->create_load(t1);
+            auto t2 = builder->create_load(t1);
             builder->create_store(t2, it);
-            for(const auto& s:node.body) {
+            for (const auto &s : node.body) {
                 s->accept(*this);
             }
         }
     }
-    auto i_next =builder->create_iadd(i,CONST(1));
+    auto i_next = builder->create_iadd(i, CONST(1));
     i->add_phi_pair_operand(i_next, builder->get_insert_block());
-    //builder->create_store(ni, i);
+    // builder->create_store(ni, i);
     builder->create_br(b_cond);
     builder->set_insert_point(b_end);
 }
 void LightWalker::visit(parser::FuncDef &node) {
-    auto& func_name = node.get_id()->name;
-    auto func_def_type = sym->declares<semantic::FunctionDefType*>(func_name);
+    auto &func_name = node.get_id()->name;
+    auto func_def_type = sym->declares<semantic::FunctionDefType *>(func_name);
     assert(func_def_type);
     auto unique_func_name = get_nested_func_name(func_def_type);
     // std::cerr << "enter " << unique_func_name << std::endl;
 
-    Function* func;
-    Class* anon = nullptr;
+    Function *func;
+    Class *anon = nullptr;
     if (!scope.in_global()) {
-        func = dynamic_cast<Function*>(scope.find(func_name));
-        anon = dynamic_cast<Class*>(func->get_function_type()->get_arg_type(0)->get_ptr_element_type());
+        func = dynamic_cast<Function *>(scope.find(func_name));
+        anon = dynamic_cast<Class *>(
+            func->get_function_type()->get_arg_type(0)->get_ptr_element_type());
         assert(anon);
         assert(func);
     } else {
-        auto is_method = unique_func_name.find("$$METHOD$$") != std::string::npos;
-        func = dynamic_cast<Function*>(scope.find_in_global(is_method ? unique_func_name : func_name));
+        auto is_method =
+            unique_func_name.find("$$METHOD$$") != std::string::npos;
+        func = dynamic_cast<Function *>(
+            scope.find_in_global(is_method ? unique_func_name : func_name));
         assert(func);
     }
-    auto& arg_types = func->get_function_type()->args_;
+    auto &arg_types = func->get_function_type()->args_;
 
     auto saved_b = builder->get_insert_block();
     auto b = BasicBlock::create(module.get(), "", func);
@@ -948,20 +1016,24 @@ void LightWalker::visit(parser::FuncDef &node) {
     scope.enter();
     auto saved_sym = sym;
     sym = func_def_type->current_scope;
-    for (const auto& decl : node.declarations) {
-        if (auto node = dynamic_cast<parser::FuncDef*>(decl.get()); node) {
+    for (const auto &decl : node.declarations) {
+        if (auto node = dynamic_cast<parser::FuncDef *>(decl.get()); node) {
             // lambda function
-            auto& func_name = node->get_id()->name;
-            auto func_def_type = sym->declares<semantic::FunctionDefType*>(func_name);
+            auto &func_name = node->get_id()->name;
+            auto func_def_type =
+                sym->declares<semantic::FunctionDefType *>(func_name);
             assert(func_def_type);
             auto unique_func_name = get_nested_func_name(func_def_type);
 
-            auto func_type = dynamic_cast<FunctionType*>(semantic_type_to_llvm_type(func_def_type));
+            auto func_type = dynamic_cast<FunctionType *>(
+                semantic_type_to_llvm_type(func_def_type));
             assert(func_type);
             auto anon = new Class(module.get(), unique_func_name, true);
-            func_type->args_.insert(func_type->args_.begin(), ArrayType::get(anon));
+            func_type->args_.insert(func_type->args_.begin(),
+                                    ArrayType::get(anon));
 
-            auto func = Function::create(func_type, unique_func_name, module.get());
+            auto func =
+                Function::create(func_type, unique_func_name, module.get());
             scope.push(func_name, func);
 
             auto class_instance = builder->create_alloca(anon);
@@ -973,34 +1045,36 @@ void LightWalker::visit(parser::FuncDef &node) {
         builder->set_insert_point(saved_b);
         auto arg = new Value(arg_types[0], "arg0");
         auto class_instance = scope.find(func_name + "$anon");
-        for(int i = 0; i < node.lambda_params.size(); i++) {
-            auto& capture_name = node.lambda_params.at(i);
+        for (int i = 0; i < node.lambda_params.size(); i++) {
+            auto &capture_name = node.lambda_params.at(i);
             auto capture_value = scope.find(capture_name);
             assert(capture_value);
 
             auto capture_type = capture_value->get_type();
-            if (dynamic_cast<Function*>(capture_value)) {
-                auto capture_func = (Function*)capture_value;
+            if (dynamic_cast<Function *>(capture_value)) {
+                auto capture_func = (Function *)capture_value;
                 auto capture_value = scope.find(capture_name + "$anon");
                 assert(capture_value);
                 capture_type = capture_value->get_type();
             }
             assert(capture_type);
 
-            // std::cerr << unique_func_name << " add attr " << capture_name << " of type " << capture_type->print() << ' ' << std::endl;
-            anon->add_attribute(new AttrInfo(capture_type, capture_name, ConstantNull::get(capture_type)));
-            
+            // std::cerr << unique_func_name << " add attr " << capture_name <<
+            // " of type " << capture_type->print() << ' ' << std::endl;
+            anon->add_attribute(new AttrInfo(capture_type, capture_name,
+                                             ConstantNull::get(capture_type)));
+
             auto addr = builder->create_gep(class_instance, CONST(i));
             auto v = scope.find(capture_name);
-            if (dynamic_cast<Function*>(v)) {
+            if (dynamic_cast<Function *>(v)) {
                 v = scope.find(capture_name + "$anon");
             }
             builder->create_store(v, addr);
         }
 
         builder->set_insert_point(b);
-        for(int i = 0; i < node.lambda_params.size(); i++) {
-            auto& capture_name = node.lambda_params.at(i);
+        for (int i = 0; i < node.lambda_params.size(); i++) {
+            auto &capture_name = node.lambda_params.at(i);
             auto t = builder->create_gep(arg, CONST(i));
             auto v = builder->create_load(t);
             if (v->get_type()->get_ptr_element_type()->is_class_anon()) {
@@ -1011,44 +1085,47 @@ void LightWalker::visit(parser::FuncDef &node) {
         }
     }
 
-    for (int i = 0, arg_num = anon ? 1 : 0; i < node.params.size(); i++, arg_num++) {
+    for (int i = 0, arg_num = anon ? 1 : 0; i < node.params.size();
+         i++, arg_num++) {
         auto arg_type = arg_types[arg_num];
-        const auto& arg = node.params.at(i);
+        const auto &arg = node.params.at(i);
         auto alloca = builder->create_alloca(arg_type);
-        builder->create_store(new Value(arg_type, "arg" + std::to_string(arg_num)),alloca);
+        builder->create_store(
+            new Value(arg_type, "arg" + std::to_string(arg_num)), alloca);
         scope.push(arg->identifier->name, alloca);
     }
-    Instruction* temp_conslist = builder->create_alloca(union_conslist);
+    Instruction *temp_conslist = builder->create_alloca(union_conslist);
     scope.push("$temp_conslist", temp_conslist);
 
-
-    for (const auto& decl : node.declarations) {
-        if (auto node = dynamic_cast<parser::VarDef*>(decl.get()); node) {
+    for (const auto &decl : node.declarations) {
+        if (auto node = dynamic_cast<parser::VarDef *>(decl.get()); node) {
             decl->accept(*this);
         }
     }
-    for (const auto& decl : node.declarations) {
-        if (auto node = dynamic_cast<parser::VarDef*>(decl.get()); node) {
+    for (const auto &decl : node.declarations) {
+        if (auto node = dynamic_cast<parser::VarDef *>(decl.get()); node) {
         } else {
             decl->accept(*this);
         }
     }
-    for (const auto& stmt : node.statements) {
+    for (const auto &stmt : node.statements) {
         stmt->accept(*this);
     }
 
-    if (node.returnType->get_name() != "int" && node.returnType->get_name() != "bool" && node.returnType->get_name() != "str") {
-        builder->create_ret(new ConstantNull(func->get_function_type()->get_return_type()));
+    if (node.returnType->get_name() != "int" &&
+        node.returnType->get_name() != "bool" &&
+        node.returnType->get_name() != "str") {
+        builder->create_ret(
+            new ConstantNull(func->get_function_type()->get_return_type()));
     }
     builder->set_insert_point(saved_b);
     scope.exit();
     sym = saved_sym;
 }
-void LightWalker::visit(parser::GlobalDecl &) { }
-void LightWalker::visit(parser::Ident &node) 
-{
-    //TODO: LightWalker for Ident
-    //NOTE: List Or Class is not implemented.
+void LightWalker::visit(parser::GlobalDecl &) {}
+void LightWalker::visit(parser::Ident &node) {
+    // TODO: LightWalker for Ident
+    // NOTE: List Or Class is not implemented.
 
     // Local var
     auto v = scope.find(node.name);
@@ -1069,132 +1146,146 @@ void LightWalker::visit(parser::Ident &node)
     } else {
         auto v = scope.find_in_global(node.name);
         auto t = builder->create_load(v);
-        visitor_return_value = t;        
+        visitor_return_value = t;
     }
 }
-void LightWalker::visit(parser::IfExpr &node) 
-{
+void LightWalker::visit(parser::IfExpr &node) {
     node.condition->accept(*this);
     auto cond = visitor_return_value;
-    Instruction* res=nullptr;
+    Instruction *res = nullptr;
     auto b = builder->get_insert_block();
-    auto b_true = BasicBlock::create(module.get(),"",b->get_parent());
-    auto b_false = BasicBlock::create(module.get(),"",b->get_parent());
-    auto b_end = BasicBlock::create(module.get(),"",b->get_parent());
+    auto b_true = BasicBlock::create(module.get(), "", b->get_parent());
+    auto b_false = BasicBlock::create(module.get(), "", b->get_parent());
+    auto b_end = BasicBlock::create(module.get(), "", b->get_parent());
     builder->create_cond_br(cond, b_true, b_false);
     builder->set_insert_point(b_true);
     node.thenExpr->accept(*this);
     auto b_true_end = builder->get_insert_block();
-    auto v_true =  visitor_return_value;
-    if (node.thenExpr->inferredType->get_name()=="int" && node.inferredType->get_name()!="int") {
-        v_true = builder->create_call(makeint_fun,{v_true});
-    } else if (node.thenExpr->inferredType->get_name()=="bool" && node.inferredType->get_name()!="bool") {
-        v_true = builder->create_call(makebool_fun,{v_true});
+    auto v_true = visitor_return_value;
+    if (node.thenExpr->inferredType->get_name() == "int" &&
+        node.inferredType->get_name() != "int") {
+        v_true = builder->create_call(makeint_fun, {v_true});
+    } else if (node.thenExpr->inferredType->get_name() == "bool" &&
+               node.inferredType->get_name() != "bool") {
+        v_true = builder->create_call(makebool_fun, {v_true});
     }
     builder->create_br(b_end);
     builder->set_insert_point(b_false);
     node.elseExpr->accept(*this);
     auto b_false_end = builder->get_insert_block();
     auto v_false = visitor_return_value;
-    if (node.elseExpr->inferredType->get_name()=="int" && node.inferredType->get_name()!="int") {
-        v_false = builder->create_call(makeint_fun,{v_false});
-    } else if (node.elseExpr->inferredType->get_name()=="bool" && node.inferredType->get_name()!="bool") {
-        v_false = builder->create_call(makebool_fun,{v_false});
+    if (node.elseExpr->inferredType->get_name() == "int" &&
+        node.inferredType->get_name() != "int") {
+        v_false = builder->create_call(makeint_fun, {v_false});
+    } else if (node.elseExpr->inferredType->get_name() == "bool" &&
+               node.inferredType->get_name() != "bool") {
+        v_false = builder->create_call(makebool_fun, {v_false});
     }
     builder->create_br(b_end);
     builder->set_insert_point(b_end);
-    auto phi=builder->create_phi(v_true->get_type());
+    auto phi = builder->create_phi(v_true->get_type());
     phi->set_lval(v_true);
     phi->add_phi_pair_operand(v_true, b_true_end);
     phi->add_phi_pair_operand(v_false, b_false_end);
     b_end->add_instr_begin(phi);
-    visitor_return_value=phi;
+    visitor_return_value = phi;
 }
-void LightWalker::visit(parser::IntegerLiteral &node)
-{
+void LightWalker::visit(parser::IntegerLiteral &node) {
     auto C = CONST(node.value);
     visitor_return_value = C;
 }
-void LightWalker::visit(parser::ListExpr &node) 
-{
-    auto type=dynamic_cast<semantic::ListValueType*>(node.inferredType);
-    vector<Value*> para;
-    if (type==nullptr) {
+void LightWalker::visit(parser::ListExpr &node) {
+    auto type = dynamic_cast<semantic::ListValueType *>(node.inferredType);
+    vector<Value *> para;
+    if (type == nullptr) {
         para.push_back(CONST(0));
-        //Instruction* temp_conslist=builder->create_alloca(union_conslist);
-        auto temp_conslist= scope.find("$temp_conslist");
-        Instruction* t=builder->create_bitcast(temp_conslist, ArrayType::get(IntegerType::get(32,module.get())));
-        builder->create_store(CONST(0),t);
-        t=builder->create_bitcast(t, ArrayType::get(union_conslist));
-        t=builder->create_load(t);
+        // Instruction* temp_conslist=builder->create_alloca(union_conslist);
+        auto temp_conslist = scope.find("$temp_conslist");
+        Instruction *t = builder->create_bitcast(
+            temp_conslist, ArrayType::get(IntegerType::get(32, module.get())));
+        builder->create_store(CONST(0), t);
+        t = builder->create_bitcast(t, ArrayType::get(union_conslist));
+        t = builder->create_load(t);
         para.push_back(t);
     } else {
-        auto element_type=type->element_type;
+        auto element_type = type->element_type;
         para.push_back(CONST(int(node.elements.size())));
-        //Instruction* temp_conslist=builder->create_alloca(union_conslist);
-        auto temp_conslist= scope.find("$temp_conslist");
-        for(const auto& i:node.elements) {
+        // Instruction* temp_conslist=builder->create_alloca(union_conslist);
+        auto temp_conslist = scope.find("$temp_conslist");
+        for (const auto &i : node.elements) {
             i->accept(*this);
-            auto v=visitor_return_value;
-            if (element_type->get_name()=="int") {
-                Instruction* t=builder->create_bitcast(temp_conslist, ArrayType::get(IntegerType::get(32,module.get())));
-                builder->create_store(v,t);
-                t=builder->create_bitcast(t, ArrayType::get(union_conslist));
-                t=builder->create_load(t);
+            auto v = visitor_return_value;
+            if (element_type->get_name() == "int") {
+                Instruction *t = builder->create_bitcast(
+                    temp_conslist,
+                    ArrayType::get(IntegerType::get(32, module.get())));
+                builder->create_store(v, t);
+                t = builder->create_bitcast(t, ArrayType::get(union_conslist));
+                t = builder->create_load(t);
                 para.push_back(t);
-            } else if (element_type->get_name()=="bool") {
-                Instruction* t=builder->create_bitcast(temp_conslist, ArrayType::get(IntegerType::get(32,module.get())));
-                auto v_32 = builder->create_zext(v, IntegerType::get(32,module.get()));
-                builder->create_store(v_32,t);
-                t=builder->create_bitcast(t, ArrayType::get(union_conslist));
-                t=builder->create_load(t);
+            } else if (element_type->get_name() == "bool") {
+                Instruction *t = builder->create_bitcast(
+                    temp_conslist,
+                    ArrayType::get(IntegerType::get(32, module.get())));
+                auto v_32 =
+                    builder->create_zext(v, IntegerType::get(32, module.get()));
+                builder->create_store(v_32, t);
+                t = builder->create_bitcast(t, ArrayType::get(union_conslist));
+                t = builder->create_load(t);
                 para.push_back(t);
             } else {
-                if (i->inferredType->get_name()=="int") {
-                    v=builder->create_call(makeint_fun,{v});
-                } else if (i->inferredType->get_name()=="bool") {
-                    v=builder->create_call(makebool_fun,{v});
+                if (i->inferredType->get_name() == "int") {
+                    v = builder->create_call(makeint_fun, {v});
+                } else if (i->inferredType->get_name() == "bool") {
+                    v = builder->create_call(makebool_fun, {v});
                 }
-                Instruction* t=builder->create_bitcast(temp_conslist, ArrayType::get(ArrayType::get(IntegerType::get(32,module.get()))));
-                auto v2=builder->create_bitcast(v, ArrayType::get(IntegerType::get(32,module.get())));
+                Instruction *t = builder->create_bitcast(
+                    temp_conslist, ArrayType::get(ArrayType::get(
+                                       IntegerType::get(32, module.get()))));
+                auto v2 = builder->create_bitcast(
+                    v, ArrayType::get(IntegerType::get(32, module.get())));
                 builder->create_store(v2, t);
-                t=builder->create_bitcast(t, ArrayType::get(union_conslist));
-                t=builder->create_load(t);
+                t = builder->create_bitcast(t, ArrayType::get(union_conslist));
+                t = builder->create_load(t);
                 para.push_back(t);
             }
         }
     }
-    Instruction* list=builder->create_call(conslist_fun,para);
-    list=builder->create_bitcast(list, ArrayType::get(ArrayType::get(list_class)));
+    Instruction *list = builder->create_call(conslist_fun, para);
+    list = builder->create_bitcast(list,
+                                   ArrayType::get(ArrayType::get(list_class)));
     list = builder->create_load(list);
     visitor_return_value = list;
-
 }
 void LightWalker::visit(parser::ListType &node) {
     visitor_return_type = ArrayType::get(list_class);
 }
 void LightWalker::visit(parser::MemberExpr &node) {
-    const auto param_get_lvalue = get_lvalue;    
+    const auto param_get_lvalue = get_lvalue;
     get_lvalue = false, visitor_return_value = nullptr;
     node.object->accept(*this);
     auto obj = visitor_return_value;
     assert(obj);
-    auto class_type = dynamic_cast<Class*>(scope.find_in_global(node.object->inferredType->get_name()));
+    auto class_type = dynamic_cast<Class *>(
+        scope.find_in_global(node.object->inferredType->get_name()));
     assert(class_type);
 
-    auto is_none = builder->create_icmp_eq(obj, ConstantNull::get(obj->get_type()));
+    auto is_none =
+        builder->create_icmp_eq(obj, ConstantNull::get(obj->get_type()));
     auto b = builder->get_insert_block();
-    auto b_true = BasicBlock::create(module.get(),"",b->get_parent());
-    auto b_end = BasicBlock::create(module.get(),"",b->get_parent());
+    auto b_true = BasicBlock::create(module.get(), "", b->get_parent());
+    auto b_end = BasicBlock::create(module.get(), "", b->get_parent());
     builder->create_cond_br(is_none, b_true, b_end);
     builder->set_insert_point(b_true);
     builder->create_call(scope.find_in_global("error.None"), {});
     builder->create_br(b_end);
     builder->set_insert_point(b_end);
 
-    if (class_type->get_attr_offset(node.member->name) < class_type->get_attribute()->size()) {
+    if (class_type->get_attr_offset(node.member->name) <
+        class_type->get_attribute()->size()) {
         // member is a attribute
-        auto v = builder->create_gep(obj, CONST(3 + class_type->get_attr_offset(node.member->name)));
+        auto v = builder->create_gep(
+            obj, CONST(3 + class_type->get_attr_offset(node.member->name)));
         if (param_get_lvalue) {
             visitor_return_value = v;
         } else {
@@ -1216,64 +1307,67 @@ void LightWalker::visit(parser::MemberExpr &node) {
         visitor_return_type = func_type;
     }
 }
-void LightWalker::visit(parser::IfStmt &node)
-{
+void LightWalker::visit(parser::IfStmt &node) {
     node.condition->accept(*this);
     auto cond = visitor_return_value;
     auto b = builder->get_insert_block();
-    auto b_true = BasicBlock::create(module.get(),"",b->get_parent());
-    auto b_end = BasicBlock::create(module.get(),"",b->get_parent());
+    auto b_true = BasicBlock::create(module.get(), "", b->get_parent());
+    auto b_end = BasicBlock::create(module.get(), "", b->get_parent());
     if (node.el == parser::IfStmt::cond::THEN) {
         builder->create_cond_br(cond, b_true, b_end);
         builder->set_insert_point(b_true);
-        for(const auto& stmt : node.thenBody) {
+        for (const auto &stmt : node.thenBody) {
             stmt->accept(*this);
         }
         builder->create_br(b_end);
     } else {
-        auto b_false = BasicBlock::create(module.get(),"",b->get_parent());
+        auto b_false = BasicBlock::create(module.get(), "", b->get_parent());
         builder->create_cond_br(cond, b_true, b_false);
         builder->set_insert_point(b_true);
-        for(const auto& stmt : node.thenBody) {
+        for (const auto &stmt : node.thenBody) {
             stmt->accept(*this);
         }
         builder->create_br(b_end);
         builder->set_insert_point(b_false);
         if (node.el == parser::IfStmt::cond::THEN_ELSE) {
-            for(const auto& stmt : node.elseBody) {
+            for (const auto &stmt : node.elseBody) {
                 stmt->accept(*this);
             }
         } else {
             node.elifBody->accept(*this);
         }
         builder->create_br(b_end);
-    } 
+    }
     builder->set_insert_point(b_end);
 }
 void LightWalker::visit(parser::MethodCallExpr &node) {
-    visitor_return_object = nullptr; visitor_return_value = nullptr; visitor_return_type = nullptr; node.method->accept(*this);
+    visitor_return_object = nullptr;
+    visitor_return_value = nullptr;
+    visitor_return_type = nullptr;
+    node.method->accept(*this);
     assert(visitor_return_value);
     auto func = visitor_return_value;
     auto func_type = visitor_return_type;
 
-    std::vector<Value*> args{visitor_return_object};
-    for (const auto& arg : node.args) {
+    std::vector<Value *> args{visitor_return_object};
+    for (const auto &arg : node.args) {
         visitor_return_value = nullptr;
         arg->accept(*this);
         assert(visitor_return_value);
         args.push_back(this->visitor_return_value);
     }
-    visitor_return_value = builder->create_call(func, func_type, std::move(args));
+    visitor_return_value =
+        builder->create_call(func, func_type, std::move(args));
 }
-void LightWalker::visit(parser::NoneLiteral &node) 
-{
-    auto t1 = builder->create_call(noconv_fun,vector<Value*>());
+void LightWalker::visit(parser::NoneLiteral &node) {
+    auto t1 = builder->create_call(noconv_fun, vector<Value *>());
     visitor_return_value = t1;
 }
-void LightWalker::visit(parser::NonlocalDecl &) { }
+void LightWalker::visit(parser::NonlocalDecl &) {}
 void LightWalker::visit(parser::ReturnStmt &node) {
     if (node.value == nullptr) {
-        builder->create_ret(new ConstantNull(ArrayType::get((Class*)scope.find_in_global("object"))));
+        builder->create_ret(new ConstantNull(
+            ArrayType::get((Class *)scope.find_in_global("object"))));
         return;
     }
     visitor_return_value = nullptr;
@@ -1281,36 +1375,31 @@ void LightWalker::visit(parser::ReturnStmt &node) {
     assert(visitor_return_value);
     builder->create_ret(visitor_return_value);
 }
-void LightWalker::visit(parser::StringLiteral &node)
-{
-    int id=get_const_type_id();
-    auto C=ConstantStr::get(node.value, id, module.get());
-    auto t=GlobalVariable::create("const_"+std::to_string(id),module.get(),C);
+void LightWalker::visit(parser::StringLiteral &node) {
+    int id = get_const_type_id();
+    auto C = ConstantStr::get(node.value, id, module.get());
+    auto t =
+        GlobalVariable::create("const_" + std::to_string(id), module.get(), C);
     auto ptr_type = ptr_vstr_type;
     t->set_type(ptr_type);
-    auto p = GlobalVariable::create(
-        "ptr_const_"+std::to_string(id),
-        module.get(),
-        ptr_type,
-        false,
-        ConstantNull::get(ptr_type)
-    );
-    //std::cerr<<p->get_type()->print()<<"\n";
+    auto p =
+        GlobalVariable::create("ptr_const_" + std::to_string(id), module.get(),
+                               ptr_type, false, ConstantNull::get(ptr_type));
+    // std::cerr<<p->get_type()->print()<<"\n";
     builder->create_store(t, p);
-    auto p2=builder->create_load(p);
-    
+    auto p2 = builder->create_load(p);
+
     visitor_return_value = p2;
 }
-void LightWalker::visit(parser::TypeAnnotation &){}
+void LightWalker::visit(parser::TypeAnnotation &) {}
 void LightWalker::visit(parser::TypedVar &) {}
-void LightWalker::visit(parser::UnaryExpr &node) 
-{
+void LightWalker::visit(parser::UnaryExpr &node) {
     node.operand->accept(*this);
-    auto v=visitor_return_value;
-    Instruction *res=nullptr;
-    if (node.operator_=="-") {
+    auto v = visitor_return_value;
+    Instruction *res = nullptr;
+    if (node.operator_ == "-") {
         res = builder->create_ineg(v);
-    } else if (node.operator_=="not") {
+    } else if (node.operator_ == "not") {
         res = builder->create_not(v);
         res->set_type(i1_type);
     } else {
@@ -1318,246 +1407,237 @@ void LightWalker::visit(parser::UnaryExpr &node)
     }
     visitor_return_value = res;
 }
-GlobalVariable* LightWalker::generate_init_object(parser::Literal *literal) {
-    int const_id=get_const_type_id();
-    string const_name = "const_"+std::to_string(const_id);
-    if (auto s = dynamic_cast<parser::StringLiteral*>(literal); s) {
-        auto g=GlobalVariable::create(
-            const_name,
-            module.get(),
-            ConstantStr::get(s->value,const_id,module.get())
-        );
+GlobalVariable *LightWalker::generate_init_object(parser::Literal *literal) {
+    int const_id = get_const_type_id();
+    string const_name = "const_" + std::to_string(const_id);
+    if (auto s = dynamic_cast<parser::StringLiteral *>(literal); s) {
+        auto g = GlobalVariable::create(
+            const_name, module.get(),
+            ConstantStr::get(s->value, const_id, module.get()));
         g->set_type(ptr_vstr_type);
         return g;
-    } else if (auto i = dynamic_cast<parser::IntegerLiteral*>(literal); i) {
+    } else if (auto i = dynamic_cast<parser::IntegerLiteral *>(literal); i) {
         auto g = GlobalVariable::create(
-            const_name,
-            module.get(),
-            ConstantBoxInt::get(int_class, i->int_value, const_id)
-        );
+            const_name, module.get(),
+            ConstantBoxInt::get(int_class, i->int_value, const_id));
         g->set_type(ArrayType::get(int_class));
         return g;
-    } else if (auto b = dynamic_cast<parser::BoolLiteral*>(literal); b) {
+    } else if (auto b = dynamic_cast<parser::BoolLiteral *>(literal); b) {
         auto g = GlobalVariable::create(
-            const_name,
-            module.get(),
-            ConstantBoxBool::get(bool_class, b->bin_value, const_id)
-        );
+            const_name, module.get(),
+            ConstantBoxBool::get(bool_class, b->bin_value, const_id));
         g->set_type(ArrayType::get(bool_class));
         return g;
     } else {
         assert(0);
     }
 }
-void LightWalker::visit(parser::VarDef & node) 
-{
+void LightWalker::visit(parser::VarDef &node) {
     if (scope.in_global()) {
         GlobalVariable *t;
-        if (node.var->type->get_name()=="int") {
-            t=GlobalVariable::create(
-                node.var->identifier->name,
-                module.get(),
-                IntegerType::get(32, module.get()),
-                false,
-                ConstantInt::get(node.value->int_value,module.get())
-                );
-        } else if (node.var->type->get_name()=="bool") {
-            const auto b = dynamic_cast<parser::BoolLiteral*>(node.value.get());
-            assert(b);
-            t=GlobalVariable::create(
-                node.var->identifier->name,
-                module.get(),
-                IntegerType::get(1, module.get()),
-                false,
-                ConstantInt::get(b->bin_value,module.get())
-                );
-        } else if (node.var->type->kind == "ClassType") {
-            const auto& class_name = node.var->type->get_name();
-            auto init_value_type_name = node.value->inferredType->get_name();
-            const auto class_type = dynamic_cast<Class*>(scope.find_in_global(class_name));
-            assert(class_type);
-            const auto var_type = init_value_type_name == "str" ? ptr_vstr_type : ArrayType::get(class_type);
-            const auto init_val = ConstantNull::get(var_type);
+        if (node.var->type->get_name() == "int") {
             t = GlobalVariable::create(
-                node.var->identifier->name,
-                module.get(),
-                var_type,
-                false,
-                init_val
-            );
+                node.var->identifier->name, module.get(),
+                IntegerType::get(32, module.get()), false,
+                ConstantInt::get(node.value->int_value, module.get()));
+        } else if (node.var->type->get_name() == "bool") {
+            const auto b =
+                dynamic_cast<parser::BoolLiteral *>(node.value.get());
+            assert(b);
+            t = GlobalVariable::create(
+                node.var->identifier->name, module.get(),
+                IntegerType::get(1, module.get()), false,
+                ConstantInt::get(b->bin_value, module.get()));
+        } else if (node.var->type->kind == "ClassType") {
+            const auto &class_name = node.var->type->get_name();
+            auto init_value_type_name = node.value->inferredType->get_name();
+            const auto class_type =
+                dynamic_cast<Class *>(scope.find_in_global(class_name));
+            assert(class_type);
+            const auto var_type = init_value_type_name == "str"
+                                      ? ptr_vstr_type
+                                      : ArrayType::get(class_type);
+            const auto init_val = ConstantNull::get(var_type);
+            t = GlobalVariable::create(node.var->identifier->name, module.get(),
+                                       var_type, false, init_val);
             if (init_value_type_name == "<None>") {
                 builder->create_store(null, t);
-            } else if (init_value_type_name == "int" || init_value_type_name == "str" || init_value_type_name == "bool") {
-                auto g= generate_init_object(node.value.get());
-                builder->create_store(g, t); // 这里为什么用 store 而不是直接给 t 一个初值呢？因为框架限制，ddl 到了没时间重构
+            } else if (init_value_type_name == "int" ||
+                       init_value_type_name == "str" ||
+                       init_value_type_name == "bool") {
+                auto g = generate_init_object(node.value.get());
+                builder->create_store(
+                    g, t);  // 这里为什么用 store 而不是直接给 t
+                            // 一个初值呢？因为框架限制，ddl 到了没时间重构
             } else {
                 assert(0);
             }
-        } else if (dynamic_cast<parser::ListType*>(node.var->type.get())) {
+        } else if (dynamic_cast<parser::ListType *>(node.var->type.get())) {
             auto ptr_list_type = ArrayType::get(list_class);
-            t=GlobalVariable::create(
-                node.var->identifier->name,
-                module.get(),
-                ptr_list_type,
-                false,
-                ConstantNull::get(ptr_list_type)
-            );
+            t = GlobalVariable::create(node.var->identifier->name, module.get(),
+                                       ptr_list_type, false,
+                                       ConstantNull::get(ptr_list_type));
             builder->create_store(null, t);
         }
         scope.push_in_global(node.var->identifier->name, t);
     } else {
-        Value * t;
-        if (node.var->type->get_name()=="int") {
+        Value *t;
+        if (node.var->type->get_name() == "int") {
             t = builder->create_alloca(IntegerType::get(32, module.get()));
             builder->create_store(
-                ConstantInt::get(node.value->int_value,module.get()),
-                t
-            );
-        } else if (node.var->type->get_name()=="bool") {
-            auto b = dynamic_cast<parser::BoolLiteral*>(node.value.get());
+                ConstantInt::get(node.value->int_value, module.get()), t);
+        } else if (node.var->type->get_name() == "bool") {
+            auto b = dynamic_cast<parser::BoolLiteral *>(node.value.get());
             assert(b);
             t = builder->create_alloca(IntegerType::get(1, module.get()));
-            builder->create_store(
-                ConstantInt::get(b->bin_value,module.get()),
-                t
-            );
+            builder->create_store(ConstantInt::get(b->bin_value, module.get()),
+                                  t);
         } else if (node.var->type->kind == "ClassType") {
-            const auto& class_name = node.var->type->get_name();
+            const auto &class_name = node.var->type->get_name();
             auto init_value_type_name = node.value->inferredType->get_name();
-            const auto class_type = dynamic_cast<Class*>(scope.find_in_global(class_name));
+            const auto class_type =
+                dynamic_cast<Class *>(scope.find_in_global(class_name));
             assert(class_type);
-            const auto var_type = init_value_type_name == "str" ? ptr_vstr_type : ArrayType::get(class_type);
+            const auto var_type = init_value_type_name == "str"
+                                      ? ptr_vstr_type
+                                      : ArrayType::get(class_type);
             t = builder->create_alloca(var_type);
 
             if (init_value_type_name == "<None>") {
                 const auto init_val = ConstantNull::get(var_type);
                 builder->create_store(init_val, t);
-            } else if (init_value_type_name == "int" || init_value_type_name == "str" || init_value_type_name == "bool") {
-                auto g= generate_init_object(node.value.get());
+            } else if (init_value_type_name == "int" ||
+                       init_value_type_name == "str" ||
+                       init_value_type_name == "bool") {
+                auto g = generate_init_object(node.value.get());
                 builder->create_store(g, t);
             } else {
                 assert(0);
             }
-        } else if (auto list_type=dynamic_cast<parser::ListType*>(node.var->type.get())) {
+        } else if (auto list_type =
+                       dynamic_cast<parser::ListType *>(node.var->type.get())) {
             auto ptr_list_type = ArrayType::get(list_class);
             t = builder->create_alloca(ptr_list_type);
             builder->create_store(ConstantNull::get(ptr_list_type), t);
         } else {
             assert(0);
         }
-        scope.push(node.var->identifier->name,t);
+        scope.push(node.var->identifier->name, t);
     }
 }
-void LightWalker::visit(parser::WhileStmt &node) 
-{
-    auto before=builder->get_insert_block();
-    auto b_cond=BasicBlock::create(module.get(),"",before->get_parent());
-    auto b_body=BasicBlock::create(module.get(),"",before->get_parent());
-    auto b_end=BasicBlock::create(module.get(),"",before->get_parent());
+void LightWalker::visit(parser::WhileStmt &node) {
+    auto before = builder->get_insert_block();
+    auto b_cond = BasicBlock::create(module.get(), "", before->get_parent());
+    auto b_body = BasicBlock::create(module.get(), "", before->get_parent());
+    auto b_end = BasicBlock::create(module.get(), "", before->get_parent());
     builder->create_br(b_cond);
     builder->set_insert_point(b_cond);
     node.condition->accept(*this);
-    auto cond=visitor_return_value;
-    builder->create_cond_br(cond,b_body,b_end);
+    auto cond = visitor_return_value;
+    builder->create_cond_br(cond, b_body, b_end);
     builder->set_insert_point(b_body);
-    for(const auto& stmt : node.body) {
+    for (const auto &stmt : node.body) {
         stmt->accept(*this);
     }
     builder->create_br(b_cond);
     builder->set_insert_point(b_end);
 }
-void LightWalker::visit(parser::Errors &) {};
-void LightWalker::visit(parser::Node &) {};
-void LightWalker::visit(parser::IndexExpr &node)
-{
-    bool is_get_lvalue=get_lvalue;
-    get_lvalue=false;
+void LightWalker::visit(parser::Errors &){};
+void LightWalker::visit(parser::Node &){};
+void LightWalker::visit(parser::IndexExpr &node) {
+    bool is_get_lvalue = get_lvalue;
+    get_lvalue = false;
     node.list->accept(*this);
-    auto list=visitor_return_value;
+    auto list = visitor_return_value;
     node.index->accept(*this);
-    auto idx=visitor_return_value;
+    auto idx = visitor_return_value;
 
-    auto null= builder->create_call(noconv_fun,vector<Value*>());
-    auto cond_null=builder->create_icmp_eq(list, null);
+    auto null = builder->create_call(noconv_fun, vector<Value *>());
+    auto cond_null = builder->create_icmp_eq(list, null);
     auto b_before_null = builder->get_insert_block();
-    auto b_null_true= BasicBlock::create(module.get(), "", b_before_null->get_parent());
-    auto b_null_false = BasicBlock::create(module.get(), "", b_before_null->get_parent());
+    auto b_null_true =
+        BasicBlock::create(module.get(), "", b_before_null->get_parent());
+    auto b_null_false =
+        BasicBlock::create(module.get(), "", b_before_null->get_parent());
     builder->create_cond_br(cond_null, b_null_true, b_null_false);
     builder->set_insert_point(b_null_true);
-    auto none_func=scope.find_in_global("error.None");
-    builder->create_call(none_func,vector<Value*>());
+    auto none_func = scope.find_in_global("error.None");
+    builder->create_call(none_func, vector<Value *>());
     builder->create_br(b_null_false);
     builder->set_insert_point(b_null_false);
 
     auto len_func = scope.find_in_global("$len");
     auto t1 = builder->create_bitcast(list, ArrayType::get(union_len));
-    auto v_len = builder->create_call(len_func,{t1});
-    auto b= builder->get_insert_block();
+    auto v_len = builder->create_call(len_func, {t1});
+    auto b = builder->get_insert_block();
     auto b_oob = BasicBlock::create(module.get(), "", b->get_parent());
     auto b_1 = BasicBlock::create(module.get(), "", b->get_parent());
-    auto cond_1= builder->create_icmp_ge(idx, v_len);
+    auto cond_1 = builder->create_icmp_ge(idx, v_len);
     auto cond_2 = builder->create_icmp_lt(idx, CONST(0));
     auto cond = builder->create_ior(cond_1, cond_2);
     cond->set_type(i1_type);
     builder->create_cond_br(cond, b_oob, b_1);
     builder->set_insert_point(b_oob);
-    auto oob_func=scope.find_in_global("error.OOB");
-    builder->create_call(oob_func,vector<Value*>());
+    auto oob_func = scope.find_in_global("error.OOB");
+    builder->create_call(oob_func, vector<Value *>());
     builder->create_br(b_1);
     builder->set_insert_point(b_1);
-    if (node.list->inferredType->get_name()=="str") {
+    if (node.list->inferredType->get_name() == "str") {
         assert(!is_get_lvalue);
         auto p_str = builder->create_gep(list, CONST(4));
         auto str = builder->create_load(p_str);
         str->set_type(ArrayType::get(IntegerType::get(8, module.get())));
         auto p_char = builder->create_gep(str, idx);
         auto i_char = builder->create_load(p_char);
-        vector<Value*> makestr_para;
+        vector<Value *> makestr_para;
         makestr_para.push_back(i_char);
-        auto t7=builder->create_call(makestr_fun,makestr_para);
-        visitor_return_value=t7;
+        auto t7 = builder->create_call(makestr_fun, makestr_para);
+        visitor_return_value = t7;
     } else {
-        Instruction *res=nullptr;
-        if (node.inferredType->get_name()=="int") {
+        Instruction *res = nullptr;
+        if (node.inferredType->get_name() == "int") {
             auto t2 = builder->create_gep(list, CONST(4));
             t2->set_type(ArrayType::get(ArrayType::get(this->union_conslist)));
-            auto t3=builder->create_load(t2);
+            auto t3 = builder->create_load(t2);
             auto t5 = builder->create_gep(t3, idx);
-            auto t6 = builder->create_bitcast(t5, ArrayType::get(IntegerType::get(32,module.get())));
-            res=t6;
-        } else if (node.inferredType->get_name()=="bool") {
+            auto t6 = builder->create_bitcast(
+                t5, ArrayType::get(IntegerType::get(32, module.get())));
+            res = t6;
+        } else if (node.inferredType->get_name() == "bool") {
             auto t2 = builder->create_gep(list, CONST(4));
             t2->set_type(ArrayType::get(ArrayType::get(this->union_conslist)));
-            auto t3=builder->create_load(t2);
+            auto t3 = builder->create_load(t2);
             auto t5 = builder->create_gep(t3, idx);
-            auto t6 = builder->create_bitcast(t5, ArrayType::get(IntegerType::get(1,module.get())));
-            res=t6;
+            auto t6 = builder->create_bitcast(
+                t5, ArrayType::get(IntegerType::get(1, module.get())));
+            res = t6;
         } else {
             auto t2 = builder->create_gep(list, CONST(4));
             t2->set_type(ArrayType::get(ArrayType::get(this->union_conslist)));
-            auto t3=builder->create_load(t2);
+            auto t3 = builder->create_load(t2);
             auto t5 = builder->create_gep(t3, idx);
-            auto type_name=node.inferredType->get_name();
-            if (type_name=="str") {
-                type_name="virtual_str_1145141919810";
+            auto type_name = node.inferredType->get_name();
+            if (type_name == "str") {
+                type_name = "virtual_str_1145141919810";
             }
-            Type *type=nullptr;
-            if (type_name[0]=='[') {
-                type=list_class->get_type();
+            Type *type = nullptr;
+            if (type_name[0] == '[') {
+                type = list_class->get_type();
             } else {
-                type = dynamic_cast<Class*>(scope.find_in_global(type_name));
+                type = dynamic_cast<Class *>(scope.find_in_global(type_name));
             }
-            auto t6 = builder->create_bitcast(t5, ArrayType::get(ArrayType::get(type)));
-            res=t6;
+            auto t6 = builder->create_bitcast(
+                t5, ArrayType::get(ArrayType::get(type)));
+            res = t6;
         }
         if (!is_get_lvalue) {
-            res=builder->create_load(res);
+            res = builder->create_load(res);
         }
-        get_lvalue=is_get_lvalue;
-        visitor_return_value=res;
+        get_lvalue = is_get_lvalue;
+        visitor_return_value = res;
     }
 }
-} // namespace lightir
+}  // namespace lightir
 
 void print_help_all(const string_view &exe_name) {
     std::cout << fmt::format(
@@ -1568,11 +1648,11 @@ void print_help_all(const string_view &exe_name) {
 
 void print_help(const string_view &exe_name) {
     std::cout << fmt::format(
-                     "Usage: {} [ -h | --help ] [ -o <target-file> ] [ -emit ] [ -run ] [ -assem ] <input-file>",
+                     "Usage: {} [ -h | --help ] [ -o <target-file> ] [ -emit ] "
+                     "[ -run ] [ -assem ] <input-file>",
                      exe_name)
               << std::endl;
 }
-
 
 #ifdef PA3
 int main(int argc, char *argv[]) {
@@ -1585,7 +1665,7 @@ int main(int argc, char *argv[]) {
     bool run = false;
     bool assem = false;
 
-    lightir::enable_str_for=true;
+    lightir::enable_str_for = true;
 
     for (int i = 1; i < argc; ++i) {
         if (argv[i] == "-h"s || argv[i] == "--help"s) {
@@ -1609,12 +1689,12 @@ int main(int argc, char *argv[]) {
             passes.push_back(argv[i + 1]);
             i += 1;
         } else if (argv[i] == "-strfor"s) {
-            if (argv[i+1]=="true") {
-                lightir::enable_str_for=true;
+            if (argv[i + 1] == "true") {
+                lightir::enable_str_for = true;
             } else {
-                lightir::enable_str_for=false;
+                lightir::enable_str_for = false;
             }
-            i+=1;
+            i += 1;
         } else {
             if (input_path.empty()) {
                 input_path = argv[i];
@@ -1633,7 +1713,9 @@ int main(int argc, char *argv[]) {
     auto symboltableGenerator = semantic::SymbolTableGenerator(error.get());
     tree->accept(symboltableGenerator);
 
-    auto declarationAnalyzer = semantic::DeclarationAnalyzer(error.get(), symboltableGenerator.ignore, std::move(symboltableGenerator.globals));
+    auto declarationAnalyzer =
+        semantic::DeclarationAnalyzer(error.get(), symboltableGenerator.ignore,
+                                      std::move(symboltableGenerator.globals));
     tree->accept(declarationAnalyzer);
 
     auto globalScope = std::move(declarationAnalyzer.globals);
@@ -1641,10 +1723,11 @@ int main(int argc, char *argv[]) {
     if (!error->empty()) {
         tree->add_error(error.get());
     } else {
-        auto *typeChecker = new semantic::TypeChecker(globalScope.get(), error.get());
+        auto *typeChecker =
+            new semantic::TypeChecker(globalScope.get(), error.get());
         tree->accept(*typeChecker);
         if (!error->empty()) {
-          tree->add_error(error.get());
+            tree->add_error(error.get());
         }
     }
 
@@ -1660,8 +1743,7 @@ int main(int argc, char *argv[]) {
         m = LightWalker->get_module();
         m->source_file_name_ = input_path;
         lightir::PassManager PM(m.get());
-        for (auto &&pass : passes)
-            PM.add_pass(pass);
+        for (auto &&pass : passes) PM.add_pass(pass);
         PM.run();
 
         IR = m->print();
@@ -1670,72 +1752,97 @@ int main(int argc, char *argv[]) {
 
         output_stream.open(output_file, std::ios::out);
         output_stream << fmt::format("; ModuleID = '{}'\n", m->module_name_);
-        output_stream << "source_filename = \"" + m->source_file_name_ + "\"\n\n";
+        output_stream << "source_filename = \"" + m->source_file_name_ +
+                             "\"\n\n";
         output_stream << IR;
         output_stream.close();
 
         if (emit) {
-            cout << "\nLLVM IR:\n; ModuleID = 'chocopy'\nsource_filename = \"\"" << input_path << "\"\"\n\n" << IR;
+            cout << "\nLLVM IR:\n; ModuleID = 'chocopy'\nsource_filename = \"\""
+                 << input_path << "\"\"\n\n"
+                 << IR;
         }
 
         if (run) {
-            /*auto command_string_llc = fmt::format("/llvm/bin/llc {}.ll", target_path);
-            int re_code_llc = std::system(command_string_llc.c_str());
-            if (re_code_llc!=0) {
+            /*auto command_string_llc = fmt::format("/llvm/bin/llc {}.ll",
+            target_path); int re_code_llc =
+            std::system(command_string_llc.c_str()); if (re_code_llc!=0) {
                 return 1;
             }*/
 #ifdef RV64
-            auto command_string = "clang -mno-relax  -no-integrated-as -O1 -w --target=riscv64-unknown-linux-gnu "s +
-                                  target_path + ".ll -o " + target_path + ".s -S";
+            auto command_string =
+                "clang -mno-relax  -no-integrated-as -O1 -w --target=riscv64-unknown-linux-gnu "s +
+                target_path + ".ll -o " + target_path + ".s -S";
             int re_code = std::system(command_string.c_str());
-            if (target_path.ends_with("str_cat") || target_path.ends_with("str_cat_2")) {
-                command_string = "clang -mno-relax -no-integrated-as -O0 -w --target=riscv32-unknown-elf "s +
-                                 target_path + ".ll -o " + target_path + ".s -S " +
-                                 R"(&& /usr/bin/sed -i '' 's/.*addrsig.*//g' )" + target_path + ".s";
+            if (target_path.ends_with("str_cat") ||
+                target_path.ends_with("str_cat_2")) {
+                command_string =
+                    "clang -mno-relax -no-integrated-as -O0 -w --target=riscv32-unknown-elf "s +
+                    target_path + ".ll -o " + target_path + ".s -S " +
+                    R"(&& /usr/bin/sed -i '' 's/.*addrsig.*//g' )" +
+                    target_path + ".s";
             }
 #else
 #if defined(__APPLE__)
-            auto command_string = "clang -mno-relax -no-integrated-as -O1 -w --target=riscv32-unknown-elf "s +
-                                  target_path + ".ll -o " + target_path + ".s -S " +
-                                  R"(&& /usr/bin/sed -i '' 's/.*addrsig.*//g' )" + target_path + ".s";
+            auto command_string =
+                "clang -mno-relax -no-integrated-as -O1 -w --target=riscv32-unknown-elf "s +
+                target_path + ".ll -o " + target_path + ".s -S " +
+                R"(&& /usr/bin/sed -i '' 's/.*addrsig.*//g' )" + target_path +
+                ".s";
 #else
-            auto command_string = "/llvm/bin/llc -opaque-pointers -O0 -verify-machineinstrs -mtriple=riscv32-unknown-elf "s +
-                                  target_path + ".ll -o " + target_path + ".s" +
-                                  R"(&& /usr/bin/sed -i  's/.*addrsig.*//g' )" + target_path + ".s";
+            auto command_string =
+                "/llvm/bin/llc -opaque-pointers -O0 -verify-machineinstrs -mtriple=riscv32-unknown-elf "s +
+                target_path + ".ll -o " + target_path + ".s" +
+                R"(&& /usr/bin/sed -i  's/.*addrsig.*//g' )" + target_path +
+                ".s";
 #endif
             int re_code = std::system(command_string.c_str());
 #endif
             LOG(INFO) << command_string << re_code;
 #if defined(WIN32) || defined(_WIN32) || defined(__APPLE__)
 #ifdef RV64
-            auto command_string_0 = "riscv64-unknown-elf-gcc -mabi=lp64 -g -ggdb -static  -march=rv64imac -o" +
-                                    target_path + " " + target_path + ".s -L./ -lchocopy_stdlib";
+            auto command_string_0 =
+                "riscv64-unknown-elf-gcc -mabi=lp64 -g -ggdb -static  "
+                "-march=rv64imac -o" +
+                target_path + " " + target_path + ".s -L./ -lchocopy_stdlib";
 #else
-            auto command_string_0 = "riscv64-unknown-elf-gcc -mabi=ilp32 -g -ggdb -static -march=rv32imac -o" +
-                                    target_path + " " + target_path + ".s -L./ -lchocopy_stdlib";
+            auto command_string_0 =
+                "riscv64-unknown-elf-gcc -mabi=ilp32 -g -ggdb -static "
+                "-march=rv32imac -o" +
+                target_path + " " + target_path + ".s -L./ -lchocopy_stdlib";
 #endif
             int re_code_0 = std::system(command_string_0.c_str());
             LOG(INFO) << command_string_0 << re_code_0;
 #ifdef RV64
-            auto command_string_1 = "spike --isa=rv64imac /opt/homebrew/Cellar/riscv-pk/master/bin/pk " + target_path;
+            auto command_string_1 =
+                "spike --isa=rv64imac "
+                "/opt/homebrew/Cellar/riscv-pk/master/bin/pk " +
+                target_path;
 #else
             auto command_string_1 =
-                "spike --isa=rv32gcv0p10 /opt/homebrew/Cellar/riscv-pk_32/master/bin/pk " + target_path;
+                "spike --isa=rv32gcv0p10 "
+                "/opt/homebrew/Cellar/riscv-pk_32/master/bin/pk " +
+                target_path;
 #endif
             int re_code_1 = std::system(command_string_1.c_str());
 #else
 #ifdef RV64
-            auto command_string_0 = "riscv64-unknown-elf-gcc -mabi=lp64 -march=rv64imac -g -o " + target_path + " " +
-                                    target_path + ".s -L./ -lchocopy_stdlib";
+            auto command_string_0 =
+                "riscv64-unknown-elf-gcc -mabi=lp64 -march=rv64imac -g -o " +
+                target_path + " " + target_path + ".s -L./ -lchocopy_stdlib";
 #else
             auto command_string_0 =
-                "riscv64-unknown-elf-gcc -mabi=ilp32 -march=rv32imac -g -o " + target_path + " " + target_path +
+                "riscv64-unknown-elf-gcc -mabi=ilp32 -march=rv32imac -g -o " +
+                target_path + " " + target_path +
                 ".s -L./ -L./build -lchocopy_stdlib";
 #endif
             int re_code_0 = std::system(command_string_0.c_str());
             LOG(INFO) << command_string_0 << re_code_0;
 #ifdef RV64
-            auto command_string_1 = "qemu-riscv32 -cpu rv64,x-v=true,vlen=256,elen=64,vext_spec=v1.0 " + target_path;
+            auto command_string_1 =
+                "qemu-riscv32 -cpu "
+                "rv64,x-v=true,vlen=256,elen=64,vext_spec=v1.0 " +
+                target_path;
 #else
             auto command_string_1 = "qemu-riscv32 " + target_path;
 #endif
@@ -1745,12 +1852,15 @@ int main(int argc, char *argv[]) {
         }
         if (assem) {
 #ifdef RV64
-            auto command_string = "clang -mno-relax --target=riscv64 -O1 -w -S --target=riscv64-unknown-linux-gnu "s +
-                                  target_path + ".ll -o " + target_path + ".s -L. -lchocopy_stlib";
+            auto command_string =
+                "clang -mno-relax --target=riscv64 -O1 -w -S --target=riscv64-unknown-linux-gnu "s +
+                target_path + ".ll -o " + target_path +
+                ".s -L. -lchocopy_stlib";
 #else
-            auto command_string = "clang -mno-relax --target=riscv32 -O1 -w -S --target=riscv32-unknown-linux-gnu "s +
-                                  target_path + ".ll -o " + target_path + ".s -L. -lchocopy_stdlib && /bin/cat " +
-                                  target_path + ".s";
+            auto command_string =
+                "clang -mno-relax --target=riscv32 -O1 -w -S --target=riscv32-unknown-linux-gnu "s +
+                target_path + ".ll -o " + target_path +
+                ".s -L. -lchocopy_stdlib && /bin/cat " + target_path + ".s";
 #endif
             int re_code = std::system(command_string.c_str());
             LOG(INFO) << command_string;

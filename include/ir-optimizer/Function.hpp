@@ -7,15 +7,16 @@
 
 #pragma once
 
-#include "BasicBlock.hpp"
-#include "Module.hpp"
-#include "Type.hpp"
-#include "User.hpp"
 #include <cassert>
 #include <cstddef>
 #include <iterator>
 #include <list>
 #include <map>
+
+#include "BasicBlock.hpp"
+#include "Module.hpp"
+#include "Type.hpp"
+#include "User.hpp"
 
 using std::map;
 using std::string;
@@ -30,12 +31,14 @@ class FunctionType;
 class Class;
 
 class Function : public Value {
-public:
+   public:
     Function(FunctionType *ty, const string &name, Module *parent);
     ~Function() = default;
 
-    static Function *create(FunctionType *ty, const string &name, Module *parent);
-    static Function *create(bool is_ctor, FunctionType *ty, const string &name, Module *parent);
+    static Function *create(FunctionType *ty, const string &name,
+                            Module *parent);
+    static Function *create(bool is_ctor, FunctionType *ty, const string &name,
+                            Module *parent);
 
     FunctionType *get_function_type() const;
 
@@ -65,21 +68,22 @@ public:
     string print_args();
     bool is_ctor = false;
 
-private:
+   private:
     void build_args();
 
-private:
+   private:
     list<BasicBlock *> basic_blocks_; /* basic blocks */
-    list<Argument *> arguments_; /* arguments */
+    list<Argument *> arguments_;      /* arguments */
     Module *parent_;
     unsigned seq_cnt_;
 };
 
 /* Argument of Function, does not contain actual value. */
 class Argument : public Value {
-public:
+   public:
     /* Argument constructor.*/
-    explicit Argument(Type *ty, const string &name = "", Function *f = nullptr, unsigned arg_no = 0)
+    explicit Argument(Type *ty, const string &name = "", Function *f = nullptr,
+                      unsigned arg_no = 0)
         : Value(ty, name), parent_(f), arg_no_(arg_no) {}
     ~Argument() = default;
 
@@ -94,9 +98,9 @@ public:
 
     string print() override;
 
-private:
+   private:
     Function *parent_;
     unsigned arg_no_; /* argument No. */
 };
-} // namespace lightir
-#endif // CHOCOPY_COMPILER_FUNCTION_HPP
+}  // namespace lightir
+#endif  // CHOCOPY_COMPILER_FUNCTION_HPP

@@ -58,8 +58,7 @@ class SymbolTable {
 
     template <typename T = SymbolType *>
     T declares(const string &name) const {
-        if (tab->count(name) > 0)
-            return dynamic_cast<T>((*tab)[name]);
+        if (tab->count(name) > 0) return dynamic_cast<T>((*tab)[name]);
         return nullptr;
     }
 

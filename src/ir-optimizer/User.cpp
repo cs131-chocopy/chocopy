@@ -1,10 +1,12 @@
 #include "User.hpp"
+
 #include <cassert>
 #include <chocopy_logging.hpp>
 
 namespace lightir {
 
-User::User(Type *ty, const std::string &name, unsigned num_ops) : Value(ty, name), num_ops_(num_ops) {
+User::User(Type *ty, const std::string &name, unsigned num_ops)
+    : Value(ty, name), num_ops_(num_ops) {
     operands_.resize(num_ops_, nullptr);
 }
 
@@ -40,4 +42,4 @@ void User::remove_operands(int index1, int index2) {
     LOG(DEBUG) << operands_.size();
     num_ops_ = operands_.size();
 }
-} // namespace lightir
+}  // namespace lightir

@@ -2,13 +2,17 @@
 // Created by yiwei yang on 2/15/21.
 //
 
+#include <FunctionDefType.hpp>
+#include <ValueType.hpp>
 #include <chocopy_parse.hpp>
 
 namespace parser {
-LocationUnit::LocationUnit(int line, int colume): line(line), column(colume) {}
+LocationUnit::LocationUnit(int line, int colume) : line(line), column(colume) {}
 Location::Location() {}
-Location::Location(LocationUnit first, LocationUnit last): first(first), last(last) {}
-Location::Location(Location front, Location back):first(front.first), last(back.last)  { }
+Location::Location(LocationUnit first, LocationUnit last)
+    : first(first), last(last) {}
+Location::Location(Location front, Location back)
+    : first(front.first), last(back.last) {}
 json add_inferred_type(semantic::SymbolType *class_) {
     json inferred;
     if (dynamic_cast<semantic::FunctionDefType *>(class_)) {
@@ -18,19 +22,20 @@ json add_inferred_type(semantic::SymbolType *class_) {
         inferred["className"] = class_->get_name();
     } else {
         inferred["kind"] = class_->get_type();
-        inferred["elementType"] = add_inferred_type(((semantic::ListValueType *)class_)->element_type);
+        inferred["elementType"] = add_inferred_type(
+            ((semantic::ListValueType *)class_)->element_type);
     }
     return inferred;
 }
 
 Expr::Expr(Location location) : Node(location) {}
-Expr::Expr(Location location, string kind)
-    : Node(location, std::move(kind)) {}
+Expr::Expr(Location location, string kind) : Node(location, std::move(kind)) {}
 Expr::Expr(Location location, string kind, string errMsg)
     : Node(location, std::move(kind), std::move(errMsg)) {}
 
-StringLiteral::StringLiteral(Location location, const string &value) : Literal(location, "StringLiteral", value) {
-    if (value == "\"\"") { // deal with null string
+StringLiteral::StringLiteral(Location location, const string &value)
+    : Literal(location, "StringLiteral", value) {
+    if (value == "\"\"") {  // deal with null string
         this->value = "";
         ((Literal *)this)->value = "";
     } else
@@ -41,18 +46,17 @@ json Node::toJSON() const {
     json d;
 
     d["kind"] = kind;
-    d["location"] = {location.first.line, location.first.column, location.last.line, location.last.column};
+    d["location"] = {location.first.line, location.first.column,
+                     location.last.line, location.last.column};
 
-    if (this->has_type_err())
-        d["typeError"] = typeError;
+    if (this->has_type_err()) d["typeError"] = typeError;
     return d;
 }
 
 json CompilerErr::toJSON() const {
     json d = Node::toJSON();
     d["message"] = message;
-    if (this->syntax)
-        d["syntax"] = true;
+    if (this->syntax) d["syntax"] = true;
     return d;
 }
 
@@ -82,7 +86,8 @@ bool Expr::emit_inferred() const {
     if (dynamic_cast<semantic::FunctionDefType *>(this->inferredType))
         return true;
     else
-        return this->inferredType != nullptr && !this->inferredType->get_name().empty();
+        return this->inferredType != nullptr &&
+               !this->inferredType->get_name().empty();
 }
 
 json Ident::toJSON() const {
@@ -103,10 +108,8 @@ json AssignStmt::toJSON() const {
 json BinaryExpr::toJSON() const {
     json d = Expr::toJSON();
 
-    if (this->left != nullptr)
-        d["left"] = left->toJSON();
-    if (this->right != nullptr)
-        d["right"] = right->toJSON();
+    if (this->left != nullptr) d["left"] = left->toJSON();
+    if (this->right != nullptr) d["right"] = right->toJSON();
     d["operator"] = operator_;
     return d;
 }
@@ -152,8 +155,7 @@ json ForStmt::toJSON() const {
     d["identifier"] = identifier->toJSON();
     d["iterable"] = iterable->toJSON();
     d["body"] = json::array();
-    for (auto &i : this->body)
-        d["body"].emplace_back(i->toJSON());
+    for (auto &i : this->body) d["body"].emplace_back(i->toJSON());
     return d;
 }
 
@@ -225,7 +227,7 @@ json IfExpr::toJSON() const {
 
 json IndexExpr::toJSON() const {
     json d = Expr::toJSON();
-    d["list"]= ((ListExpr *)(this->list))->toJSON();
+    d["list"] = ((ListExpr *)(this->list))->toJSON();
     d["index"] = index->toJSON();
     return d;
 }
@@ -256,8 +258,7 @@ json MethodCallExpr::toJSON() const {
     json d = Expr::toJSON();
     d["method"] = method->toJSON();
     d["args"] = json::array();
-    for (auto &arg : this->args)
-        d["args"].emplace_back(arg->toJSON());
+    for (auto &arg : this->args) d["args"].emplace_back(arg->toJSON());
     return d;
 }
 
@@ -310,8 +311,7 @@ json WhileStmt::toJSON() const {
     d["condition"] = condition->toJSON();
     d["body"] = json::array();
     for (auto &&i : this->body) {
-        if (i->kind != "PassStmt")
-            d["body"].emplace_back(i->toJSON());
+        if (i->kind != "PassStmt") d["body"].emplace_back(i->toJSON());
     }
     return d;
 }
@@ -333,18 +333,22 @@ json BoolLiteral::toJSON() const {
     d["value"] = bin_value;
     return d;
 }
-json NoneLiteral::toJSON() const {
-    return Node::toJSON();
-}
+json NoneLiteral::toJSON() const { return Node::toJSON(); }
 
 string TypeAnnotation::get_name() {
-    if (dynamic_cast<semantic::ClassValueType *>(semantic::ValueType::annotate_to_val(this)))
-        return ((semantic::ClassValueType *)(semantic::ValueType::annotate_to_val(this)))->class_name;
-    else if (dynamic_cast<semantic::ListValueType *>(semantic::ValueType::annotate_to_val(this)))
-        return ((semantic::ListValueType *)semantic::ValueType::annotate_to_val(this))->get_name();
+    if (dynamic_cast<semantic::ClassValueType *>(
+            semantic::ValueType::annotate_to_val(this)))
+        return ((semantic::ClassValueType
+                     *)(semantic::ValueType::annotate_to_val(this)))
+            ->class_name;
+    else if (dynamic_cast<semantic::ListValueType *>(
+                 semantic::ValueType::annotate_to_val(this)))
+        return ((semantic::ListValueType *)semantic::ValueType::annotate_to_val(
+                    this))
+            ->get_name();
     return "";
 }
-} // namespace parser
+}  // namespace parser
 
 #ifdef PA1
 int main(int argc, char *argv[]) {

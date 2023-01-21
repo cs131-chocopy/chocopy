@@ -5,6 +5,10 @@
 #ifndef CHOCOPY_COMPILER_IRPRINTER_HPP
 #define CHOCOPY_COMPILER_IRPRINTER_HPP
 
+#include <fmt/format.h>
+
+#include <chocopy_logging.hpp>
+
 #include "BasicBlock.hpp"
 #include "Constant.hpp"
 #include "Function.hpp"
@@ -13,14 +17,12 @@
 #include "Type.hpp"
 #include "User.hpp"
 #include "Value.hpp"
-#include <chocopy_logging.hpp>
-#include <fmt/format.h>
 
 namespace lightir {
 
 string print_as_op(Value *v, bool print_ty, const string &method_ = "");
 string print_cmp_type(lightir::CmpInst::CmpOp op);
 
-} // namespace lightir
+}  // namespace lightir
 
-#endif // CHOCOPY_COMPILER_IRPRINTER_HPP
+#endif  // CHOCOPY_COMPILER_IRPRINTER_HPP

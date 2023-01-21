@@ -5,10 +5,11 @@
 #ifndef CHOCOPY_COMPILER_FUNCTIONDEFTYPE_HPP
 #define CHOCOPY_COMPILER_FUNCTIONDEFTYPE_HPP
 
+#include <json.hpp>
+
 #include "SymbolTable.hpp"
 #include "SymbolType.hpp"
 #include "ValueType.hpp"
-#include <json.hpp>
 using nlohmann::json;
 
 namespace semantic {
@@ -34,18 +35,7 @@ class FunctionDefType : public SymbolType {
     std::vector<SymbolType *> *params = new std::vector<SymbolType *>();
     SymbolTable *current_scope = new SymbolTable();
 
-    bool operator==(const FunctionDefType &f2) const {
-        vector<SymbolType *> *a = this->params;
-        vector<SymbolType *> *b = f2.params;
-        if (a->size() == b->size()) {
-            for (int i = 1; i < a->size(); i++) {
-                if (a->at(i)->get_name() != b->at(i)->get_name()) return false;
-            }
-            if (this->return_type->get_name() != f2.return_type->get_name()) return false;
-            return true;
-        } else
-            return false;
-    }
+    bool operator==(const FunctionDefType &f2) const;
     bool is_func_type() const final { return true; }
     const string get_name() const final { return func_name; }
     string get_type() const override {

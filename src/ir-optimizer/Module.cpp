@@ -60,7 +60,8 @@ Type *Module::get_class_type(int id_) { return obj_ty_[id_]; }
 
 ArrayType *Module::get_array_type(Type *contained, unsigned num_elements) {
     if (array_map_.find({contained, num_elements}) == array_map_.end()) {
-        array_map_[{contained, num_elements}] = new ArrayType(contained, num_elements);
+        array_map_[{contained, num_elements}] =
+            new ArrayType(contained, num_elements);
     }
     return array_map_[{contained, num_elements}];
 }
@@ -73,7 +74,9 @@ ArrayType *Module::get_array_type(Type *contained) {
 
 void Module::add_function(Function *f) { function_list_.push_back(f); }
 list<Function *> Module::get_functions() { return function_list_; }
-void Module::add_global_variable(GlobalVariable *g) { global_list_.push_back(g); }
+void Module::add_global_variable(GlobalVariable *g) {
+    global_list_.push_back(g);
+}
 list<GlobalVariable *> Module::get_global_variable() { return global_list_; }
 void Module::add_class(Class *c) { class_list_.push_back(c); };
 list<Class *> Module::get_class() { return class_list_; }
@@ -99,11 +102,14 @@ string Module::print() {
     }
     auto counter = 0;
     for (auto global_val : this->get_global_variable()) {
-        if (global_val->init_val_ != nullptr && dynamic_cast<ConstantStr *>(global_val->init_val_)) {
-            if (counter == dynamic_cast<ConstantStr *>(global_val->init_val_)->get_id()) {
+        if (global_val->init_val_ != nullptr &&
+            dynamic_cast<ConstantStr *>(global_val->init_val_)) {
+            if (counter ==
+                dynamic_cast<ConstantStr *>(global_val->init_val_)->get_id()) {
                 continue;
             }
-            counter = dynamic_cast<ConstantStr *>(global_val->init_val_)->get_id();
+            counter =
+                dynamic_cast<ConstantStr *>(global_val->init_val_)->get_id();
         }
         module_ir += fmt::format("{}\n", global_val->print());
     }
@@ -112,9 +118,11 @@ string Module::print() {
         count++;
         auto this_ptr = this->function_list_.begin();
         std::advance(this_ptr, count);
-        auto idx = std::find_if(this_ptr, this->function_list_.end(), [&func](Function *func_) {
-            return func_->get_name() == func->get_name() && func->is_declaration();
-        });
+        auto idx = std::find_if(
+            this_ptr, this->function_list_.end(), [&func](Function *func_) {
+                return func_->get_name() == func->get_name() &&
+                       func->is_declaration();
+            });
         if (idx == this->function_list_.end()) {
             module_ir += fmt::format("{}\n", func->print());
         }
@@ -122,4 +130,4 @@ string Module::print() {
     return module_ir;
 }
 ArrayType *Module::get_array_type() { return get_array_type(int32_ty_); }
-} // namespace lightir
+}  // namespace lightir

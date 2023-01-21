@@ -9,6 +9,7 @@
 
 #include <chocopy_parse.hpp>
 #include <iostream>
+#include <memory>
 #include <vector>
 
 namespace parser {
@@ -50,13 +51,13 @@ class IfStmt;
 class Errors;
 class WhileStmt;
 
-} // namespace parser
+}  // namespace parser
 
 std::unique_ptr<parser::Program> parse(const char *input_path);
 
 namespace ast {
 class Visitor {
-public:
+   public:
     virtual void visit(parser::AssignStmt &) = 0;
     virtual void visit(parser::Program &) = 0;
     virtual void visit(parser::PassStmt &) = 0;
@@ -91,6 +92,6 @@ public:
     virtual void visit(parser::Node &) = 0;
 };
 
-} // namespace ast
+}  // namespace ast
 
-#endif // CHOCOPY_COMPILER_AST_HPP
+#endif  // CHOCOPY_COMPILER_AST_HPP

@@ -5,9 +5,6 @@
 #ifndef CHOCOPY_COMPILER_CHOCOPY_OPTIMIZATION_HPP
 #define CHOCOPY_COMPILER_CHOCOPY_OPTIMIZATION_HPP
 
-#include "BasicBlock.hpp"
-#include "IRBuilder.hpp"
-#include "Module.hpp"
 #include <fstream>
 #include <list>
 #include <map>
@@ -16,18 +13,25 @@
 #include <unordered_set>
 #include <utility>
 
+#include "BasicBlock.hpp"
+#include "IRBuilder.hpp"
+#include "Module.hpp"
+
 using std::string;
 /** https://stackoverflow.com/questions/5447675/how-to-convert-a-string-to-a-class-name */
-template <class T, typename M_> void *constructor(M_ *module_) {
+template <class T, typename M_>
+void *constructor(M_ *module_) {
     return (void *)new T{module_};
 }
-template <typename M_> struct arg_to_pass {
+template <typename M_>
+struct arg_to_pass {
     typedef void *(*constructor_t)(M_ *);
     typedef std::map<std::string, constructor_t> map_type;
     map_type m_classes;
     M_ *module;
 
-    template <class T> void register_class(std::string const &n, M_ *&module_) {
+    template <class T>
+    void register_class(std::string const &n, M_ *&module_) {
         module = module_;
         m_classes.insert(std::make_pair(n, &constructor<T, M_>));
     }
@@ -35,14 +39,14 @@ template <typename M_> struct arg_to_pass {
     void *construct(std::string const &n) {
         auto i = m_classes.find(n);
         if (i == m_classes.end())
-            return nullptr; // or throw or whatever you want
+            return nullptr;  // or throw or whatever you want
         return i->second(module);
     }
 };
 
 namespace lightir {
 class Pass {
-public:
+   public:
     explicit Pass(Module *m) : m_(m) {}
 
     virtual void run() = 0;
@@ -55,27 +59,28 @@ public:
 
     bool isPrintIR() const { return print_ir_; }
 
-protected:
+   protected:
     Module *m_;
     string name_;
     bool print_ir_ = false;
 };
 
 class Analysis : public Pass {
-public:
+   public:
     explicit Analysis(Module *m) : Pass(m) {}
 };
 
 class Transform : public Pass {
-public:
+   public:
     explicit Transform(Module *m) : Pass(m) {}
 };
 
 class PassManager {
-public:
+   public:
     explicit PassManager(Module *m);
 
-    template <typename PassTy> void add_pass(bool print_ir = false) {
+    template <typename PassTy>
+    void add_pass(bool print_ir = false) {
         passes_.push_back(new PassTy(m_));
         passes_.back()->setName(typeid(PassTy).name());
         passes_.back()->setPrintIR(print_ir);
@@ -86,13 +91,13 @@ public:
 
     void run(bool print_ir = false);
 
-private:
+   private:
     std::vector<Pass *> passes_;
     Module *m_;
 };
 
 class Dominators : public Pass {
-public:
+   public:
     explicit Dominators(Module *m) : Pass(m) {}
     ~Dominators() = default;
     ;
@@ -109,7 +114,9 @@ public:
 
     /****************api about Dominator****************/
 
-    void add_dom(BasicBlock *bb, BasicBlock *dom_bb) { doms_[bb].insert(dom_bb); }
+    void add_dom(BasicBlock *bb, BasicBlock *dom_bb) {
+        doms_[bb].insert(dom_bb);
+    }
     std::set<BasicBlock *> &get_doms(BasicBlock *bb) { return doms_[bb]; }
     void set_doms(BasicBlock *bb, std::set<BasicBlock *> &doms) {
         doms_[bb].clear();
@@ -122,29 +129,34 @@ public:
     void add_dominance_frontier(BasicBlock *bb, BasicBlock *dom_frontier_bb) {
         dom_frontier_[bb].insert(dom_frontier_bb);
     }
-    std::set<BasicBlock *> &get_dominance_frontier(BasicBlock *bb) { return dom_frontier_[bb]; }
+    std::set<BasicBlock *> &get_dominance_frontier(BasicBlock *bb) {
+        return dom_frontier_[bb];
+    }
     void set_dominance_frontier(BasicBlock *bb, std::set<BasicBlock *> &df) {
         dom_frontier_[bb].clear();
         dom_frontier_[bb].insert(df.begin(), df.end());
     }
 
     // successor blocks of this node in dominance tree
-    std::set<BasicBlock *> get_dom_tree_succ_blocks(BasicBlock *bb) { return dom_tree_succ_blocks_[bb]; }
+    std::set<BasicBlock *> get_dom_tree_succ_blocks(BasicBlock *bb) {
+        return dom_tree_succ_blocks_[bb];
+    }
     void add_dom_tree_succ_block(BasicBlock *bb, BasicBlock *dom_tree_succ_bb) {
         dom_tree_succ_blocks_[bb].insert(dom_tree_succ_bb);
     }
     /****************api about Dominator****************/
 
-private:
+   private:
     void post_order_visit(BasicBlock *bb, std::set<BasicBlock *> &visited);
     BasicBlock *intersect(BasicBlock *b1, BasicBlock *b2);
 
     std::list<BasicBlock *> reverse_post_order_;
-    std::map<BasicBlock *, int> post_order_id_; // the root has highest ID
+    std::map<BasicBlock *, int> post_order_id_;  // the root has highest ID
 
-    std::map<BasicBlock *, std::set<BasicBlock *>> doms_; // dominance set
-    std::map<BasicBlock *, BasicBlock *> idom_; // immediate dominance
-    std::map<BasicBlock *, std::set<BasicBlock *>> dom_frontier_; // dominance frontier set
+    std::map<BasicBlock *, std::set<BasicBlock *>> doms_;  // dominance set
+    std::map<BasicBlock *, BasicBlock *> idom_;  // immediate dominance
+    std::map<BasicBlock *, std::set<BasicBlock *>>
+        dom_frontier_;  // dominance frontier set
     std::map<BasicBlock *, std::set<BasicBlock *>> dom_tree_succ_blocks_;
 };
 
@@ -163,22 +175,27 @@ class LoopFind : public Pass {
     std::unordered_set<BBset_t *> loops;
     std::unordered_map<BasicBlock *, BBset_t *> base2Loop;
     std::unordered_map<BBset_t *, BasicBlock *> loop2Base;
-    std::unordered_map<BasicBlock *, BasicBlock *> BB2Base; // Default to map lowest BB.
+    std::unordered_map<BasicBlock *, BasicBlock *>
+        BB2Base;  // Default to map lowest BB.
 
     int indexCount{};
     std::vector<CFGnode *> stack;
 
     static void buildCFG(Function *func, std::unordered_set<CFGnode *> &);
 
-    static CFGnode *findLoopBase(std::unordered_set<CFGnode *> *, std::unordered_set<CFGnode *> &);
+    static CFGnode *findLoopBase(std::unordered_set<CFGnode *> *,
+                                 std::unordered_set<CFGnode *> &);
 
-    bool stronglyConnComponents(std::unordered_set<CFGnode *> &, std::unordered_set<std::unordered_set<CFGnode *> *> &);
+    bool stronglyConnComponents(
+        std::unordered_set<CFGnode *> &,
+        std::unordered_set<std::unordered_set<CFGnode *> *> &);
 
-    void traverse(CFGnode *, std::unordered_set<std::unordered_set<CFGnode *> *> &);
+    void traverse(CFGnode *,
+                  std::unordered_set<std::unordered_set<CFGnode *> *> &);
 
     std::string _printCFG(std::unordered_set<CFGnode *> &);
 
-public:
+   public:
     explicit LoopFind(Module *m) : Pass(m) {}
 
     LoopFind(const LoopFind &) = delete;
@@ -207,7 +224,8 @@ public:
 };
 
 class LoopInvariant : public Pass {
-    std::vector<std::pair<BasicBlock *, std::list<Instruction *>::iterator>> invariant;
+    std::vector<std::pair<BasicBlock *, std::list<Instruction *>::iterator>>
+        invariant;
     std::unique_ptr<LoopFind> finder;
     int areaCount{};
 
@@ -226,20 +244,21 @@ class LoopInvariant : public Pass {
 
     BasicBlock *buildBB();
 
-public:
+   public:
     explicit LoopInvariant(Module *m);
     void run() override;
 };
 
 class ActiveVars : public Pass {
-public:
+   public:
     explicit ActiveVars(Module *m) : Pass(m) {}
     void run() override;
     std::string print();
 
-private:
+   private:
     Function *func_{};
-    std::map<BasicBlock *, std::set<Value *>> live_in, live_out, def, use, tempin, tempout;
+    std::map<BasicBlock *, std::set<Value *>> live_in, live_out, def, use,
+        tempin, tempout;
     std::set<Value *> alldef, alluse;
     bool need_iterate{};
     std::map<BasicBlock *, std::set<Value *>> maptouse, maptodefine;
@@ -247,27 +266,28 @@ private:
 };
 
 class ConstFolder {
-public:
+   public:
     explicit ConstFolder(Module *m) : module_(m) {}
-    ConstantInt *compute(Instruction::OpID op, ConstantInt *value1, ConstantInt *value2);
+    ConstantInt *compute(Instruction::OpID op, ConstantInt *value1,
+                         ConstantInt *value2);
     ConstantInt *compute(CmpInst::CmpOp op, ConstantInt *v1, ConstantInt *v2);
 
-private:
+   private:
     Module *module_;
 };
 
 class ConstPropagation : public Pass {
-public:
+   public:
     explicit ConstPropagation(Module *m) : Pass(m) {}
     void run() override;
 };
 
 class Mem2Reg : public Transform {
-private:
+   private:
     Function *func_{};
     Dominators *dominators_{};
 
-public:
+   public:
     explicit Mem2Reg(Module *m) : Transform(m) {}
     ~Mem2Reg() = default;
     ;
@@ -301,10 +321,10 @@ public:
  *       a[i] = a[i] + 4
  *            ||
  *            v
- * %1 = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @a to <4 x i32>*), align 16, !tbaa !4
- * %2 = add nsw <4 x i32> %1, <i32 1, i32 1, i32 1, i32 1>
- * store <4 x i32> %2, <4 x i32>* bitcast ([4 x i32]* @a to <4 x i32>*), align 16, !tbaa !4
- * %3 = extractelement <4 x i32> %2, i64 0
+ * %1 = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @a to <4 x i32>*), align
+ * 16, !tbaa !4 %2 = add nsw <4 x i32> %1, <i32 1, i32 1, i32 1, i32 1> store <4
+ * x i32> %2, <4 x i32>* bitcast ([4 x i32]* @a to <4 x i32>*), align 16, !tbaa
+ * !4 %3 = extractelement <4 x i32> %2, i64 0
  *            ||
  *            v
  * lui     s1, %hi(a)
@@ -334,28 +354,29 @@ public:
  *      {a,b,c,d} = {e,f,g,h} + {4,4,4,4}
  *            ||
  *            v
- * %1 = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @a to <4 x i32>*), align 16, !tbaa !4
- * %2 = add nsw <4 x i32> %1, <i32 1, i32 1, i32 1, i32 1>
- * store <4 x i32> %2, <4 x i32>* bitcast ([4 x i32]* @a to <4 x i32>*), align 16, !tbaa !4
- * %3 = extractelement <4 x i32> %2, i64 0
+ * %1 = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @a to <4 x i32>*), align
+ * 16, !tbaa !4 %2 = add nsw <4 x i32> %1, <i32 1, i32 1, i32 1, i32 1> store <4
+ * x i32> %2, <4 x i32>* bitcast ([4 x i32]* @a to <4 x i32>*), align 16, !tbaa
+ * !4 %3 = extractelement <4 x i32> %2, i64 0
  */
 class Vectorization : public Transform {
-public:
+   public:
     const int MIN_LOOP_ITERS = 8;
     int vectorize_num = 4;
 
-public:
+   public:
     explicit Vectorization(Module *m) : Transform(m) {}
     void run() override;
     bool tryVectorizate(BasicBlock *cond, BasicBlock *body);
-    void vectorizate(std::tuple<Value *, Value *, Value *> vector_value, Instruction *op, Instruction *iter) const;
+    void vectorizate(std::tuple<Value *, Value *, Value *> vector_value,
+                     Instruction *op, Instruction *iter) const;
 
-private:
+   private:
     int vectorizate_loops = 0;
 };
 
 class Multithread : public Pass {
-public:
+   public:
     int thread_num = 8;
     std::unique_ptr<LoopFind> finder;
     Value *start{}, *end{};
@@ -367,11 +388,11 @@ public:
     bool findAccumulator(BBset_t *);
     void wrapMultithreading(BasicBlock *loopBase, BBset_t *loop);
 
-public:
+   public:
     explicit Multithread(Module *m) : Pass(m) {}
     ~Multithread() = default;
     void run() override;
 };
-} // namespace lightir
+}  // namespace lightir
 
-#endif // CHOCOPY_COMPILER_CHOCOPY_OPTIMIZATION_HPP
+#endif  // CHOCOPY_COMPILER_CHOCOPY_OPTIMIZATION_HPP

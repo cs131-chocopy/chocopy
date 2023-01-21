@@ -1,11 +1,13 @@
 #include "GlobalVariable.hpp"
 
+#include <utility>
+
 #include "Constant.hpp"
 #include "IRprinter.hpp"
-#include <utility>
 namespace lightir {
 
-GlobalVariable::GlobalVariable(const string &name, Module *m, Type *ty, bool is_const, Constant *init)
+GlobalVariable::GlobalVariable(const string &name, Module *m, Type *ty,
+                               bool is_const, Constant *init)
     : User(ty, name, init != nullptr), init_val_(init), is_const_(is_const) {
     m->add_global_variable(this);
     if (init) {
@@ -13,46 +15,56 @@ GlobalVariable::GlobalVariable(const string &name, Module *m, Type *ty, bool is_
     }
 }
 
-GlobalVariable *GlobalVariable::create(const string &name, Module *m, Type *ty, bool is_const,
+GlobalVariable *GlobalVariable::create(const string &name, Module *m, Type *ty,
+                                       bool is_const,
                                        Constant *init = nullptr) {
     return new GlobalVariable(name, m, ty, is_const, init);
 }
-GlobalVariable *GlobalVariable::create(const string &name, Module *m, ConstantStr *init) {
+GlobalVariable *GlobalVariable::create(const string &name, Module *m,
+                                       ConstantStr *init) {
     return new GlobalVariable(name, m, init->get_type(), true, init);
 }
-GlobalVariable *GlobalVariable::create(const string &name, Module *m, ConstantBoxInt *init) {
+GlobalVariable *GlobalVariable::create(const string &name, Module *m,
+                                       ConstantBoxInt *init) {
     return new GlobalVariable(name, m, init->get_type(), true, init);
 }
-GlobalVariable *GlobalVariable::create(const string &name, Module *m, ConstantBoxBool *init) {
+GlobalVariable *GlobalVariable::create(const string &name, Module *m,
+                                       ConstantBoxBool *init) {
     return new GlobalVariable(name, m, init->get_type(), true, init);
 }
-
 
 void GlobalVariable::set_list(const vector<Constant *> &new_array) const {
     ((ConstantArray *)this->init_val_)->set_const_array(new_array);
-    ((ArrayType *)((Value *)this)->type_)->set_num_of_elements(new_array.size());
+    ((ArrayType *)((Value *)this)->type_)
+        ->set_num_of_elements(new_array.size());
 }
 
 string GlobalVariable::print() {
     string global_ir;
     if (init_val_ == nullptr) {
-        global_ir += fmt::format("@{} = external global {}", this->name_, this->type_->print());
+        global_ir += fmt::format("@{} = external global {}", this->name_,
+                                 this->type_->print());
         return global_ir;
     }
-    if (dynamic_cast<ConstantStr *>(this->init_val_) || dynamic_cast<ConstantBoxInt*>(this->init_val_) || dynamic_cast<ConstantBoxBool*>(this->init_val_)) {
+    if (dynamic_cast<ConstantStr *>(this->init_val_) ||
+        dynamic_cast<ConstantBoxInt *>(this->init_val_) ||
+        dynamic_cast<ConstantBoxBool *>(this->init_val_)) {
         global_ir += this->init_val_->print();
         return global_ir;
     }
     if (!is_print_head_) {
-        global_ir = fmt::format("{} = {}{}", print_as_op(this, false), (this->is_const_ ? "constant " : "global "),
+        global_ir = fmt::format("{} = {}{}", print_as_op(this, false),
+                                (this->is_const_ ? "constant " : "global "),
                                 this->get_init()->print());
         is_print_head_ = true;
     } else {
         if (this->init_val_->get_type()->is_string_type())
-            global_ir = fmt::format("$str$prototype_type*{}", print_as_op(this, false));
+            global_ir =
+                fmt::format("$str$prototype_type*{}", print_as_op(this, false));
         else
-            global_ir = fmt::format("{}*{}", this->get_type()->print(), print_as_op(this, false));
+            global_ir = fmt::format("{}*{}", this->get_type()->print(),
+                                    print_as_op(this, false));
     }
     return global_ir;
 }
-} // namespace lightir
+}  // namespace lightir

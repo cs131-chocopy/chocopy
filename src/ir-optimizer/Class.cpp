@@ -2,8 +2,10 @@
 // Created by yiwei yang on 2021/8/7.
 //
 #include "Class.hpp"
-#include "GlobalVariable.hpp"
+
 #include <utility>
+
+#include "GlobalVariable.hpp"
 
 namespace lightir {
 void Class::add_method(Function *func) {
@@ -12,7 +14,8 @@ void Class::add_method(Function *func) {
         auto b = func->get_name();
         return a.substr(a.find('.')) == b.substr(b.find('.'));
     };
-    auto idx = std::find_if(this->methods_->begin(), this->methods_->end(), func_exist);
+    auto idx = std::find_if(this->methods_->begin(), this->methods_->end(),
+                            func_exist);
     if (idx != this->methods_->end()) {
         (*this->methods_)[std::distance(this->methods_->begin(), idx)] = func;
         return;
@@ -20,34 +23,44 @@ void Class::add_method(Function *func) {
     this->methods_->push_back(func);
 }
 
-Class::Class(Module *m, const string &name_, int type_tag, Class *super_class_info, bool with_dispatch_table_,
+Class::Class(Module *m, const string &name_, int type_tag,
+             Class *super_class_info, bool with_dispatch_table_,
              bool is_dispatch_table_, bool is_append)
-    : Type(static_cast<type>(type_tag), m), Value(this, name_), class_name_(name_), super_class_info_(super_class_info),
-      type_tag_(type_tag), print_dispatch_table_(is_dispatch_table_) {
+    : Type(static_cast<type>(type_tag), m),
+      Value(this, name_),
+      class_name_(name_),
+      super_class_info_(super_class_info),
+      type_tag_(type_tag),
+      print_dispatch_table_(is_dispatch_table_) {
     prototype_label_ = fmt::format("${}${}", name_, "prototype");
     if (with_dispatch_table_) {
         dispatch_table_label_ = fmt::format("${}${}", name_, "dispatchTable");
     }
     attributes_ = new vector<AttrInfo *>();
     methods_ = new vector<Function *>();
-    set_type(LabelType::get(prototype_label_ + "_type", this, this->get_module()));
+    set_type(
+        LabelType::get(prototype_label_ + "_type", this, this->get_module()));
 
 #if defined(WIN32) || defined(_WIN32)
-    if (std::ranges::none_of(m->get_class(), [&](const Class *c) { return c->type_tag_ == type_tag; })) {
+    if (std::ranges::none_of(m->get_class(), [&](const Class *c) {
+            return c->type_tag_ == type_tag;
+        })) {
         m->add_class(this);
     }
 #else
     bool flag = false;
     for (auto &&c : m->get_class())
-        if (c->type_tag_ == type_tag)
-            flag = true;
-    if (!flag && is_append)
-        m->add_class(this);
+        if (c->type_tag_ == type_tag) flag = true;
+    if (!flag && is_append) m->add_class(this);
 #endif
 }
 
 Class::Class(Module *m, const string &name_, bool anon_)
-    : Type(static_cast<type>(-7), m), Value(this, name_), class_name_(name_), super_class_info_(nullptr), anon_(anon_) {
+    : Type(static_cast<type>(-7), m),
+      Value(this, name_),
+      class_name_(name_),
+      super_class_info_(nullptr),
+      anon_(anon_) {
     attributes_ = new vector<AttrInfo *>();
     methods_ = new vector<Function *>();
     m->add_class(this);
@@ -99,18 +112,15 @@ string Class::print_class() {
      *   .word 4                                  # Type tag for class: A
      *   .word 4                                  # Object size
      *   .word $A$dispatchTable                   # Pointer to dispatch table
-     *   .word 42                                 # Initial value of attribute: a
-     *   .align 2
-     * .globl $B$prototype
-     * $B$prototype:
-     *   .word 5                                  # Type tag for class: B
-     *   .word 5                                  # Object size
-     *   .word $B$dispatchTable                   # Pointer to dispatch table
-     *   .word 42                                 # Initial value of attribute: a
-     *   .word 1                                  # Initial value of attribute: b
+     *   .word 42                                 # Initial value of attribute:
+     * a .align 2 .globl $B$prototype $B$prototype: .word 5 # Type tag for
+     * class: B .word 5                                  # Object size .word
+     * $B$dispatchTable                   # Pointer to dispatch table .word 42
+     * # Initial value of attribute: a .word 1 # Initial value of attribute: b
      *   .align 2
      * In LLVM:
-     * %$A$prototype_type = type { i32, i32, i32(%$A$dispatchTable_type*)*, i32 }
+     * %$A$prototype_type = type { i32, i32, i32(%$A$dispatchTable_type*)*, i32
+     * }
      * @$A$prototype = global %$A$prototype_type {
      *    i32 4,
      *        i32 4,
@@ -127,7 +137,8 @@ string Class::print_class() {
         if (this->attributes_->empty()) {
             const_ir += fmt::format("%{}_type*\n", this->dispatch_table_label_);
         } else {
-            const_ir += fmt::format("%{}_type*,\n  ", this->dispatch_table_label_);
+            const_ir +=
+                fmt::format("%{}_type*,\n  ", this->dispatch_table_label_);
         }
     }
 
@@ -141,32 +152,41 @@ string Class::print_class() {
     }
     const_ir += "}\n";
 
-    const_ir += "@" + this->prototype_label_ + "  = global %" + this->prototype_label_ + "_type{\n  ";
+    const_ir += "@" + this->prototype_label_ + "  = global %" +
+                this->prototype_label_ + "_type{\n  ";
     const_ir += fmt::format("i32 {},\n  ", this->type_tag_);
     if (!dispatch_table_label_.empty()) {
         const_ir += fmt::format("i32 {},\n  ", 3 + this->attributes_->size());
         if (this->attributes_->empty()) {
-            const_ir += fmt::format("%{}_type* @{}\n", this->dispatch_table_label_, this->dispatch_table_label_);
+            const_ir +=
+                fmt::format("%{}_type* @{}\n", this->dispatch_table_label_,
+                            this->dispatch_table_label_);
         } else {
-            const_ir += fmt::format("%{}_type* @{},\n  ", this->dispatch_table_label_, this->dispatch_table_label_);
+            const_ir +=
+                fmt::format("%{}_type* @{},\n  ", this->dispatch_table_label_,
+                            this->dispatch_table_label_);
         }
     } else
         const_ir += fmt::format("i32 {},\n  ", 2 + this->attributes_->size());
 
     for (auto &&attr : *this->attributes_) {
-        if (attr->init_obj == nullptr && (attr->get_type()->is_integer_type() || attr->get_type()->is_bool_type())) {
+        if (attr->init_obj == nullptr && (attr->get_type()->is_integer_type() ||
+                                          attr->get_type()->is_bool_type())) {
             const_ir += fmt::format("{} {}", attr->print(), attr->init_val);
         } else if (attr->init_obj == nullptr) {
-            const_ir +=
-                fmt::format("{} {}", attr->print(), fmt::format("inttoptr (i32 0 to {})", attr->get_type()->print()));
+            const_ir += fmt::format("{} {}", attr->print(),
+                                    fmt::format("inttoptr (i32 0 to {})",
+                                                attr->get_type()->print()));
         } else if (dynamic_cast<GlobalVariable *>(attr->init_obj)) {
-            const_ir += fmt::format("{} @{}", attr->print(), attr->init_obj->get_name());
+            const_ir += fmt::format("{} @{}", attr->print(),
+                                    attr->init_obj->get_name());
         } else if (dynamic_cast<Union *>(attr->init_obj)) {
             const_ir += attr->print() + " {";
             const_ir += fmt::format("i{}", ((Union *)attr->init_obj)->length_);
             const_ir += " 0 }";
         } else {
-            const_ir += attr->print() + " {" + attr->init_obj->get_type()->print() + " undef}";
+            const_ir += attr->print() + " {" +
+                        attr->init_obj->get_type()->print() + " undef}";
         }
 
         if (attr != this->attributes_->at(this->attributes_->size() - 1)) {
@@ -183,14 +203,14 @@ string Class::print_class() {
      * In Cgen:
      *     .globl $A$dispatchTable
      *     $A$dispatchTable:
-     *       .word $object.__init__                   # Implementation for method: A.__init__
-     *       .word $A.foo                             # Implementation for method: A.foo
-     *     .globl $B$dispatchTable
+     *       .word $object.__init__                   # Implementation for
+     * method: A.__init__ .word $A.foo                             #
+     * Implementation for method: A.foo .globl $B$dispatchTable
      *     $B$dispatchTable:
-     *       .word $B.__init__                        # Implementation for method: B.__init__
-     *       .word $A.foo                             # Implementation for method: B.foo
-     *       .word $B.bar                             # Implementation for method: B.bar
-     * In LLVM:
+     *       .word $B.__init__                        # Implementation for
+     * method: B.__init__ .word $A.foo                             #
+     * Implementation for method: B.foo .word $B.bar # Implementation for
+     * method: B.bar In LLVM:
      *  %$A$dispatchTable_type = type {
      *     object(%A*)*
      *     i32(%A*)*
@@ -212,7 +232,9 @@ string Class::print_class() {
     if (!this->dispatch_table_label_.empty()) {
         const_ir += "%" + this->dispatch_table_label_ + "_type = type {\n  ";
         for (auto &&method : *this->methods_) {
-            const_ir += fmt::format("{}({})*", method->get_return_type()->print(), method->print_args());
+            const_ir +=
+                fmt::format("{}({})*", method->get_return_type()->print(),
+                            method->print_args());
             if (method != this->methods_->at(this->methods_->size() - 1)) {
                 const_ir += ",\n  ";
             } else {
@@ -221,12 +243,14 @@ string Class::print_class() {
         }
         const_ir += "}\n";
 
-        const_ir += "@" + this->dispatch_table_label_ + " = global %" + this->dispatch_table_label_ + "_type {\n  ";
+        const_ir += "@" + this->dispatch_table_label_ + " = global %" +
+                    this->dispatch_table_label_ + "_type {\n  ";
 
         for (auto &&method : *this->methods_) {
             // FIXME: Use dispatch_table_vec to print.
-            const_ir += fmt::format("{}({})* @{}", method->get_return_type()->print(), method->print_args(),
-                                    method->get_name());
+            const_ir +=
+                fmt::format("{}({})* @{}", method->get_return_type()->print(),
+                            method->print_args(), method->get_name());
             if (method != this->methods_->at(this->methods_->size() - 1)) {
                 const_ir += ",\n  ";
             } else {
@@ -239,12 +263,13 @@ string Class::print_class() {
 }
 
 int Class::get_method_offset(string method) const {
-  return std::distance(methods_->begin(),
-                       std::find_if(methods_->begin(), methods_->end(),
-                                    [&method](Function *tmp) {
-                                      auto& a = tmp->name_;
-                                      return a.substr(a.find('.')+1) == method;
-                                    }));
+    return std::distance(methods_->begin(),
+                         std::find_if(methods_->begin(), methods_->end(),
+                                      [&method](Function *tmp) {
+                                          auto &a = tmp->name_;
+                                          return a.substr(a.find('.') + 1) ==
+                                                 method;
+                                      }));
 }
 
 string AttrInfo::print() {
@@ -257,20 +282,23 @@ string AttrInfo::print() {
 }
 
 List::List(Class *list_class, vector<Value *> contained, const string &name)
-    : Class(list_class->get_module(), name, type::LIST, list_class->super_class_info_, true, false),
+    : Class(list_class->get_module(), name, type::LIST,
+            list_class->super_class_info_, true, false),
       contained_(std::move(contained)) {}
 
-List *List::get(Class *list_class, vector<Value *> contained, const string &name) {
+List *List::get(Class *list_class, vector<Value *> contained,
+                const string &name) {
     return new List(list_class, std::move(contained), name);
 }
 
 string List::print() {
     string list_ir;
-    list_ir += fmt::format("{} = global %$.list$prototype_type ", this->name_) + "{\n";
+    list_ir +=
+        fmt::format("{} = global %$.list$prototype_type ", this->name_) + "{\n";
     list_ir += "  i32 -1,\n  i32 5,\n  %$unionl.type {";
     /** One prototype, one value */
     if (this->contained_.at(0) == nullptr) {
     }
     return list_ir;
 }
-} // namespace lightir
+}  // namespace lightir

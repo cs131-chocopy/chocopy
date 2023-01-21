@@ -24,7 +24,7 @@ struct Use {
 };
 
 class Value {
-public:
+   public:
     Value(Type *ty, string name);
     Value(Type *ty) : Value(ty, ""){};
     ~Value() = default;
@@ -53,8 +53,8 @@ public:
     string name_; /* The name field to put on */
     bool should_load = false;
 
-private:
+   private:
     list<Use> use_list_; /* The list contains people who call the value */
 };
-} // namespace lightir
-#endif // CHOCOPY_COMPILER_VALUE_HPP
+}  // namespace lightir
+#endif  // CHOCOPY_COMPILER_VALUE_HPP

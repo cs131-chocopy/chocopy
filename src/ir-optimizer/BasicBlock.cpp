@@ -1,12 +1,14 @@
 #include "BasicBlock.hpp"
-#include "Function.hpp"
-#include "Module.hpp"
+
 #include <cassert>
 
+#include "Function.hpp"
 #include "IRprinter.hpp"
+#include "Module.hpp"
 
 namespace lightir {
-BasicBlock::BasicBlock(Module *m, const string &name = "", Function *parent = nullptr)
+BasicBlock::BasicBlock(Module *m, const string &name = "",
+                       Function *parent = nullptr)
     : Value(Type::get_label_type(m), name), parent_(parent) {
     assert(parent && "currently parent should not be nullptr");
     parent_->add_basic_block(this);
@@ -14,13 +16,18 @@ BasicBlock::BasicBlock(Module *m, const string &name = "", Function *parent = nu
 
 Module *BasicBlock::get_module() { return get_parent()->get_parent(); }
 
-void BasicBlock::add_instruction(Instruction *instr) { instr_list_.push_back(instr); }
+void BasicBlock::add_instruction(Instruction *instr) {
+    instr_list_.push_back(instr);
+}
 
-void BasicBlock::add_instr_begin(Instruction *instr) { instr_list_.push_front(instr); }
+void BasicBlock::add_instr_begin(Instruction *instr) {
+    instr_list_.push_front(instr);
+}
 
 void BasicBlock::insert_instr(Instruction *pos, Instruction *insert) {
     insert->set_parent(pos->get_parent());
-    for (auto instr = instr_list_.begin(); instr != instr_list_.end(); instr++) {
+    for (auto instr = instr_list_.begin(); instr != instr_list_.end();
+         instr++) {
         if (*instr == pos) {
             instr_list_.insert(instr, insert);
             return;
@@ -38,12 +45,12 @@ const Instruction *BasicBlock::get_terminator() const {
         return nullptr;
     }
     switch (instr_list_.back()->get_instr_type()) {
-    case Instruction::Ret:
-    case Instruction::Br:
-        return instr_list_.back();
+        case Instruction::Ret:
+        case Instruction::Br:
+            return instr_list_.back();
 
-    default:
-        return nullptr;
+        default:
+            return nullptr;
     }
 }
 
@@ -59,8 +66,7 @@ string BasicBlock::print() {
         bb_ir += fmt::format("{:<48}; preds = ", "");
     }
     for (auto bb : this->get_pre_basic_blocks()) {
-        if (bb != *this->get_pre_basic_blocks().begin())
-            bb_ir += ", ";
+        if (bb != *this->get_pre_basic_blocks().begin()) bb_ir += ", ";
         bb_ir += print_as_op(bb, false);
     }
 
@@ -78,4 +84,4 @@ string BasicBlock::print() {
 
     return bb_ir;
 }
-} // namespace lightir
+}  // namespace lightir

@@ -5,6 +5,12 @@
 #ifndef CHOCOPY_COMPILER_CHOCOPY_LIGHTIR_HPP
 #define CHOCOPY_COMPILER_CHOCOPY_LIGHTIR_HPP
 
+#include <chocopy_ast.hpp>
+#include <chocopy_optimization.hpp>
+#include <chocopy_semant.hpp>
+#include <memory>
+#include <regex>
+
 #include "BasicBlock.hpp"
 #include "Class.hpp"
 #include "Constant.hpp"
@@ -13,11 +19,6 @@
 #include "Module.hpp"
 #include "SymbolType.hpp"
 #include "Type.hpp"
-#include <chocopy_ast.hpp>
-#include <chocopy_optimization.hpp>
-#include <chocopy_semant.hpp>
-#include <memory>
-#include <regex>
 
 const std::regex to_class_replace("\\$(.+?)+__init__\\.");
 
@@ -31,7 +32,7 @@ class SymbolTable;
 namespace lightir {
 
 class ScopeAnalyzer {
-public:
+   public:
     /** enter a new scope */
     void enter() { inner.emplace_back(); }
 
@@ -46,23 +47,27 @@ public:
      * return true if successful
      * return false if this name already exits */
     bool push(const string &name, Value *val) {
-        // std::cerr << "push " << name << " in scope " << &inner[inner.size()-1] << std::endl;
+        // std::cerr << "push " << name << " in scope " <<
+        // &inner[inner.size()-1] << std::endl;
         auto result = inner[inner.size() - 1].insert({name, val});
         return result.second;
     }
 
     Value *find(const string &name) {
         Value *ret_val = nullptr;
-        static_cast<void>(std::find_if(inner.rbegin(), inner.rend(), [&](const auto &item) {
-            // std::cerr << "try to find " << name << " in scope " << &item << std::endl;
-            auto value = item.find(name);
-            if (value != item.end()) {
-                // std::cerr << "find " << name << " in scope " << &item << std::endl;
-                ret_val = value->second;
-                return true;
-            }
-            return false;
-        }));
+        static_cast<void>(
+            std::find_if(inner.rbegin(), inner.rend(), [&](const auto &item) {
+                // std::cerr << "try to find " << name << " in scope " << &item
+                // << std::endl;
+                auto value = item.find(name);
+                if (value != item.end()) {
+                    // std::cerr << "find " << name << " in scope " << &item <<
+                    // std::endl;
+                    ret_val = value->second;
+                    return true;
+                }
+                return false;
+            }));
         return ret_val;
     }
     Value *find(const string &name, Type *ty) {
@@ -71,8 +76,10 @@ public:
             auto iter = s->find(name);
             if (iter != s->end()) {
                 if (!dynamic_cast<Function *>(iter->second) ||
-                    ((dynamic_cast<Function *>(iter->second))->get_args()).front()->get_type()->get_type_id() ==
-                        ty->get_type_id()) {
+                    ((dynamic_cast<Function *>(iter->second))->get_args())
+                            .front()
+                            ->get_type()
+                            ->get_type_id() == ty->get_type_id()) {
                     return iter->second;
                 }
             }
@@ -117,31 +124,36 @@ public:
         }
         if (to_find_class != nullptr) {
             /** Create GEP */
-            store = builder->create_gep(to_find_class,
-                                        ConstantInt::get(to_find_class->get_attr_offset(nam), builder->get_module()));
+            store = builder->create_gep(
+                to_find_class,
+                ConstantInt::get(to_find_class->get_attr_offset(nam),
+                                 builder->get_module()));
         }
         return store;
     }
-    void remove_in_global(const string &name) { inner[0].erase(inner[0].find(name)); }
+    void remove_in_global(const string &name) {
+        inner[0].erase(inner[0].find(name));
+    }
     bool push_in_global(const string &name, Value *val) {
         auto result = inner[0].insert({name, val});
         return result.second;
     }
 
     void remove(const string &name) {
-        if (inner[inner.size() - 1].find(name) != inner[inner.size() - 1].end()) {
+        if (inner[inner.size() - 1].find(name) !=
+            inner[inner.size() - 1].end()) {
             inner[inner.size() - 1].erase(inner[inner.size() - 1].find(name));
         }
     }
 
     string cat_nest_func(const string &name) { return ""; }
 
-private:
+   private:
     vector<map<std::string, Value *>> inner;
 };
 
 class LightWalker : public ast::Visitor {
-public:
+   public:
     explicit LightWalker(semantic::SymbolTable *sym);
     std::shared_ptr<Module> get_module() { return std::move(module); };
 
@@ -192,25 +204,29 @@ public:
     int get_next_type_id();
     int get_const_type_id();
     int get_class_id(const string &name) const;
-    string get_nested_func_name(semantic::FunctionDefType const * const, bool);
-    GlobalVariable* generate_init_object(parser::Literal* literal);
-    Type* semantic_type_to_llvm_type(semantic::SymbolType *type);
+    string get_nested_func_name(semantic::FunctionDefType const *const, bool);
+    GlobalVariable *generate_init_object(parser::Literal *literal);
+    Type *semantic_type_to_llvm_type(semantic::SymbolType *type);
     bool func_found = false;
     vector<parser::ClassDef *> *class_stack = new vector<parser::ClassDef *>();
     vector<parser::FuncDef *> *func_stack = new vector<parser::FuncDef *>();
-    vector<parser::ClassDef *> *class_finished = new vector<parser::ClassDef *>();
-    vector<tuple<string, parser::ReturnStmt *>> *return_stack = new vector<tuple<string, parser::ReturnStmt *>>();
+    vector<parser::ClassDef *> *class_finished =
+        new vector<parser::ClassDef *>();
+    vector<tuple<string, parser::ReturnStmt *>> *return_stack =
+        new vector<tuple<string, parser::ReturnStmt *>>();
 
-    Value* visitor_return_value = nullptr;
-    Value* visitor_return_object = nullptr;
-    Type* visitor_return_type = nullptr;
-    bool get_lvalue = false; //mark if the visitor is in lvalue context
+    Value *visitor_return_value = nullptr;
+    Value *visitor_return_object = nullptr;
+    Type *visitor_return_type = nullptr;
+    bool get_lvalue = false;  // mark if the visitor is in lvalue context
 
-    Function *nonlist_fun, *strcat_fun, *concat_fun, *noconv_fun, *streql_fun, *strneql_fun, *makebool_fun, *makeint_fun, *makestr_fun, *alloc_fun, *conslist_fun, *heap_init_fun;
-    Type *i32_type,*i1_type,*vstr_type, *ptr_vstr_type;
-    Value* invalid_value;
-    Value* null;
+    Function *nonlist_fun, *strcat_fun, *concat_fun, *noconv_fun, *streql_fun,
+        *strneql_fun, *makebool_fun, *makeint_fun, *makestr_fun, *alloc_fun,
+        *conslist_fun, *heap_init_fun;
+    Type *i32_type, *i1_type, *vstr_type, *ptr_vstr_type;
+    Value *invalid_value;
+    Value *null;
 };
 
-} // namespace lightir
-#endif // CHOCOPY_COMPILER_CHOCOPY_LIGHTIR_HPP
+}  // namespace lightir
+#endif  // CHOCOPY_COMPILER_CHOCOPY_LIGHTIR_HPP

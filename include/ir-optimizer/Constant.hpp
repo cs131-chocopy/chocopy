@@ -5,11 +5,12 @@
 #ifndef CHOCOPY_COMPILER_CONSTANT_HPP
 #define CHOCOPY_COMPILER_CONSTANT_HPP
 
-#include "User.hpp"
-#include "Value.hpp"
 #include <chocopy_parse.hpp>
 #include <map>
 #include <utility>
+
+#include "User.hpp"
+#include "Value.hpp"
 
 using std::map;
 using std::string;
@@ -19,32 +20,36 @@ class Class;
 class Module;
 class ArrayType;
 class Constant : public User {
-public:
-    explicit Constant(Type *ty, const string &name = "", unsigned num_ops = 0) : User(ty, name, num_ops) {}
+   public:
+    explicit Constant(Type *ty, const string &name = "", unsigned num_ops = 0)
+        : User(ty, name, num_ops) {}
     ~Constant() = default;
 };
 
 class ConstantStr : public Constant {
-private:
+   private:
     string value_;
     int id_;
     bool header_print_ = true;
 
-public:
-    static string get_value(ConstantStr *const_val) { return const_val->value_; }
+   public:
+    static string get_value(ConstantStr *const_val) {
+        return const_val->value_;
+    }
     string get_name() override { return fmt::format("const_{}", id_); }
     string get_value() const { return value_; }
     int get_id() const { return id_; }
     static ConstantStr *get(const string &val, int id, Module *m);
     string print() override;
-    ConstantStr(Type *ty, string val, int id) : Constant(ty, "", 0), id_(id), value_(std::move(val)) {}
+    ConstantStr(Type *ty, string val, int id)
+        : Constant(ty, "", 0), id_(id), value_(std::move(val)) {}
 };
 
 class ConstantInt : public Constant {
-private:
+   private:
     int value_;
 
-public:
+   public:
     ConstantInt(Type *ty, int val) : Constant(ty, "", 0), value_(val) {}
     static int get_value(ConstantInt *const_val) { return const_val->value_; }
     int get_value() const { return value_; }
@@ -55,39 +60,45 @@ public:
 };
 
 class ConstantBoxInt : public Constant {
-private:
+   private:
     int value_;
     int id_;
     bool header_print_ = true;
 
-public:
-    static int get_value(ConstantBoxInt *const_val) { return const_val->value_; }
+   public:
+    static int get_value(ConstantBoxInt *const_val) {
+        return const_val->value_;
+    }
     string get_name() override { return fmt::format("const_{}", id_); }
     int get_value() const { return value_; }
     int get_id() const { return id_; }
-    static ConstantBoxInt *get(Class* int_class, int val, int id);
+    static ConstantBoxInt *get(Class *int_class, int val, int id);
     string print() override;
-    ConstantBoxInt(Type *ty, int val, int id) : Constant(ty, "", 0), id_(id), value_(val) {}
+    ConstantBoxInt(Type *ty, int val, int id)
+        : Constant(ty, "", 0), id_(id), value_(val) {}
 };
 
 class ConstantBoxBool : public Constant {
-private:
+   private:
     bool value_;
     int id_;
     bool header_print_ = true;
 
-public:
-    static int get_value(ConstantBoxBool *const_val) { return const_val->value_; }
+   public:
+    static int get_value(ConstantBoxBool *const_val) {
+        return const_val->value_;
+    }
     string get_name() override { return fmt::format("const_{}", id_); }
     int get_value() const { return value_; }
     int get_id() const { return id_; }
-    static ConstantBoxBool *get(Class* bool_class, bool val, int id);
+    static ConstantBoxBool *get(Class *bool_class, bool val, int id);
     string print() override;
-    ConstantBoxBool(Type *ty, bool val, int id) : Constant(ty, "", 0), id_(id), value_(val) {}
+    ConstantBoxBool(Type *ty, bool val, int id)
+        : Constant(ty, "", 0), id_(id), value_(val) {}
 };
 
 class ConstantNull : public Constant {
-public:
+   public:
     ConstantNull(Type *ty) : Constant(ty, "", 0) {}
     static ConstantNull *get(Type *ty) { return new ConstantNull(ty); };
 
@@ -95,10 +106,10 @@ public:
 };
 
 class ConstantArray : public Constant {
-private:
+   private:
     ConstantArray(ArrayType *ty, const vector<Constant *> &val);
 
-public:
+   public:
     ~ConstantArray() = default;
 
     Constant *get_element_value(int index);
@@ -107,19 +118,21 @@ public:
 
     void set_const_array(const vector<Constant *> &new_array);
 
-    static ConstantArray *get(ArrayType *ty, const vector<Constant *> &val) { return new ConstantArray(ty, val); };
+    static ConstantArray *get(ArrayType *ty, const vector<Constant *> &val) {
+        return new ConstantArray(ty, val);
+    };
 
     string print() override;
     vector<Constant *> const_array;
 };
 
 class ConstantZero : public Constant {
-private:
+   private:
     explicit ConstantZero(Type *ty) : Constant(ty, "", 0) {}
 
-public:
+   public:
     static ConstantZero *get(Type *ty, Module *m);
     string print() override;
 };
-} // namespace lightir
-#endif // CHOCOPY_COMPILER_CONSTANT_HPP
+}  // namespace lightir
+#endif  // CHOCOPY_COMPILER_CONSTANT_HPP

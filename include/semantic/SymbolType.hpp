@@ -13,7 +13,7 @@ using std::string_view;
 
 namespace semantic {
 class SymbolType {
-public:
+   public:
     virtual ~SymbolType() = default;
 
     virtual constexpr bool is_value_type() const { return false; }
@@ -26,9 +26,11 @@ public:
     virtual void set_name(string_view className) = 0;
     virtual string get_type() const = 0;
 
-    template <typename _Ty> bool eq(const _Ty &_Value) const ;
-    template <typename _Ty> bool neq(const _Ty &_Value) const;
+    template <typename _Ty>
+    bool eq(const _Ty &_Value) const;
+    template <typename _Ty>
+    bool neq(const _Ty &_Value) const;
 };
-} // namespace semantic
+}  // namespace semantic
 
-#endif // CHOCOPY_COMPILER_SYMBOLTYPE_HPP
+#endif  // CHOCOPY_COMPILER_SYMBOLTYPE_HPP

@@ -1,13 +1,17 @@
 #include "Value.hpp"
-#include "Type.hpp"
-#include "User.hpp"
+
 #include <cassert>
 #include <utility>
+
+#include "Type.hpp"
+#include "User.hpp"
 namespace lightir {
 
 Value::Value(Type *ty, std::string name) : type_(ty), name_(std::move(name)) {}
 
-void Value::add_use(Value *val, unsigned arg_no) { use_list_.emplace_back(val, arg_no); }
+void Value::add_use(Value *val, unsigned arg_no) {
+    use_list_.emplace_back(val, arg_no);
+}
 
 std::string Value::get_name() { return name_; }
 
@@ -23,4 +27,4 @@ void Value::remove_use(Value *val) {
     auto is_val = [val](const Use &use) { return use.val_ == val; };
     use_list_.remove_if(is_val);
 }
-} // namespace lightir
+}  // namespace lightir

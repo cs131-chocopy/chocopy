@@ -14,7 +14,8 @@ void PassManager::run(bool print_ir) {
         i++;
         pass->run();
         if (print_ir || pass->isPrintIR()) {
-            LOG(ERROR) << ">>>>>>>>>>>> After pass " << pass->getName() << " <<<<<<<<<<<<";
+            LOG(ERROR) << ">>>>>>>>>>>> After pass " << pass->getName()
+                       << " <<<<<<<<<<<<";
             m_->print();
         }
         if (pass->getName() == "Vectorization") {
@@ -45,4 +46,4 @@ void PassManager::add_pass(const string &name, bool print_ir) {
     passes_.back()->setPrintIR(print_ir);
     LOG(DEBUG) << name;*/
 }
-} // namespace lightir
+}  // namespace lightir

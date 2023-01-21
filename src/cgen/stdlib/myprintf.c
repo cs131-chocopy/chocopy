@@ -27,14 +27,12 @@ static int prints(char **out, const char *string, int width, int pad) {
     if (width > 0) {
         int len = 0;
         const char *ptr;
-        for (ptr = string; *ptr; ++ptr)
-            ++len;
+        for (ptr = string; *ptr; ++ptr) ++len;
         if (len >= width)
             width = 0;
         else
             width -= len;
-        if (pad & PAD_ZERO)
-            padchar = '0';
+        if (pad & PAD_ZERO) padchar = '0';
     }
     if (!(pad & PAD_RIGHT)) {
         for (; width > 0; --width) {
@@ -57,7 +55,8 @@ static int prints(char **out, const char *string, int width, int pad) {
 /** the following should be enough for 32 bit int */
 #define PRINT_BUF_LEN 12
 
-static int printi(char **out, int i, int b, int sg, int width, int pad, int letbase) {
+static int printi(char **out, int i, int b, int sg, int width, int pad,
+                  int letbase) {
     char print_buf[PRINT_BUF_LEN];
     char *s;
     int t, neg = 0, pc = 0;
@@ -79,8 +78,7 @@ static int printi(char **out, int i, int b, int sg, int width, int pad, int letb
 
     while (u) {
         t = u % b;
-        if (t >= 10)
-            t += letbase - '0' - 10;
+        if (t >= 10) t += letbase - '0' - 10;
         *--s = t + '0';
         u /= b;
     }
@@ -107,10 +105,8 @@ int myprintf(char *format, int varg) {
         if (*format == '%') {
             ++format;
             width = pad = 0;
-            if (*format == '\0')
-                break;
-            if (*format == '%')
-                goto out;
+            if (*format == '\0') break;
+            if (*format == '%') goto out;
             if (*format == '-') {
                 ++format;
                 pad = PAD_RIGHT;
@@ -130,10 +126,11 @@ int myprintf(char *format, int varg) {
                     if (i == 0) {
                         is_str = isascii(*((char *)varg + i));
                     }
-                    is_str &= isalpha(*((char *)varg + i)) || isupper(*((char *)varg + i));
+                    is_str &= isalpha(*((char *)varg + i)) ||
+                              isupper(*((char *)varg + i));
                 }
                 if (is_str)
-                    pc += prints(0, (const char*)varg, width, pad);
+                    pc += prints(0, (const char *)varg, width, pad);
                 else if (*(char **)varg) {
                     pc += prints(0, *(char **)varg, width, pad);
                 } else

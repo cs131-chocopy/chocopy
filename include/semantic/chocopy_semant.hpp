@@ -149,7 +149,8 @@ class TypeChecker : public ast::ASTAnalyzer {
      * M : classes
      * C : currentClass
      * R : expReturnType */
-    TypeChecker(SymbolTable *globalSymbols, vector<parser::CompilerErr *> *errors0) {
+    TypeChecker(SymbolTable *globalSymbols,
+                vector<parser::CompilerErr *> *errors0) {
         this->sym = globalSymbols;
         this->global = globalSymbols;
         this->errors = errors0;

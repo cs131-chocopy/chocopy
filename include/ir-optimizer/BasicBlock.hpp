@@ -7,12 +7,13 @@
 
 #pragma once
 
-#include "Function.hpp"
-#include "Module.hpp"
-#include "Value.hpp"
 #include <list>
 #include <set>
 #include <string>
+
+#include "Function.hpp"
+#include "Module.hpp"
+#include "Value.hpp"
 
 using std::map;
 using std::string;
@@ -21,7 +22,7 @@ namespace lightir {
 class Instruction;
 
 class BasicBlock : public Value {
-public:
+   public:
     BasicBlock(Module *m, const string &name, Function *parent);
     /** Constructor that calls name completion. */
     static BasicBlock *create(Module *m, const string &name, Function *parent) {
@@ -42,10 +43,12 @@ public:
     void remove_pre_basic_block(BasicBlock *bb) { pre_bbs_.remove(bb); }
     void remove_succ_basic_block(BasicBlock *bb) { succ_bbs_.remove(bb); }
 
-    /** Return the terminator instruction if the block is well formed or null, if the block is not well formed. */
+    /** Return the terminator instruction if the block is well formed or null,
+     * if the block is not well formed. */
     const Instruction *get_terminator() const;
     Instruction *get_terminator() {
-        return const_cast<Instruction *>(static_cast<const BasicBlock *>(this)->get_terminator());
+        return const_cast<Instruction *>(
+            static_cast<const BasicBlock *>(this)->get_terminator());
     }
 
     void add_instruction(Instruction *instr);
@@ -61,11 +64,11 @@ public:
 
     virtual string print() override;
 
-private:
+   private:
     list<BasicBlock *> pre_bbs_;
     list<BasicBlock *> succ_bbs_;
     list<Instruction *> instr_list_;
     Function *parent_;
 };
-} // namespace lightir
-#endif // CHOCOPY_COMPILER_BASICBLOCK_HPP
+}  // namespace lightir
+#endif  // CHOCOPY_COMPILER_BASICBLOCK_HPP

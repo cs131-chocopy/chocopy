@@ -6,13 +6,11 @@
 
 #pragma once
 
-#include <memory>
-#include "FunctionDefType.hpp"
-#include "ValueType.hpp"
 #include <chocopy_ast.hpp>
 #include <chocopy_logging.hpp>
-#include <json.hpp>
 #include <iostream>
+#include <json.hpp>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -23,11 +21,11 @@ namespace semantic {
 class SymbolType;
 class ClassValueType;
 class ValueType;
-} // namespace semantic
+}  // namespace semantic
 
 namespace ast {
 class Visitor;
-} // namespace ast
+}  // namespace ast
 
 namespace parser {
 class AssignStmt;
@@ -91,7 +89,7 @@ struct Location {
  *      Nodes have caused an error.
  */
 class Node {
-public:
+   public:
     string kind;
     string error_msg;
     string typeError;
@@ -122,8 +120,12 @@ public:
 
     /** Add a new semantic error message attributed to NODE, with message
      *  String.format(MESSAGEFORM, ARGS). */
-    template <typename T> void semError(T rest) { this->typeError += fmt::format(" {}", rest); }
-    template <typename T, typename... Args> void semError(T message, Args... rest) {
+    template <typename T>
+    void semError(T rest) {
+        this->typeError += fmt::format(" {}", rest);
+    }
+    template <typename T, typename... Args>
+    void semError(T message, Args... rest) {
         this->typeError += fmt::format(" {}", message);
         semError(rest...);
     }
@@ -133,11 +135,12 @@ public:
  * Base of all AST nodes representing definitions or declarations.
  */
 class Decl : public Node {
-public:
+   public:
     /** A definition or declaration spanning source locations [LEFT..RIGHT]. */
     explicit Decl(Location location) : Node(location) {}
     Decl(Location location, string kind) : Node(location, std::move(kind)) {}
-    Decl(Location location, string kind, string errMsg) : Node(location, std::move(kind), std::move(errMsg)) {}
+    Decl(Location location, string kind, string errMsg)
+        : Node(location, std::move(kind), std::move(errMsg)) {}
 
     virtual Ident *get_id() { return nullptr; };
 };
@@ -145,28 +148,32 @@ public:
 /** Represents a single error.  Does not correspond to any Python source
  *  construct. */
 class CompilerErr : public Node {
-public:
+   public:
     string message;
     bool syntax = false;
 
     /** Represents an error with message MESSAGE.  Iff SYNTAX, it is a
      *  syntactic error.  The error applies to source text at [LEFT..RIGHT]. */
-    CompilerErr(Location location, string message, bool syntax) : Node(location, "CompilerError") {
+    CompilerErr(Location location, string message, bool syntax)
+        : Node(location, "CompilerError") {
         this->message = std::move(message);
         this->syntax = syntax;
     };
 
-    CompilerErr(Location location, string message) : Node(location, "CompilerError") { this->message = std::move(message); }
+    CompilerErr(Location location, string message)
+        : Node(location, "CompilerError") {
+        this->message = std::move(message);
+    }
     json toJSON() const override;
 };
 
 /** Collects the error messages in a Program.  There is exactly one per
  *  Program node. */
 class Errors : public Node {
-public:
+   public:
     /** The accumulated error messages in the order added. */
     vector<std::unique_ptr<CompilerErr>> compiler_errors;
-    explicit Errors(Location location) : Node(location, "Errors") {  }
+    explicit Errors(Location location) : Node(location, "Errors") {}
 
     bool has_compiler_errors() const { return compiler_errors.size(); }
 
@@ -176,7 +183,7 @@ public:
 
 /** An identifier with attached type annotation. */
 class TypedVar : public Node {
-public:
+   public:
     std::unique_ptr<Ident> identifier;
     std::unique_ptr<TypeAnnotation> type;
 
@@ -184,18 +191,20 @@ public:
      *       IDENTIFIER : TYPE.
      *  spanning source locations [LEFT..RIGHT].
      */
-    TypedVar(Location location, Ident *identifier, TypeAnnotation *type) : Node(location, "TypedVar"), identifier(identifier), type(type) { }
+    TypedVar(Location location, Ident *identifier, TypeAnnotation *type)
+        : Node(location, "TypedVar"), identifier(identifier), type(type) {}
 
     json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 };
 
 class Stmt : public Node {
-public:
+   public:
     bool is_return = false;
     explicit Stmt(Location location) : Node(location) {}
     Stmt(Location location, string kind) : Node(location, std::move(kind)) {}
-    Stmt(Location location, string kind, string errMsg) : Node(location, std::move(kind), std::move(errMsg)) {}
+    Stmt(Location location, string kind, string errMsg)
+        : Node(location, std::move(kind), std::move(errMsg)) {}
 };
 
 /**
@@ -208,7 +217,7 @@ public:
  * this class.
  */
 class Expr : public Node {
-public:
+   public:
     /** A Python expression spanning source locations [LEFT..RIGHT]. */
     explicit Expr(Location location);
     Expr(Location location, string kind);
@@ -234,10 +243,12 @@ public:
 
 /** A simple identifier. */
 class Ident : public Expr {
-public:
+   public:
     /** An AST for the variable, method, or parameter named NAME, spanning
      *  source locations [LEFT..RIGHT]. */
-    Ident(Location location, string name) : Expr(location, "Identifier") { this->name = std::move(name); }
+    Ident(Location location, string name) : Expr(location, "Identifier") {
+        this->name = std::move(name);
+    }
 
     string name;
 
@@ -252,13 +263,16 @@ public:
  * expressions that are constant literals.
  */
 class Literal : public Expr {
-public:
+   public:
     /** A literal spanning source locations [LEFT..RIGHT]. */
     explicit Literal(Location location) : Expr(location){};
     Literal(Location location, string kind) : Expr(location, std::move(kind)){};
-    Literal(Location location, string kind, int value) : Expr(location, std::move(kind)), int_value(value), is_init(true){};
+    Literal(Location location, string kind, int value)
+        : Expr(location, std::move(kind)), int_value(value), is_init(true){};
     Literal(Location location, string kind, string value)
-        : Expr(location, std::move(kind)), value(std::move(value)), is_init(true){};
+        : Expr(location, std::move(kind)),
+          value(std::move(value)),
+          is_init(true){};
 
     string value;
     int int_value{};
@@ -270,25 +284,28 @@ public:
  * types.
  */
 class TypeAnnotation : public Node {
-public:
+   public:
     /** An annotation spanning source locations [LEFT..RIGHT]. */
     explicit TypeAnnotation(Location location) : Node(location){};
-    TypeAnnotation(Location location, string kind) : Node(location, std::move(kind)){};
-    TypeAnnotation(Location location, string kind, string errMsg) : Node(location, std::move(kind), std::move(errMsg)){};
+    TypeAnnotation(Location location, string kind)
+        : Node(location, std::move(kind)){};
+    TypeAnnotation(Location location, string kind, string errMsg)
+        : Node(location, std::move(kind), std::move(errMsg)){};
 
     string get_name();
 };
 
 /** Single and multiple assignments. DEPRECATED from semantic */
 class AssignStmt : public Stmt {
-public:
+   public:
     vector<std::unique_ptr<Expr>> targets;
     std::unique_ptr<Expr> value;
 
     /** AST for TARGETS[0] = TARGETS[1] = ... = VALUE spanning source locations
      *  [LEFT..RIGHT].
      */
-    AssignStmt(Location location, Expr* target, Expr *value) : Stmt(location, "AssignStmt"), value(value) {
+    AssignStmt(Location location, Expr *target, Expr *value)
+        : Stmt(location, "AssignStmt"), value(value) {
         this->targets.emplace_back(target);
     }
 
@@ -298,7 +315,7 @@ public:
 
 /** <operand> <operator> <operand>. */
 class BinaryExpr : public Expr {
-public:
+   public:
     enum class operator_code {
         Plus = 0,
         Minus,
@@ -323,39 +340,26 @@ public:
 
     /** An AST for expressions of the form LEFTEXPR OP RIGHTEXPR
      *  from text in range [LEFTLOC..RIGHTLOC]. */
-    BinaryExpr(Location location, Expr *leftExpr, string op, Expr *rightExpr) : Expr(location, "BinaryExpr"), left(leftExpr), right(rightExpr) {
+    BinaryExpr(Location location, Expr *leftExpr, string op, Expr *rightExpr)
+        : Expr(location, "BinaryExpr"), left(leftExpr), right(rightExpr) {
         this->operator_ = std::move(op);
     }
 
     static operator_code hashcode(std::string const &str) {
-        if (str == "+")
-            return operator_code::Plus;
-        if (str == "-")
-            return operator_code::Minus;
-        if (str == "*")
-            return operator_code::Star;
-        if (str == "//")
-            return operator_code::Slash;
-        if (str == "%")
-            return operator_code::Percent;
-        if (str == "==")
-            return operator_code::EqEq;
-        if (str == "!=")
-            return operator_code::NotEq;
-        if (str == "<=")
-            return operator_code::LessThan;
-        if (str == ">=")
-            return operator_code::MoreThan;
-        if (str == ">")
-            return operator_code::More;
-        if (str == "<")
-            return operator_code::Less;
-        if (str == "and")
-            return operator_code::And;
-        if (str == "or")
-            return operator_code::Or;
-        if (str == "is")
-            return operator_code::Is;
+        if (str == "+") return operator_code::Plus;
+        if (str == "-") return operator_code::Minus;
+        if (str == "*") return operator_code::Star;
+        if (str == "//") return operator_code::Slash;
+        if (str == "%") return operator_code::Percent;
+        if (str == "==") return operator_code::EqEq;
+        if (str == "!=") return operator_code::NotEq;
+        if (str == "<=") return operator_code::LessThan;
+        if (str == ">=") return operator_code::MoreThan;
+        if (str == ">") return operator_code::More;
+        if (str == "<") return operator_code::Less;
+        if (str == "and") return operator_code::And;
+        if (str == "or") return operator_code::Or;
+        if (str == "is") return operator_code::Is;
         return operator_code::Unknown;
     }
 
@@ -365,13 +369,16 @@ public:
 
 /** Literals True or False. */
 class BoolLiteral : public Literal {
-public:
+   public:
     /** True iff I represent True. */
     bool bin_value;
 
     /** An AST for the token True or False at [LEFT..RIGHT], depending on
      *  VALUE. */
-    BoolLiteral(Location location, bool value) : Literal(location, "BooleanLiteral") { this->bin_value = value; }
+    BoolLiteral(Location location, bool value)
+        : Literal(location, "BooleanLiteral") {
+        this->bin_value = value;
+    }
 
     json toJSON() const override;
 
@@ -380,16 +387,19 @@ public:
 
 /** A function call. */
 class CallExpr : public Expr {
-public:
+   public:
     std::unique_ptr<Ident> function;
     vector<std::unique_ptr<Expr>> args;
 
-    CallExpr(Location location, Ident *function, vector<std::unique_ptr<Expr>>* args) : Expr(location, "CallExpr"), function(function) {
+    CallExpr(Location location, Ident *function,
+             vector<std::unique_ptr<Expr>> *args)
+        : Expr(location, "CallExpr"), function(function) {
         this->args = std::move(*args);
         delete args;
     }
 
-    CallExpr(Location location, Ident *function) : Expr(location, "CallExpr"), function(function) { }
+    CallExpr(Location location, Ident *function)
+        : Expr(location, "CallExpr"), function(function) {}
 
     json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
@@ -397,13 +407,15 @@ public:
 
 /** A class definition. */
 class ClassDef : public Decl {
-public:
+   public:
     std::unique_ptr<Ident> name;
     std::unique_ptr<Ident> superClass;
     vector<std::unique_ptr<Decl>> declaration;
 
     /** A class definition. */
-    ClassDef(Location location, Ident *name, Ident *superClass, vector<std::unique_ptr<Decl>> *declaration) : Decl(location, "ClassDef"), name(name), superClass(superClass) {
+    ClassDef(Location location, Ident *name, Ident *superClass,
+             vector<std::unique_ptr<Decl>> *declaration)
+        : Decl(location, "ClassDef"), name(name), superClass(superClass) {
         this->declaration = std::move(*declaration);
         delete declaration;
     }
@@ -415,10 +427,11 @@ public:
 
 /** A simple class type name. */
 class ClassType : public TypeAnnotation {
-public:
+   public:
     string className;
     /** An AST denoting a type named CLASSNAME0 at [LEFT..RIGHT]. */
-    ClassType(Location location, string className) : TypeAnnotation(location, "ClassType") {
+    ClassType(Location location, string className)
+        : TypeAnnotation(location, "ClassType") {
         this->className = std::move(className);
     }
 
@@ -428,9 +441,10 @@ public:
 
 /** A statement containing only an expression. */
 class ExprStmt : public Stmt {
-public:
+   public:
     std::unique_ptr<Expr> expr;
-    ExprStmt(Location location, Expr *expr) : Stmt(location, "ExprStmt"), expr(expr) { }
+    ExprStmt(Location location, Expr *expr)
+        : Stmt(location, "ExprStmt"), expr(expr) {}
 
     json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
@@ -438,7 +452,7 @@ public:
 
 /** For statements. */
 class ForStmt : public Stmt {
-public:
+   public:
     std::unique_ptr<Ident> identifier;
     std::unique_ptr<Expr> iterable;
     vector<std::unique_ptr<parser::Stmt>> body;
@@ -448,7 +462,11 @@ public:
      *          BODY
      *  spanning source locations [LEFT..RIGHT].
      */
-    ForStmt(Location location, Ident *identifier, Expr *iterable, vector<std::unique_ptr<parser::Stmt>> *body) : Stmt(location, "ForStmt"), identifier(identifier), iterable(iterable) {
+    ForStmt(Location location, Ident *identifier, Expr *iterable,
+            vector<std::unique_ptr<parser::Stmt>> *body)
+        : Stmt(location, "ForStmt"),
+          identifier(identifier),
+          iterable(iterable) {
         this->body = std::move(*body);
         delete body;
     }
@@ -459,7 +477,7 @@ public:
 
 /** Def statements. */
 class FuncDef : public Decl {
-public:
+   public:
     std::unique_ptr<Ident> name;
     vector<std::unique_ptr<TypedVar>> params;
     std::unique_ptr<TypeAnnotation> returnType;
@@ -473,8 +491,11 @@ public:
      *         STATEMENTS
      *  spanning source locations [LEFT..RIGHT].
      */
-    FuncDef(Location location, Ident *name, vector<std::unique_ptr<TypedVar>> *params, TypeAnnotation *returnType,
-            vector<std::unique_ptr<Decl>> *declarations, vector<std::unique_ptr<parser::Stmt>> *statements)
+    FuncDef(Location location, Ident *name,
+            vector<std::unique_ptr<TypedVar>> *params,
+            TypeAnnotation *returnType,
+            vector<std::unique_ptr<Decl>> *declarations,
+            vector<std::unique_ptr<parser::Stmt>> *statements)
         : Decl(location, "FuncDef"), name(name), returnType(returnType) {
         this->params = std::move(*params);
         delete params;
@@ -489,9 +510,12 @@ public:
 };
 
 class GlobalDecl : public Decl {
-public:
+   public:
     Ident *variable;
-    GlobalDecl(Location location, Ident *variable) : Decl(location, "GlobalDecl") { this->variable = variable; }
+    GlobalDecl(Location location, Ident *variable)
+        : Decl(location, "GlobalDecl") {
+        this->variable = variable;
+    }
     json toJSON() const override;
 
     Ident *get_id() override { return this->variable; }
@@ -500,7 +524,7 @@ public:
 
 /** Conditional statement. */
 class IfStmt : public Stmt {
-public:
+   public:
     enum cond { THEN_ELSE = 0, THEN_ELIF, THEN };
     /** Test condition. */
     std::unique_ptr<Expr> condition;
@@ -518,7 +542,9 @@ public:
      *          ELSEBODY
      *  spanning source locations [LEFT..RIGHT].
      */
-    IfStmt(Location location, Expr *condition, vector<std::unique_ptr<parser::Stmt>> *thenBody, vector<std::unique_ptr<parser::Stmt>> *elseBody)
+    IfStmt(Location location, Expr *condition,
+           vector<std::unique_ptr<parser::Stmt>> *thenBody,
+           vector<std::unique_ptr<parser::Stmt>> *elseBody)
         : Stmt(location, "IfStmt"), el(cond::THEN_ELSE), condition(condition) {
         this->thenBody = std::move(*thenBody);
         delete thenBody;
@@ -527,17 +553,22 @@ public:
     }
 
     /** elseBody can be IfStmt to support polymorphism */
-    IfStmt(Location location, Expr *condition, vector<std::unique_ptr<parser::Stmt>> *thenBody, IfStmt *elifBody)
-        : Stmt(location, "IfStmt"), el(cond::THEN_ELIF),condition(condition), elifBody(elifBody)  {
+    IfStmt(Location location, Expr *condition,
+           vector<std::unique_ptr<parser::Stmt>> *thenBody, IfStmt *elifBody)
+        : Stmt(location, "IfStmt"),
+          el(cond::THEN_ELIF),
+          condition(condition),
+          elifBody(elifBody) {
         this->thenBody = std::move(*thenBody);
         delete thenBody;
     }
 
-    IfStmt(Location location, Expr *condition, vector<std::unique_ptr<parser::Stmt>> *thenBody) : Stmt(location, "IfStmt"), condition(condition)  {
+    IfStmt(Location location, Expr *condition,
+           vector<std::unique_ptr<parser::Stmt>> *thenBody)
+        : Stmt(location, "IfStmt"), condition(condition) {
         this->thenBody = std::move(*thenBody);
         delete thenBody;
     }
-
 
     json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
@@ -545,7 +576,7 @@ public:
 
 /** Conditional expressions. */
 class IfExpr : public Expr {
-public:
+   public:
     /** Boolean condition. */
     std::unique_ptr<Expr> condition;
     /** True branch. */
@@ -558,8 +589,10 @@ public:
      *  spanning source locations [LEFT..RIGHT].
      */
     IfExpr(Location location, Expr *condition, Expr *thenExpr, Expr *elseExpr)
-        : Expr(location, "IfExpr"), condition(condition), thenExpr(thenExpr), elseExpr(elseExpr) {}
-
+        : Expr(location, "IfExpr"),
+          condition(condition),
+          thenExpr(thenExpr),
+          elseExpr(elseExpr) {}
 
     json toJSON() const override;
 
@@ -568,7 +601,7 @@ public:
 
 /** List-indexing expression. */
 class IndexExpr : public Expr {
-public:
+   public:
     /** Indexed list. */
     Expr *list;
     /** Expression for index value. */
@@ -578,7 +611,8 @@ public:
      *      LIST[INDEX].
      *  spanning source locations [LEFT..RIGHT].
      */
-    IndexExpr(Location location, Expr *list, Expr *index) : Expr(location, "IndexExpr") {
+    IndexExpr(Location location, Expr *list, Expr *index)
+        : Expr(location, "IndexExpr") {
         this->list = list;
         this->index = index;
     }
@@ -590,13 +624,16 @@ public:
 
 /** Integer numerals. */
 class IntegerLiteral : public Literal {
-public:
+   public:
     /** Value denoted. */
     int value;
 
     /** The AST for the literal VALUE, spanning source
      *  locations [LEFT..RIGHT]. */
-    IntegerLiteral(Location location, int value) : Literal(location, "IntegerLiteral", value) { this->value = value; }
+    IntegerLiteral(Location location, int value)
+        : Literal(location, "IntegerLiteral", value) {
+        this->value = value;
+    }
 
     json toJSON() const override;
 
@@ -605,7 +642,7 @@ public:
 
 /** List displays. */
 class ListExpr : public Expr {
-public:
+   public:
     /** List of element expressions. */
     vector<std::unique_ptr<Expr>> elements;
 
@@ -613,11 +650,12 @@ public:
      *      [ ELEMENTS ].
      *  spanning source locations [LEFT..RIGHT].
      */
-    ListExpr(Location location, vector<std::unique_ptr<Expr>>* elements) : Expr(location, "ListExpr") {
+    ListExpr(Location location, vector<std::unique_ptr<Expr>> *elements)
+        : Expr(location, "ListExpr") {
         this->elements = std::move(*elements);
         delete elements;
     }
-    explicit ListExpr(Location location) : Expr(location, "ListExpr") { }
+    explicit ListExpr(Location location) : Expr(location, "ListExpr") {}
 
     json toJSON() const override;
 
@@ -626,13 +664,14 @@ public:
 
 /** Type denotation for a list type. */
 class ListType : public TypeAnnotation {
-public:
+   public:
     std::unique_ptr<TypeAnnotation> elementType;
     /** The AST for the type annotation
      *       [ ELEMENTTYPE ].
      *  spanning source locations [LEFT..RIGHT].
      */
-    ListType(Location location, TypeAnnotation *element) : TypeAnnotation(location, "ListType"), elementType(element) {}
+    ListType(Location location, TypeAnnotation *element)
+        : TypeAnnotation(location, "ListType"), elementType(element) {}
 
     json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
@@ -640,26 +679,27 @@ public:
 
 /** Attribute accessor. */
 class MemberExpr : public Expr {
-public:
+   public:
     std::unique_ptr<Expr> object;
     std::unique_ptr<Ident> member;
     /** The AST for
      *     OBJECT.MEMBER.
      *  spanning source locations [LEFT..RIGHT].
      */
-    MemberExpr(Location location, Expr *object, Ident *member) : Expr(location, "MemberExpr"), object(object), member(member) {}
+    MemberExpr(Location location, Expr *object, Ident *member)
+        : Expr(location, "MemberExpr"), object(object), member(member) {}
 
     json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
 
-    Ident *get_id() { return static_cast<Ident*>(object.get()); }
+    Ident *get_id() { return static_cast<Ident *>(object.get()); }
 
     bool is_function_call = false;
 };
 
 /** Method calls. */
 class MethodCallExpr : public Expr {
-public:
+   public:
     /** Expression for the bound method to be called. */
     std::unique_ptr<MemberExpr> method;
     /** Actual parameters. */
@@ -668,12 +708,15 @@ public:
      *      METHOD(ARGS).
      *  spanning source locations [LEFT..RIGHT].
      */
-    MethodCallExpr(Location location, MemberExpr *method, vector<std::unique_ptr<Expr>> *args) : Expr(location, "MethodCallExpr"), method(method) {
+    MethodCallExpr(Location location, MemberExpr *method,
+                   vector<std::unique_ptr<Expr>> *args)
+        : Expr(location, "MethodCallExpr"), method(method) {
         this->args = std::move(*args);
         delete args;
     }
     /** The initializer for unintialised args*/
-    MethodCallExpr(Location location, MemberExpr *method) : Expr(location, "MethodCallExpr"), method(method) {}
+    MethodCallExpr(Location location, MemberExpr *method)
+        : Expr(location, "MethodCallExpr"), method(method) {}
 
     json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
@@ -681,9 +724,10 @@ public:
 
 /** The expression 'None'. */
 class NoneLiteral : public Literal {
-public:
+   public:
     /** The AST for None, spanning source locations [LEFT..RIGHT]. */
-    explicit NoneLiteral(Location location) : Literal(location, "NoneLiteral") {}
+    explicit NoneLiteral(Location location)
+        : Literal(location, "NoneLiteral") {}
 
     json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
@@ -691,13 +735,14 @@ public:
 
 /** Nonlocal declaration. */
 class NonlocalDecl : public Decl {
-public:
+   public:
     std::unique_ptr<Ident> variable;
     /** The AST for
      *      nonlocal VARIABLE
      *  spanning source locations [LEFT..RIGHT].
      */
-    NonlocalDecl(Location location, Ident *variable) : Decl(location, "NonLocalDecl"), variable(variable) { }
+    NonlocalDecl(Location location, Ident *variable)
+        : Decl(location, "NonLocalDecl"), variable(variable) {}
 
     Ident *get_id() override { return this->variable.get(); }
     json toJSON() const override;
@@ -705,27 +750,30 @@ public:
 };
 
 class Program : public Node {
-public:
+   public:
     vector<std::unique_ptr<parser::Stmt>> statements;
     std::unique_ptr<Errors> errors{new Errors({})};
     vector<std::unique_ptr<Decl>> declarations;
 
-    Program(Location location, vector<std::unique_ptr<Decl>> *declarations, vector<std::unique_ptr<parser::Stmt>> *statements) : Node(location, "Program") {
+    Program(Location location, vector<std::unique_ptr<Decl>> *declarations,
+            vector<std::unique_ptr<parser::Stmt>> *statements)
+        : Node(location, "Program") {
         this->declarations = std::move(*declarations);
         delete declarations;
         this->statements = std::move(*statements);
         delete statements;
     };
 
-    Program(Location location, vector<std::unique_ptr<Decl>> *declarations) : Node(location, "Program") {
+    Program(Location location, vector<std::unique_ptr<Decl>> *declarations)
+        : Node(location, "Program") {
         this->declarations = std::move(*declarations);
         delete declarations;
     };
 
-    explicit Program(Location location) : Node(location, "Program") {};
+    explicit Program(Location location) : Node(location, "Program"){};
 
     void add_error(vector<CompilerErr *> *errs) {
-        for (auto& err : *errs) {
+        for (auto &err : *errs) {
             this->errors->compiler_errors.emplace_back(std::move(err));
         }
         errs->clear();
@@ -737,14 +785,15 @@ public:
 
 /** Return from function. */
 class ReturnStmt : public Stmt {
-public:
+   public:
     /** Returned value. */
     std::unique_ptr<Expr> value;
     /** The AST for
      *     return VALUE
      *  spanning source locations [LEFT..RIGHT].
      */
-    ReturnStmt(Location location, Expr *value) : Stmt(location, "ReturnStmt"), value(value) {
+    ReturnStmt(Location location, Expr *value)
+        : Stmt(location, "ReturnStmt"), value(value) {
         this->is_return = true;
     }
     explicit ReturnStmt(Location location) : Stmt(location, "ReturnStmt") {
@@ -757,7 +806,7 @@ public:
 
 /** String constants. */
 class StringLiteral : public Literal {
-public:
+   public:
     /** Contents of the literal, not including quotation marks. */
     string value;
     /** The AST for a string literal containing VALUE, spanning source
@@ -770,7 +819,7 @@ public:
 
 /** An expression applying a unary operator. */
 class UnaryExpr : public Expr {
-public:
+   public:
     enum class operator_code { Minus = 0, Not, Unknown };
 
     string operator_;
@@ -780,15 +829,14 @@ public:
      *      OPERATOR OPERAND
      *  spanning source locations [LEFT..RIGHT].
      */
-    UnaryExpr(Location location, string operator_, Expr *operand) : Expr(location, "UnaryExpr"), operand(operand) {
+    UnaryExpr(Location location, string operator_, Expr *operand)
+        : Expr(location, "UnaryExpr"), operand(operand) {
         this->operator_ = std::move(operator_);
     }
 
     static operator_code hashcode(std::string const &str) {
-        if (str == "-" || str == "MINUS:-")
-            return operator_code::Minus;
-        if (str == "not" || str == "NOT:not")
-            return operator_code::Not;
+        if (str == "-" || str == "MINUS:-") return operator_code::Minus;
+        if (str == "not" || str == "NOT:not") return operator_code::Not;
         return operator_code::Unknown;
     }
 
@@ -798,7 +846,7 @@ public:
 
 /** A declaration of a variable (i.e., with type annotation). */
 class VarDef : public Decl {
-public:
+   public:
     /** The variable and its assigned type. */
     std::unique_ptr<TypedVar> var;
     /** The initial value assigned. */
@@ -808,8 +856,8 @@ public:
      *      VAR = VALUE
      *  where VAR has a type annotation, and spanning source
      *  locations [LEFT..RIGHT]. */
-    VarDef(Location location, TypedVar *var, Literal *value) : Decl(location, "VarDef"), var(var), value(value) {
-    }
+    VarDef(Location location, TypedVar *var, Literal *value)
+        : Decl(location, "VarDef"), var(var), value(value) {}
 
     Ident *get_id() override { return var->identifier.get(); }
     json toJSON() const override;
@@ -818,7 +866,7 @@ public:
 
 /** Indefinite repetition construct. */
 class WhileStmt : public Stmt {
-public:
+   public:
     /** Test for whether to continue. */
     std::unique_ptr<Expr> condition;
     /** Loop body. */
@@ -829,7 +877,9 @@ public:
      *          BODY
      *  spanning source locations [LEFT..RIGHT].
      */
-    WhileStmt(Location location, Expr *condition, vector<std::unique_ptr<parser::Stmt>> *body) : Stmt(location, "WhileStmt"), condition(condition) {
+    WhileStmt(Location location, Expr *condition,
+              vector<std::unique_ptr<parser::Stmt>> *body)
+        : Stmt(location, "WhileStmt"), condition(condition) {
         this->body = std::move(*body);
         delete body;
     }
@@ -840,15 +890,16 @@ public:
 
 /** Indefinite repetition construct. */
 class PassStmt : public Stmt, public Decl {
-public:
+   public:
     /** The AST for
      *      PASS
      *  spanning source locations [LEFT..RIGHT].
      */
-    explicit PassStmt(Location location) : Stmt(location, "PassStmt"), Decl(location,"PassStmt") {}
+    explicit PassStmt(Location location)
+        : Stmt(location, "PassStmt"), Decl(location, "PassStmt") {}
     void accept(ast::Visitor &visitor) override;
 };
 json add_inferred_type(semantic::SymbolType *class_);
-} // namespace parser
+}  // namespace parser
 
-#endif // CHOCOPY_COMPILER_PARSE_HPP
+#endif  // CHOCOPY_COMPILER_PARSE_HPP

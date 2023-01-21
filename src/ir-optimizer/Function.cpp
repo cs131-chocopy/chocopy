@@ -1,4 +1,5 @@
 #include "Function.hpp"
+
 #include "IRprinter.hpp"
 #include "Module.hpp"
 
@@ -10,21 +11,29 @@ Function::Function(FunctionType *ty, const std::string &name, Module *parent)
     build_args();
 }
 
-Function *Function::create(FunctionType *ty, const std::string &name, Module *parent) {
+Function *Function::create(FunctionType *ty, const std::string &name,
+                           Module *parent) {
     return new Function(ty, name, parent);
 }
 
-Function *Function::create(bool is_ctor, FunctionType *ty, const std::string &name, Module *parent) {
+Function *Function::create(bool is_ctor, FunctionType *ty,
+                           const std::string &name, Module *parent) {
     auto func = new Function(ty, name, parent);
     func->is_ctor = is_ctor;
     return func;
 }
 
-FunctionType *Function::get_function_type() const { return dynamic_cast<FunctionType *>(get_type()); }
+FunctionType *Function::get_function_type() const {
+    return dynamic_cast<FunctionType *>(get_type());
+}
 
-Type *Function::get_return_type() const { return get_function_type()->get_return_type(); }
+Type *Function::get_return_type() const {
+    return get_function_type()->get_return_type();
+}
 
-unsigned Function::get_num_of_args() const { return get_function_type()->get_num_of_args(); }
+unsigned Function::get_num_of_args() const {
+    return get_function_type()->get_num_of_args();
+}
 
 unsigned Function::get_num_basic_blocks() const { return basic_blocks_.size(); }
 
@@ -44,7 +53,8 @@ void Function::build_args() {
     auto *func_ty = get_function_type();
     unsigned num_args = get_num_of_args();
     for (int i = 0; i < num_args; i++) {
-        arguments_.push_back(new Argument(func_ty->get_param_type(i), "", this, i));
+        arguments_.push_back(
+            new Argument(func_ty->get_param_type(i), "", this, i));
     }
 }
 
@@ -82,9 +92,11 @@ void Function::set_instr_name() {
 std::string Function::print() {
     std::string func_ir;
     if (this->is_ctor) {
-        func_ir += "@llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 "
-                   "65535, void ()* @" +
-                   this->get_name() + ", i8* null }]\n";
+        func_ir +=
+            "@llvm.global_ctors = appending global [1 x { i32, void ()*, i8* "
+            "}] [{ i32, void ()*, i8* } { i32 "
+            "65535, void ()* @" +
+            this->get_name() + ", i8* null }]\n";
     }
     if (this->is_declaration()) {
         func_ir += "declare ";
@@ -100,9 +112,10 @@ std::string Function::print() {
     /** print arg */
     if (this->is_declaration()) {
         for (int i = 0; i < this->get_num_of_args(); i++) {
-            if (i)
-                func_ir += ", ";
-            func_ir += dynamic_cast<FunctionType *>(this->get_type())->get_param_type(i)->print();
+            if (i) func_ir += ", ";
+            func_ir += dynamic_cast<FunctionType *>(this->get_type())
+                           ->get_param_type(i)
+                           ->print();
         }
         if (dynamic_cast<FunctionType *>(this->get_type())->is_variable_args) {
             func_ir += ", ...";
@@ -145,8 +158,7 @@ string Function::print_args() {
 }
 string Function::print_method(Class *method_) {
     string func_ir;
-    if (method_->get_name() == "object")
-        return "";
+    if (method_->get_name() == "object") return "";
     func_ir += "define ";
 
     func_ir += this->get_return_type()->print();
@@ -155,9 +167,10 @@ string Function::print_method(Class *method_) {
     /** print arg */
     if (this->is_declaration()) {
         for (int i = 0; i < this->get_num_of_args(); i++) {
-            if (i)
-                func_ir += ", ";
-            func_ir += dynamic_cast<FunctionType *>(this->get_type())->get_param_type(i)->print();
+            if (i) func_ir += ", ";
+            func_ir += dynamic_cast<FunctionType *>(this->get_type())
+                           ->get_param_type(i)
+                           ->print();
         }
     } else {
         for (auto arg = this->arg_begin(); arg != arg_end(); arg++) {
@@ -193,4 +206,4 @@ std::string Argument::print() {
     arg_ir += this->get_name();
     return arg_ir;
 }
-} // namespace lightir
+}  // namespace lightir

@@ -13,41 +13,45 @@ void LogWriter::operator<(const LogStream &stream) {
 void LogWriter::output_log(const std::ostringstream &msg) {
     if (log_level_ >= env_log_level)
 #if defined(WIN32) || defined(_WIN32)
-        std::cout << fmt::format("[{}] ({}:{} L {}) \n", level2string(log_level_), location_.file_, location_.line_,
-                                 location_.func_)
+        std::cout << fmt::format("[{}] ({}:{} L {}) \n",
+                                 level2string(log_level_), location_.file_,
+                                 location_.line_, location_.func_)
                   << fmt::format("{}", msg.str()) << std::endl;
 #else
-        std::cout << fmt::format(fmt::emphasis::bold | fg(level2color(log_level_)), "[{}] ({}:{} L {}) \n",
-                                 level2string(log_level_), location_.file_, location_.line_, location_.func_)
-                  << fmt::format(fg(level2color(log_level_)), "{}", msg.str()) << std::endl;
+        std::cout << fmt::format(
+                         fmt::emphasis::bold | fg(level2color(log_level_)),
+                         "[{}] ({}:{} L {}) \n", level2string(log_level_),
+                         location_.file_, location_.line_, location_.func_)
+                  << fmt::format(fg(level2color(log_level_)), "{}", msg.str())
+                  << std::endl;
 #endif
 }
 std::string level2string(LogLevel level) {
     switch (level) {
-    case DEBUG:
-        return "DEBUG";
-    case INFO:
-        return "INFO";
-    case WARNING:
-        return "WARNING";
-    case ERROR:
-        return "ERROR";
-    default:
-        return "";
+        case DEBUG:
+            return "DEBUG";
+        case INFO:
+            return "INFO";
+        case WARNING:
+            return "WARNING";
+        case ERROR:
+            return "ERROR";
+        default:
+            return "";
     }
 }
 fmt::color level2color(LogLevel level) {
     switch (level) {
-    case DEBUG:
-        return fmt::color::alice_blue;
-    case INFO:
-        return fmt::color::magenta;
-    case WARNING:
-        return fmt::color::yellow;
-    case ERROR:
-        return fmt::color::red;
-    default:
-        return fmt::color::white;
+        case DEBUG:
+            return fmt::color::alice_blue;
+        case INFO:
+            return fmt::color::magenta;
+        case WARNING:
+            return fmt::color::yellow;
+        case ERROR:
+            return fmt::color::red;
+        default:
+            return fmt::color::white;
     }
 }
 std::string get_short_name(const char *file_path) {
@@ -68,9 +72,10 @@ string readFile(const std::filesystem::path &path) {
 
 bool hasFile(const std::filesystem::path &path, const string &file_name) {
 #if __cplusplus > 202000L && !defined(__clang__)
-    return std::ranges::any_of(std::filesystem::directory_iterator(path), [&](const std::filesystem::path &path) {
-        return path.filename().string() == file_name;
-    });
+    return std::ranges::any_of(std::filesystem::directory_iterator(path),
+                               [&](const std::filesystem::path &path) {
+                                   return path.filename().string() == file_name;
+                               });
 #else
     for (const auto &tmp : std::filesystem::directory_iterator(path)) {
         if (tmp.path().filename() == file_name) {
@@ -82,7 +87,8 @@ bool hasFile(const std::filesystem::path &path, const string &file_name) {
 #endif
 }
 /** http://stackoverflow.com/questions/20406744/ */
-string replace_all(const std::string &str, const std::string &find, const std::string &replace) {
+string replace_all(const std::string &str, const std::string &find,
+                   const std::string &replace) {
     string result;
     size_t find_len = find.size();
     size_t pos, from = 0;
