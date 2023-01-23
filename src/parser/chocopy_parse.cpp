@@ -165,8 +165,9 @@ json ForStmt::toJSON() const {
 json FuncDef::toJSON() const {
     json d = Decl::toJSON();
     d["name"] = name->toJSON();
+    d["params"] = json::array();
     for (auto &param : this->params) {
-        d["params"] = param->toJSON();
+        d["params"].emplace_back(param->toJSON());
     }
 
     if (this->returnType != nullptr)
@@ -207,9 +208,8 @@ json IfStmt::toJSON() const {
         if (statement->kind != "PassStmt")
             d["thenBody"].emplace_back(statement->toJSON());
 
-    /* d["elseBody"] = [s.toJSON() for s in self.elseBody] */
+    d["elseBody"] = json::array();
     if (this->el == cond::THEN_ELSE) {
-        d["elseBody"] = json::array();
         for (auto &statement : this->elseBody)
             if (statement->kind != "PassStmt")
                 d["elseBody"].emplace_back(statement->toJSON());
