@@ -1390,7 +1390,8 @@ int main(int argc, char *argv[]) {
         } else {
             if (input_path.empty()) {
                 input_path = argv[i];
-                target_path = replace_all(input_path, ".py", "");
+                if (target_path.empty())
+                    target_path = replace_all(input_path, ".py", "");
             } else {
                 print_help(argv[0]);
                 return 0;
@@ -1507,7 +1508,7 @@ int main(int argc, char *argv[]) {
         auto command_string_0 =
             "riscv64-unknown-elf-gcc -mabi=ilp32 -march=rv32imac -g -o " +
             target_path + " " + target_path +
-            ".s -L./ -L./build -lchocopy_stdlib";
+            ".s -L./ -L./build -L../build -lchocopy_stdlib";
 #endif
         int re_code_0 = std::system(command_string_0.c_str());
         LOG(INFO) << command_string_0 << re_code_0;
