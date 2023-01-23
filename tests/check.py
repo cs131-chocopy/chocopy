@@ -10,13 +10,12 @@ import json
 TESTDATA_DIR = os.path.abspath(os.path.dirname(__file__))
 PROJECT_DIR = os.path.dirname(TESTDATA_DIR)
 
-RESULT_DIR = os.path.join(PROJECT_DIR, 'tests', 'result') # temp dir
+RESULT_DIR = os.path.join(PROJECT_DIR, 'tests', 'result')  # temp dir
 
 BUILD_DIR = os.path.join(PROJECT_DIR, 'build')
 PARSER_EXECUTABLE = os.path.join(BUILD_DIR, 'parser')
 SEMANTIC_EXECUTABLE = os.path.join(BUILD_DIR, 'semantic')
 CGEN_EXECUTABLE = os.path.join(BUILD_DIR, 'cgen')
-
 
 
 def compare_ast_node(student_ast_node: dict, reference_ast_node: dict, verbose: bool = False) -> bool:
