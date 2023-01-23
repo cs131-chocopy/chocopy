@@ -5,14 +5,17 @@
 #include <FunctionDefType.hpp>
 #include <ValueType.hpp>
 #include <chocopy_parse.hpp>
+#include <memory>
 
 namespace parser {
+
 LocationUnit::LocationUnit(int line, int colume) : line(line), column(colume) {}
 Location::Location() {}
 Location::Location(LocationUnit first, LocationUnit last)
     : first(first), last(last) {}
 Location::Location(Location front, Location back)
     : first(front.first), last(back.last) {}
+
 json add_inferred_type(semantic::SymbolType *class_) {
     json inferred;
     if (dynamic_cast<semantic::FunctionDefType *>(class_)) {
@@ -227,7 +230,7 @@ json IfExpr::toJSON() const {
 
 json IndexExpr::toJSON() const {
     json d = Expr::toJSON();
-    d["list"] = ((ListExpr *)(this->list))->toJSON();
+    d["list"] = list->toJSON();
     d["index"] = index->toJSON();
     return d;
 }

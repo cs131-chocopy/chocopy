@@ -96,21 +96,13 @@ class Node {
 
     Location location;
 
-    /** Multiple Constructor. */
-    explicit Node(Location location) {
-        this->location = location;
-        this->kind.clear();
-        this->error_msg.clear();
-    }
-    Node(Location location, string kind) {
-        this->location = location;
-        this->kind = std::move(kind);
-    }
-    Node(Location location, string kind, string errorMsg) {
-        this->location = location;
-        this->kind = std::move(kind);
-        this->error_msg = std::move(errorMsg);
-    }
+    explicit Node(Location location) : location(location) {}
+    Node(Location location, string kind)
+        : location(location), kind(std::move(kind)) {}
+    Node(Location location, string kind, string errorMsg)
+        : location(location),
+          kind(std::move(kind)),
+          error_msg(std::move(errorMsg)) {}
     virtual ~Node() = default;
 
     virtual bool has_err() const { return !this->error_msg.empty(); }
@@ -155,15 +147,12 @@ class CompilerErr : public Node {
     /** Represents an error with message MESSAGE.  Iff SYNTAX, it is a
      *  syntactic error.  The error applies to source text at [LEFT..RIGHT]. */
     CompilerErr(Location location, string message, bool syntax)
-        : Node(location, "CompilerError") {
-        this->message = std::move(message);
-        this->syntax = syntax;
-    };
+        : Node(location, "CompilerError"),
+          message(std::move(message)),
+          syntax(syntax){};
 
     CompilerErr(Location location, string message)
-        : Node(location, "CompilerError") {
-        this->message = std::move(message);
-    }
+        : Node(location, "CompilerError"), message(std::move(message)) {}
     json toJSON() const override;
 };
 
@@ -174,8 +163,6 @@ class Errors : public Node {
     /** The accumulated error messages in the order added. */
     vector<std::unique_ptr<CompilerErr>> compiler_errors;
     explicit Errors(Location location) : Node(location, "Errors") {}
-
-    bool has_compiler_errors() const { return compiler_errors.size(); }
 
     json toJSON() const override;
     void accept(ast::Visitor &visitor) override;
@@ -603,19 +590,16 @@ class IfExpr : public Expr {
 class IndexExpr : public Expr {
    public:
     /** Indexed list. */
-    Expr *list;
+    std::unique_ptr<Expr> list;
     /** Expression for index value. */
-    Expr *index;
+    std::unique_ptr<Expr> index;
 
     /** The AST for
      *      LIST[INDEX].
      *  spanning source locations [LEFT..RIGHT].
      */
     IndexExpr(Location location, Expr *list, Expr *index)
-        : Expr(location, "IndexExpr") {
-        this->list = list;
-        this->index = index;
-    }
+        : Expr(location, "IndexExpr"), list(list), index(index) {}
 
     json toJSON() const override;
 
@@ -794,10 +778,10 @@ class ReturnStmt : public Stmt {
      */
     ReturnStmt(Location location, Expr *value)
         : Stmt(location, "ReturnStmt"), value(value) {
-        this->is_return = true;
+        is_return = true;
     }
     explicit ReturnStmt(Location location) : Stmt(location, "ReturnStmt") {
-        this->is_return = true;
+        is_return = true;
     }
 
     json toJSON() const override;
@@ -830,9 +814,9 @@ class UnaryExpr : public Expr {
      *  spanning source locations [LEFT..RIGHT].
      */
     UnaryExpr(Location location, string operator_, Expr *operand)
-        : Expr(location, "UnaryExpr"), operand(operand) {
-        this->operator_ = std::move(operator_);
-    }
+        : Expr(location, "UnaryExpr"),
+          operand(operand),
+          operator_(std::move(operator_)) {}
 
     static operator_code hashcode(std::string const &str) {
         if (str == "-" || str == "MINUS:-") return operator_code::Minus;
