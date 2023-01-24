@@ -129,6 +129,9 @@ def check_testcase(directory: str, testcase: str, pa: int) -> int:
     except Exception as e:
         cprint(f'[{testcase}] [Runtime error: {e}]', 'red')
         return 0
+    if p.returncode != 0:
+        cprint(f'[{testcase}] [Return value != 0, stderr: {p.stderr.decode()}]', 'red')
+        return 0
 
     if pa == 1 or pa == 2:
         # Load AST
