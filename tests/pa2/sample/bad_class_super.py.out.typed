@@ -1,17 +1,169 @@
 {
-  "errors" : [ {
-    "kind" : "SemanticError",
-    "message" : "Super-class not defined: B",
-    "location" : [ 2, 9, 2, 9 ]
+  "kind" : "Program",
+  "location" : [ 1, 1, 8, 4 ],
+  "declarations" : [ {
+    "kind" : "ClassDef",
+    "location" : [ 1, 1, 2, 14 ],
+    "name" : {
+      "kind" : "Identifier",
+      "location" : [ 1, 7, 1, 7 ],
+      "name" : "A"
+    },
+    "superClass" : {
+      "kind" : "Identifier",
+      "location" : [ 1, 9, 1, 9 ],
+      "errorMsg" : "Super-class not defined: B",
+      "name" : "B"
+    },
+    "declarations" : [ {
+      "kind" : "VarDef",
+      "location" : [ 2, 5, 2, 13 ],
+      "var" : {
+        "kind" : "TypedVar",
+        "location" : [ 2, 5, 2, 9 ],
+        "identifier" : {
+          "kind" : "Identifier",
+          "location" : [ 2, 5, 2, 5 ],
+          "name" : "x"
+        },
+        "type" : {
+          "kind" : "ClassType",
+          "location" : [ 2, 7, 2, 9 ],
+          "className" : "int"
+        }
+      },
+      "value" : {
+        "kind" : "IntegerLiteral",
+        "location" : [ 2, 13, 2, 13 ],
+        "value" : 1
+      }
+    } ]
   }, {
-    "kind" : "SemanticError",
-    "message" : "Super-class must be a class: z",
-    "location" : [ 8, 9, 8, 9 ]
+    "kind" : "VarDef",
+    "location" : [ 3, 1, 3, 9 ],
+    "var" : {
+      "kind" : "TypedVar",
+      "location" : [ 3, 1, 3, 5 ],
+      "identifier" : {
+        "kind" : "Identifier",
+        "location" : [ 3, 1, 3, 1 ],
+        "name" : "z"
+      },
+      "type" : {
+        "kind" : "ClassType",
+        "location" : [ 3, 3, 3, 5 ],
+        "className" : "int"
+      }
+    },
+    "value" : {
+      "kind" : "IntegerLiteral",
+      "location" : [ 3, 9, 3, 9 ],
+      "value" : 2
+    }
   }, {
-    "kind" : "SemanticError",
-    "message" : "Cannot extend special class: int",
-    "location" : [ 12, 9, 12, 11 ]
+    "kind" : "ClassDef",
+    "location" : [ 4, 1, 5, 14 ],
+    "name" : {
+      "kind" : "Identifier",
+      "location" : [ 4, 7, 4, 7 ],
+      "name" : "B"
+    },
+    "superClass" : {
+      "kind" : "Identifier",
+      "location" : [ 4, 9, 4, 9 ],
+      "errorMsg" : "Super-class must be a class: z",
+      "name" : "z"
+    },
+    "declarations" : [ {
+      "kind" : "VarDef",
+      "location" : [ 5, 5, 5, 13 ],
+      "var" : {
+        "kind" : "TypedVar",
+        "location" : [ 5, 5, 5, 9 ],
+        "identifier" : {
+          "kind" : "Identifier",
+          "location" : [ 5, 5, 5, 5 ],
+          "name" : "x"
+        },
+        "type" : {
+          "kind" : "ClassType",
+          "location" : [ 5, 7, 5, 9 ],
+          "className" : "int"
+        }
+      },
+      "value" : {
+        "kind" : "IntegerLiteral",
+        "location" : [ 5, 13, 5, 13 ],
+        "value" : 1
+      }
+    } ]
+  }, {
+    "kind" : "ClassDef",
+    "location" : [ 6, 1, 7, 14 ],
+    "name" : {
+      "kind" : "Identifier",
+      "location" : [ 6, 7, 6, 7 ],
+      "name" : "C"
+    },
+    "superClass" : {
+      "kind" : "Identifier",
+      "location" : [ 6, 9, 6, 11 ],
+      "errorMsg" : "Cannot extend special class: int",
+      "name" : "int"
+    },
+    "declarations" : [ {
+      "kind" : "VarDef",
+      "location" : [ 7, 5, 7, 13 ],
+      "var" : {
+        "kind" : "TypedVar",
+        "location" : [ 7, 5, 7, 9 ],
+        "identifier" : {
+          "kind" : "Identifier",
+          "location" : [ 7, 5, 7, 5 ],
+          "name" : "x"
+        },
+        "type" : {
+          "kind" : "ClassType",
+          "location" : [ 7, 7, 7, 9 ],
+          "className" : "int"
+        }
+      },
+      "value" : {
+        "kind" : "IntegerLiteral",
+        "location" : [ 7, 13, 7, 13 ],
+        "value" : 1
+      }
+    } ]
   } ],
-  "kind" : "Errors",
-  "location" : [ 0, 0, 0, 0 ]
+  "statements" : [ {
+    "kind" : "ExprStmt",
+    "location" : [ 8, 1, 8, 3 ],
+    "expr" : {
+      "kind" : "CallExpr",
+      "location" : [ 8, 1, 8, 3 ],
+      "function" : {
+        "kind" : "Identifier",
+        "location" : [ 8, 1, 8, 1 ],
+        "name" : "A"
+      },
+      "args" : [ ]
+    }
+  } ],
+  "errors" : {
+    "errors" : [ {
+      "kind" : "CompilerError",
+      "location" : [ 1, 9, 1, 9 ],
+      "message" : "Super-class not defined: B"
+    }, {
+      "kind" : "CompilerError",
+      "location" : [ 4, 9, 4, 9 ],
+      "message" : "Super-class must be a class: z"
+    }, {
+      "kind" : "CompilerError",
+      "location" : [ 6, 9, 6, 11 ],
+      "message" : "Cannot extend special class: int"
+    } ],
+    "kind" : "Errors",
+    "location" : [ 0, 0, 0, 0 ]
+  }
 }

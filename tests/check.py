@@ -74,10 +74,20 @@ def compare_ast_node(student_ast_node: dict, reference_ast_node: dict, verbose: 
 
 def compare_ast(student_ast: dict, reference_ast: dict, verbose: bool = False) -> bool:
     try:
-        if len(student_ast['errors']['errors']) > 0 and len(reference_ast['errors']['errors']) > 0:
+        student_ast_has_error = len(student_ast['errors']['errors']) > 0
+        reference_ast_has_error = len(reference_ast['errors']['errors']) > 0
+        if student_ast_has_error and reference_ast_has_error:
             return True
+        if student_ast_has_error or reference_ast_has_error:
+            if verbose:
+                cprint('Expected AST has error, but your AST does not have error',
+                       'yellow')
+                print('Your AST', colored(student_ast['errors'], 'dark_grey'))
+                print('Expected AST',
+                      colored(reference_ast['errors'], 'dark_grey'))
+            return False
     except Exception as e:
-        pass
+        return False
     return compare_ast_node(student_ast, reference_ast, verbose=verbose)
 
 
@@ -117,7 +127,7 @@ def check_testcase(directory: str, testcase: str, pa: int) -> int:
         cprint(f'[{testcase}] Timeout!', 'red')
         return 0
     except Exception as e:
-        cprint(f'[{testcase}] [Error: {e}]', 'red')
+        cprint(f'[{testcase}] [Runtime error: {e}]', 'red')
         return 0
 
     if pa == 1 or pa == 2:
@@ -126,7 +136,7 @@ def check_testcase(directory: str, testcase: str, pa: int) -> int:
         try:
             student_ast = json.loads(student_output)
         except Exception as e:
-            cprint(f'[{testcase}] [Error: {e}]', 'red')
+            cprint(f'[{testcase}] [Parse JSON error: {e}]', 'red')
             return 0
 
         # Compare AST

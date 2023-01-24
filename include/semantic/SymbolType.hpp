@@ -5,9 +5,11 @@
 #ifndef CHOCOPY_COMPILER_SYMBOLTYPE_HPP
 #define CHOCOPY_COMPILER_SYMBOLTYPE_HPP
 
+#include <nlohmann/json.hpp>
 #include <string>
 #include <string_view>
 
+using nlohmann::json;
 using std::string;
 using std::string_view;
 
@@ -23,8 +25,7 @@ class SymbolType {
     virtual constexpr bool is_special_type() const { return false; }
 
     virtual const string get_name() const = 0;
-    virtual void set_name(string_view className) = 0;
-    virtual string get_type() const = 0;
+    virtual json toJSON() const = 0;
 
     template <typename _Ty>
     bool eq(const _Ty &_Value) const;

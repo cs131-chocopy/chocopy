@@ -1,11 +1,14 @@
 {
   "kind" : "Program",
+  "location" : [ 1, 1, 4, 7 ],
   "declarations" : [ ],
   "statements" : [ {
     "kind" : "ExprStmt",
+    "location" : [ 1, 1, 1, 9 ],
     "expr" : {
       "kind" : "UnaryExpr",
-      "typeError" : "Cannot apply operator `not` on type `str`",
+      "location" : [ 1, 1, 1, 9 ],
+      "errorMsg" : "Cannot apply operator `not` on type `str`",
       "inferredType" : {
         "kind" : "ClassValueType",
         "className" : "bool"
@@ -13,21 +16,21 @@
       "operator" : "not",
       "operand" : {
         "kind" : "StringLiteral",
+        "location" : [ 1, 5, 1, 9 ],
         "inferredType" : {
           "kind" : "ClassValueType",
           "className" : "str"
         },
-        "value" : "Bad",
-        "location" : [ 1, 5, 1, 9 ]
-      },
-      "location" : [ 1, 1, 1, 9 ]
-    },
-    "location" : [ 1, 1, 1, 9 ]
+        "value" : "Bad"
+      }
+    }
   }, {
     "kind" : "ExprStmt",
+    "location" : [ 2, 1, 2, 5 ],
     "expr" : {
       "kind" : "UnaryExpr",
-      "typeError" : "Cannot apply operator `-` on type `bool`",
+      "location" : [ 2, 1, 2, 5 ],
+      "errorMsg" : "Cannot apply operator `-` on type `bool`",
       "inferredType" : {
         "kind" : "ClassValueType",
         "className" : "int"
@@ -35,21 +38,21 @@
       "operator" : "-",
       "operand" : {
         "kind" : "BooleanLiteral",
+        "location" : [ 2, 2, 2, 5 ],
         "inferredType" : {
           "kind" : "ClassValueType",
           "className" : "bool"
         },
-        "value" : true,
-        "location" : [ 2, 2, 2, 5 ]
-      },
-      "location" : [ 2, 1, 2, 5 ]
-    },
-    "location" : [ 2, 1, 2, 5 ]
+        "value" : true
+      }
+    }
   }, {
     "kind" : "ExprStmt",
+    "location" : [ 3, 1, 3, 5 ],
     "expr" : {
       "kind" : "UnaryExpr",
-      "typeError" : "Cannot apply operator `-` on type `object`",
+      "location" : [ 3, 1, 3, 5 ],
+      "errorMsg" : "Cannot apply operator `-` on type `<None>`",
       "inferredType" : {
         "kind" : "ClassValueType",
         "className" : "int"
@@ -57,20 +60,20 @@
       "operator" : "-",
       "operand" : {
         "kind" : "NoneLiteral",
+        "location" : [ 3, 2, 3, 5 ],
         "inferredType" : {
           "kind" : "ClassValueType",
-          "className" : "object"
-        },
-        "location" : [ 3, 2, 3, 5 ]
-      },
-      "location" : [ 3, 1, 3, 5 ]
-    },
-    "location" : [ 3, 1, 3, 5 ]
+          "className" : "<None>"
+        }
+      }
+    }
   }, {
     "kind" : "ExprStmt",
+    "location" : [ 4, 1, 4, 6 ],
     "expr" : {
       "kind" : "UnaryExpr",
-      "typeError" : "Cannot apply operator `not` on type `object`",
+      "location" : [ 4, 1, 4, 6 ],
+      "errorMsg" : "Cannot apply operator `not` on type `<Empty>`",
       "inferredType" : {
         "kind" : "ClassValueType",
         "className" : "bool"
@@ -78,16 +81,34 @@
       "operator" : "not",
       "operand" : {
         "kind" : "ListExpr",
+        "location" : [ 4, 5, 4, 6 ],
         "inferredType" : {
           "kind" : "ClassValueType",
-          "className" : "object"
+          "className" : "<Empty>"
         },
-        "elements" : [ ],
-        "location" : [ 4, 5, 4, 6 ]
-      },
-      "location" : [ 4, 1, 4, 6 ]
-    },
-    "location" : [ 4, 1, 4, 6 ]
+        "elements" : [ ]
+      }
+    }
   } ],
-  "location" : [ 1, 1, 4, 6 ]
+  "errors" : {
+    "errors" : [ {
+      "kind" : "CompilerError",
+      "location" : [ 1, 1, 1, 9 ],
+      "message" : "Cannot apply operator `not` on type `str`"
+    }, {
+      "kind" : "CompilerError",
+      "location" : [ 2, 1, 2, 5 ],
+      "message" : "Cannot apply operator `-` on type `bool`"
+    }, {
+      "kind" : "CompilerError",
+      "location" : [ 3, 1, 3, 5 ],
+      "message" : "Cannot apply operator `-` on type `<None>`"
+    }, {
+      "kind" : "CompilerError",
+      "location" : [ 4, 1, 4, 6 ],
+      "message" : "Cannot apply operator `not` on type `<Empty>`"
+    } ],
+    "kind" : "Errors",
+    "location" : [ 0, 0, 0, 0 ]
+  }
 }

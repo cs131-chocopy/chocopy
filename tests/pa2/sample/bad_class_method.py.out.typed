@@ -1,13 +1,168 @@
 {
-  "errors" : [ {
-    "kind" : "SemanticError",
-    "message" : "First parameter of the following method must be of the enclosing class: bar",
-    "location" : [ 7, 9, 7, 11 ]
-  }, {
-    "kind" : "SemanticError",
-    "message" : "First parameter of the following method must be of the enclosing class: baz",
-    "location" : [ 10, 9, 10, 11 ]
+  "kind" : "Program",
+  "location" : [ 1, 1, 9, 4 ],
+  "declarations" : [ {
+    "kind" : "ClassDef",
+    "location" : [ 1, 1, 9, 0 ],
+    "name" : {
+      "kind" : "Identifier",
+      "location" : [ 1, 7, 1, 7 ],
+      "name" : "A"
+    },
+    "superClass" : {
+      "kind" : "Identifier",
+      "location" : [ 1, 9, 1, 14 ],
+      "name" : "object"
+    },
+    "declarations" : [ {
+      "kind" : "VarDef",
+      "location" : [ 2, 5, 2, 13 ],
+      "var" : {
+        "kind" : "TypedVar",
+        "location" : [ 2, 5, 2, 9 ],
+        "identifier" : {
+          "kind" : "Identifier",
+          "location" : [ 2, 5, 2, 5 ],
+          "name" : "x"
+        },
+        "type" : {
+          "kind" : "ClassType",
+          "location" : [ 2, 7, 2, 9 ],
+          "className" : "int"
+        }
+      },
+      "value" : {
+        "kind" : "IntegerLiteral",
+        "location" : [ 2, 13, 2, 13 ],
+        "value" : 1
+      }
+    }, {
+      "kind" : "FuncDef",
+      "location" : [ 3, 5, 4, 17 ],
+      "name" : {
+        "kind" : "Identifier",
+        "location" : [ 3, 9, 3, 11 ],
+        "name" : "foo"
+      },
+      "params" : [ {
+        "kind" : "TypedVar",
+        "location" : [ 3, 13, 3, 20 ],
+        "identifier" : {
+          "kind" : "Identifier",
+          "location" : [ 3, 13, 3, 16 ],
+          "name" : "self"
+        },
+        "type" : {
+          "kind" : "ClassType",
+          "location" : [ 3, 18, 3, 20 ],
+          "className" : "A"
+        }
+      } ],
+      "returnType" : {
+        "kind" : "ClassType",
+        "location" : [ 3, 26, 3, 28 ],
+        "className" : "int"
+      },
+      "declarations" : [ ],
+      "statements" : [ {
+        "kind" : "ReturnStmt",
+        "location" : [ 4, 9, 4, 16 ],
+        "value" : {
+          "kind" : "IntegerLiteral",
+          "location" : [ 4, 16, 4, 16 ],
+          "value" : 0
+        }
+      } ]
+    }, {
+      "kind" : "FuncDef",
+      "location" : [ 5, 5, 6, 17 ],
+      "name" : {
+        "kind" : "Identifier",
+        "location" : [ 5, 9, 5, 11 ],
+        "errorMsg" : "First parameter of the following method must be of the enclosing class: bar",
+        "name" : "bar"
+      },
+      "params" : [ ],
+      "returnType" : {
+        "kind" : "ClassType",
+        "location" : [ 5, 18, 5, 20 ],
+        "className" : "int"
+      },
+      "declarations" : [ ],
+      "statements" : [ {
+        "kind" : "ReturnStmt",
+        "location" : [ 6, 9, 6, 16 ],
+        "value" : {
+          "kind" : "IntegerLiteral",
+          "location" : [ 6, 16, 6, 16 ],
+          "value" : 0
+        }
+      } ]
+    }, {
+      "kind" : "FuncDef",
+      "location" : [ 7, 5, 8, 17 ],
+      "name" : {
+        "kind" : "Identifier",
+        "location" : [ 7, 9, 7, 11 ],
+        "errorMsg" : "First parameter of the following method must be of the enclosing class: baz",
+        "name" : "baz"
+      },
+      "params" : [ {
+        "kind" : "TypedVar",
+        "location" : [ 7, 13, 7, 20 ],
+        "identifier" : {
+          "kind" : "Identifier",
+          "location" : [ 7, 13, 7, 16 ],
+          "name" : "self"
+        },
+        "type" : {
+          "kind" : "ClassType",
+          "location" : [ 7, 18, 7, 20 ],
+          "className" : "int"
+        }
+      } ],
+      "returnType" : {
+        "kind" : "ClassType",
+        "location" : [ 7, 26, 7, 28 ],
+        "className" : "int"
+      },
+      "declarations" : [ ],
+      "statements" : [ {
+        "kind" : "ReturnStmt",
+        "location" : [ 8, 9, 8, 16 ],
+        "value" : {
+          "kind" : "IntegerLiteral",
+          "location" : [ 8, 16, 8, 16 ],
+          "value" : 0
+        }
+      } ]
+    } ]
   } ],
-  "kind" : "Errors",
-  "location" : [ 0, 0, 0, 0 ]
+  "statements" : [ {
+    "kind" : "ExprStmt",
+    "location" : [ 9, 1, 9, 3 ],
+    "expr" : {
+      "kind" : "CallExpr",
+      "location" : [ 9, 1, 9, 3 ],
+      "function" : {
+        "kind" : "Identifier",
+        "location" : [ 9, 1, 9, 1 ],
+        "name" : "A"
+      },
+      "args" : [ ]
+    }
+  } ],
+  "errors" : {
+    "errors" : [ {
+      "kind" : "CompilerError",
+      "location" : [ 5, 9, 5, 11 ],
+      "message" : "First parameter of the following method must be of the enclosing class: bar"
+    }, {
+      "kind" : "CompilerError",
+      "location" : [ 7, 9, 7, 11 ],
+      "message" : "First parameter of the following method must be of the enclosing class: baz"
+    } ],
+    "kind" : "Errors",
+    "location" : [ 0, 0, 0, 0 ]
+  }
 }

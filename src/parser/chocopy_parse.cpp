@@ -16,26 +16,6 @@ Location::Location(LocationUnit first, LocationUnit last)
 Location::Location(Location front, Location back)
     : first(front.first), last(back.last) {}
 
-json add_inferred_type(semantic::SymbolType *class_) {
-    json inferred;
-    if (dynamic_cast<semantic::FunctionDefType *>(class_)) {
-        return ((semantic::FunctionDefType *)class_)->toJSON();
-    } else if (!class_->is_list_type()) {
-        inferred["kind"] = class_->get_type();
-        inferred["className"] = class_->get_name();
-    } else {
-        inferred["kind"] = class_->get_type();
-        inferred["elementType"] = add_inferred_type(
-            ((semantic::ListValueType *)class_)->element_type);
-    }
-    return inferred;
-}
-
-Expr::Expr(Location location) : Node(location) {}
-Expr::Expr(Location location, string kind) : Node(location, std::move(kind)) {}
-Expr::Expr(Location location, string kind, string errMsg)
-    : Node(location, std::move(kind), std::move(errMsg)) {}
-
 StringLiteral::StringLiteral(Location location, const string &value)
     : Literal(location, "StringLiteral", value) {
     if (value == "\"\"") {  // deal with null string
@@ -52,7 +32,7 @@ json Node::toJSON() const {
     d["location"] = {location.first.line, location.first.column,
                      location.last.line, location.last.column};
 
-    if (this->has_type_err()) d["typeError"] = typeError;
+    if (this->has_type_err()) d["errorMsg"] = typeError;
     return d;
 }
 
@@ -80,21 +60,12 @@ json TypedVar::toJSON() const {
 
 json Expr::toJSON() const {
     json d = Node::toJSON();
-    if (this->emit_inferred()) {
-        d["inferredType"] = add_inferred_type(this->inferredType);
-    }
+    if (inferredType) d["inferredType"] = inferredType->toJSON();
     return d;
-}
-bool Expr::emit_inferred() const {
-    if (dynamic_cast<semantic::FunctionDefType *>(this->inferredType))
-        return true;
-    else
-        return this->inferredType != nullptr &&
-               !this->inferredType->get_name().empty();
 }
 
 json Ident::toJSON() const {
-    auto d = Node::toJSON();
+    auto d = Expr::toJSON();
     d["name"] = name;
     return d;
 }
@@ -336,7 +307,7 @@ json BoolLiteral::toJSON() const {
     d["value"] = bin_value;
     return d;
 }
-json NoneLiteral::toJSON() const { return Node::toJSON(); }
+json NoneLiteral::toJSON() const { return Expr::toJSON(); }
 
 string TypeAnnotation::get_name() {
     if (dynamic_cast<semantic::ClassValueType *>(

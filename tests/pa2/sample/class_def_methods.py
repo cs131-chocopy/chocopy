@@ -3,7 +3,7 @@ class A(object):
     def get_A(self: "A") -> int:
         return self.x
 class B(A):
-    def __init__(self: "B") -> object:
+    def __init__(self: "B"):
         pass
 class C(B):
     z:bool = True

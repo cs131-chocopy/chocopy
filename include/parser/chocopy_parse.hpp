@@ -91,7 +91,6 @@ struct Location {
 class Node {
    public:
     string kind;
-    string error_msg;
     string typeError;
 
     Location location;
@@ -99,28 +98,11 @@ class Node {
     explicit Node(Location location) : location(location) {}
     Node(Location location, string kind)
         : location(location), kind(std::move(kind)) {}
-    Node(Location location, string kind, string errorMsg)
-        : location(location),
-          kind(std::move(kind)),
-          error_msg(std::move(errorMsg)) {}
     virtual ~Node() = default;
 
-    virtual bool has_err() const { return !this->error_msg.empty(); }
     virtual bool has_type_err() const { return !this->typeError.empty(); }
     virtual json toJSON() const;
     virtual void accept(ast::Visitor &visitor);
-
-    /** Add a new semantic error message attributed to NODE, with message
-     *  String.format(MESSAGEFORM, ARGS). */
-    template <typename T>
-    void semError(T rest) {
-        this->typeError += fmt::format(" {}", rest);
-    }
-    template <typename T, typename... Args>
-    void semError(T message, Args... rest) {
-        this->typeError += fmt::format(" {}", message);
-        semError(rest...);
-    }
 };
 
 /**
@@ -131,8 +113,6 @@ class Decl : public Node {
     /** A definition or declaration spanning source locations [LEFT..RIGHT]. */
     explicit Decl(Location location) : Node(location) {}
     Decl(Location location, string kind) : Node(location, std::move(kind)) {}
-    Decl(Location location, string kind, string errMsg)
-        : Node(location, std::move(kind), std::move(errMsg)) {}
 
     virtual Ident *get_id() { return nullptr; };
 };
@@ -190,8 +170,6 @@ class Stmt : public Node {
     bool is_return = false;
     explicit Stmt(Location location) : Node(location) {}
     Stmt(Location location, string kind) : Node(location, std::move(kind)) {}
-    Stmt(Location location, string kind, string errMsg)
-        : Node(location, std::move(kind), std::move(errMsg)) {}
 };
 
 /**
@@ -206,11 +184,8 @@ class Stmt : public Node {
 class Expr : public Node {
    public:
     /** A Python expression spanning source locations [LEFT..RIGHT]. */
-    explicit Expr(Location location);
-    Expr(Location location, string kind);
-    Expr(Location location, string kind, string errMsg);
-
-    virtual bool emit_inferred() const;
+    explicit Expr(Location location) : Node(location){};
+    Expr(Location location, string kind) : Node(location, std::move(kind)){};
 
     json toJSON() const override;
     /**
@@ -276,8 +251,6 @@ class TypeAnnotation : public Node {
     explicit TypeAnnotation(Location location) : Node(location){};
     TypeAnnotation(Location location, string kind)
         : Node(location, std::move(kind)){};
-    TypeAnnotation(Location location, string kind, string errMsg)
-        : Node(location, std::move(kind), std::move(errMsg)){};
 
     string get_name();
 };
@@ -883,7 +856,6 @@ class PassStmt : public Stmt, public Decl {
         : Stmt(location, "PassStmt"), Decl(location, "PassStmt") {}
     void accept(ast::Visitor &visitor) override;
 };
-json add_inferred_type(semantic::SymbolType *class_);
 }  // namespace parser
 
 #endif  // CHOCOPY_COMPILER_PARSE_HPP

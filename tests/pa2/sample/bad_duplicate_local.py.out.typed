@@ -1,21 +1,277 @@
 {
-  "errors" : [ {
-    "kind" : "SemanticError",
-    "message" : "Duplicate declaration of identifier in same scope: x",
-    "location" : [ 7, 5, 7, 5 ]
+  "kind" : "Program",
+  "location" : [ 1, 1, 14, 7 ],
+  "declarations" : [ {
+    "kind" : "VarDef",
+    "location" : [ 1, 1, 1, 9 ],
+    "var" : {
+      "kind" : "TypedVar",
+      "location" : [ 1, 1, 1, 5 ],
+      "identifier" : {
+        "kind" : "Identifier",
+        "location" : [ 1, 1, 1, 1 ],
+        "name" : "x"
+      },
+      "type" : {
+        "kind" : "ClassType",
+        "location" : [ 1, 3, 1, 5 ],
+        "className" : "int"
+      }
+    },
+    "value" : {
+      "kind" : "IntegerLiteral",
+      "location" : [ 1, 9, 1, 9 ],
+      "value" : 1
+    }
   }, {
-    "kind" : "SemanticError",
-    "message" : "Duplicate declaration of identifier in same scope: y",
-    "location" : [ 9, 12, 9, 12 ]
+    "kind" : "VarDef",
+    "location" : [ 2, 1, 2, 9 ],
+    "var" : {
+      "kind" : "TypedVar",
+      "location" : [ 2, 1, 2, 5 ],
+      "identifier" : {
+        "kind" : "Identifier",
+        "location" : [ 2, 1, 2, 1 ],
+        "name" : "y"
+      },
+      "type" : {
+        "kind" : "ClassType",
+        "location" : [ 2, 3, 2, 5 ],
+        "className" : "int"
+      }
+    },
+    "value" : {
+      "kind" : "IntegerLiteral",
+      "location" : [ 2, 9, 2, 9 ],
+      "value" : 2
+    }
   }, {
-    "kind" : "SemanticError",
-    "message" : "Duplicate declaration of identifier in same scope: x",
-    "location" : [ 11, 9, 11, 9 ]
+    "kind" : "VarDef",
+    "location" : [ 3, 1, 3, 9 ],
+    "var" : {
+      "kind" : "TypedVar",
+      "location" : [ 3, 1, 3, 5 ],
+      "identifier" : {
+        "kind" : "Identifier",
+        "location" : [ 3, 1, 3, 1 ],
+        "name" : "z"
+      },
+      "type" : {
+        "kind" : "ClassType",
+        "location" : [ 3, 3, 3, 5 ],
+        "className" : "int"
+      }
+    },
+    "value" : {
+      "kind" : "IntegerLiteral",
+      "location" : [ 3, 9, 3, 9 ],
+      "value" : 3
+    }
   }, {
-    "kind" : "SemanticError",
-    "message" : "Duplicate declaration of identifier in same scope: x",
-    "location" : [ 16, 16, 16, 16 ]
+    "kind" : "FuncDef",
+    "location" : [ 4, 1, 11, 9 ],
+    "name" : {
+      "kind" : "Identifier",
+      "location" : [ 4, 5, 4, 7 ],
+      "name" : "foo"
+    },
+    "params" : [ {
+      "kind" : "TypedVar",
+      "location" : [ 4, 9, 4, 13 ],
+      "identifier" : {
+        "kind" : "Identifier",
+        "location" : [ 4, 9, 4, 9 ],
+        "name" : "x"
+      },
+      "type" : {
+        "kind" : "ClassType",
+        "location" : [ 4, 11, 4, 13 ],
+        "className" : "int"
+      }
+    } ],
+    "returnType" : {
+      "kind" : "ClassType",
+      "location" : [ 4, 19, 4, 24 ],
+      "className" : "object"
+    },
+    "declarations" : [ {
+      "kind" : "VarDef",
+      "location" : [ 5, 5, 5, 13 ],
+      "var" : {
+        "kind" : "TypedVar",
+        "location" : [ 5, 5, 5, 9 ],
+        "identifier" : {
+          "kind" : "Identifier",
+          "location" : [ 5, 5, 5, 5 ],
+          "name" : "y"
+        },
+        "type" : {
+          "kind" : "ClassType",
+          "location" : [ 5, 7, 5, 9 ],
+          "className" : "int"
+        }
+      },
+      "value" : {
+        "kind" : "IntegerLiteral",
+        "location" : [ 5, 13, 5, 13 ],
+        "value" : 4
+      }
+    }, {
+      "kind" : "VarDef",
+      "location" : [ 6, 5, 6, 13 ],
+      "var" : {
+        "kind" : "TypedVar",
+        "location" : [ 6, 5, 6, 9 ],
+        "identifier" : {
+          "kind" : "Identifier",
+          "location" : [ 6, 5, 6, 5 ],
+          "errorMsg" : "Duplicate declaration of identifier in same scope: x",
+          "name" : "x"
+        },
+        "type" : {
+          "kind" : "ClassType",
+          "location" : [ 6, 7, 6, 9 ],
+          "className" : "int"
+        }
+      },
+      "value" : {
+        "kind" : "IntegerLiteral",
+        "location" : [ 6, 13, 6, 13 ],
+        "value" : 5
+      }
+    }, {
+      "kind" : "GlobalDecl",
+      "location" : [ 7, 5, 7, 12 ],
+      "variable" : {
+        "kind" : "Identifier",
+        "location" : [ 7, 12, 7, 12 ],
+        "name" : "z"
+      }
+    }, {
+      "kind" : "GlobalDecl",
+      "location" : [ 8, 5, 8, 12 ],
+      "variable" : {
+        "kind" : "Identifier",
+        "location" : [ 8, 12, 8, 12 ],
+        "errorMsg" : "Duplicate declaration of identifier in same scope: y",
+        "name" : "y"
+      }
+    }, {
+      "kind" : "FuncDef",
+      "location" : [ 9, 5, 10, 17 ],
+      "name" : {
+        "kind" : "Identifier",
+        "location" : [ 9, 9, 9, 9 ],
+        "errorMsg" : "Duplicate declaration of identifier in same scope: x",
+        "name" : "x"
+      },
+      "params" : [ ],
+      "returnType" : {
+        "kind" : "ClassType",
+        "location" : [ 9, 16, 9, 18 ],
+        "className" : "int"
+      },
+      "declarations" : [ ],
+      "statements" : [ {
+        "kind" : "ReturnStmt",
+        "location" : [ 10, 9, 10, 16 ],
+        "value" : {
+          "kind" : "IntegerLiteral",
+          "location" : [ 10, 16, 10, 16 ],
+          "value" : 0
+        }
+      } ]
+    } ],
+    "statements" : [ ]
+  }, {
+    "kind" : "FuncDef",
+    "location" : [ 12, 1, 13, 13 ],
+    "name" : {
+      "kind" : "Identifier",
+      "location" : [ 12, 5, 12, 7 ],
+      "name" : "bar"
+    },
+    "params" : [ {
+      "kind" : "TypedVar",
+      "location" : [ 12, 9, 12, 13 ],
+      "identifier" : {
+        "kind" : "Identifier",
+        "location" : [ 12, 9, 12, 9 ],
+        "name" : "x"
+      },
+      "type" : {
+        "kind" : "ClassType",
+        "location" : [ 12, 11, 12, 13 ],
+        "className" : "int"
+      }
+    }, {
+      "kind" : "TypedVar",
+      "location" : [ 12, 16, 12, 20 ],
+      "identifier" : {
+        "kind" : "Identifier",
+        "location" : [ 12, 16, 12, 16 ],
+        "errorMsg" : "Duplicate declaration of identifier in same scope: x",
+        "name" : "x"
+      },
+      "type" : {
+        "kind" : "ClassType",
+        "location" : [ 12, 18, 12, 20 ],
+        "className" : "int"
+      }
+    } ],
+    "returnType" : {
+      "kind" : "ClassType",
+      "location" : [ 12, 26, 12, 28 ],
+      "className" : "int"
+    },
+    "declarations" : [ ],
+    "statements" : [ {
+      "kind" : "ReturnStmt",
+      "location" : [ 13, 5, 13, 12 ],
+      "value" : {
+        "kind" : "Identifier",
+        "location" : [ 13, 12, 13, 12 ],
+        "name" : "x"
+      }
+    } ]
   } ],
-  "kind" : "Errors",
-  "location" : [ 0, 0, 0, 0 ]
+  "statements" : [ {
+    "kind" : "ExprStmt",
+    "location" : [ 14, 1, 14, 6 ],
+    "expr" : {
+      "kind" : "CallExpr",
+      "location" : [ 14, 1, 14, 6 ],
+      "function" : {
+        "kind" : "Identifier",
+        "location" : [ 14, 1, 14, 3 ],
+        "name" : "foo"
+      },
+      "args" : [ {
+        "kind" : "IntegerLiteral",
+        "location" : [ 14, 5, 14, 5 ],
+        "value" : 1
+      } ]
+    }
+  } ],
+  "errors" : {
+    "errors" : [ {
+      "kind" : "CompilerError",
+      "location" : [ 6, 5, 6, 5 ],
+      "message" : "Duplicate declaration of identifier in same scope: x"
+    }, {
+      "kind" : "CompilerError",
+      "location" : [ 8, 12, 8, 12 ],
+      "message" : "Duplicate declaration of identifier in same scope: y"
+    }, {
+      "kind" : "CompilerError",
+      "location" : [ 9, 9, 9, 9 ],
+      "message" : "Duplicate declaration of identifier in same scope: x"
+    }, {
+      "kind" : "CompilerError",
+      "location" : [ 12, 16, 12, 16 ],
+      "message" : "Duplicate declaration of identifier in same scope: x"
+    } ],
+    "kind" : "Errors",
+    "location" : [ 0, 0, 0, 0 ]
+  }
 }

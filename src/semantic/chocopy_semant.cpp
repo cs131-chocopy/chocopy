@@ -21,51 +21,9 @@
 #include "ValueType.hpp"
 #include "chocopy_parse.hpp"
 
-using std::map;
 using std::set;
 
-bool is_lambda_pass = false;
-bool is_rvalue = false;
-vector<string> lambda_params;
-template <class Key, class T>
-set<string> key_to_set(const std::map<Key, T> &map, std::set<Key> &set) {
-    set.clear();
-    auto itr = map.begin();
-    while (map.end() != itr) {
-        set.insert((itr++)->first);
-    }
-    return set;
-}
-
 namespace semantic {
-json FunctionDefType::toJSON() const {
-    json d;
-    d["kind"] = "FuncType";
-    for (auto &parameter : *this->params) {
-        auto type_name = parameter->get_type();
-        if (dynamic_cast<ListValueType *>(parameter)) {
-            d["parameters"].emplace_back(json::object({
-                {"kind", type_name},
-                {"elementType",
-                 parser::add_inferred_type(
-                     ((ListValueType *)parameter)->element_type)},
-
-            }));
-        } else {
-            d["parameters"].emplace_back(json::object({
-                {"kind", type_name},
-                {"className", ((ClassValueType *)parameter)->class_name},
-            }));
-        }
-    }
-
-    auto class_name = ((ClassValueType *)this->return_type)->class_name.c_str();
-    d["returnType"] = {{"kind", "ClassValueType"}, {"className", class_name}};
-    return d;
-}
-void FunctionDefType::set_name(string_view className) {
-    ((ClassValueType *)this->return_type)->class_name = className;
-}
 template <typename Ty>
 bool SymbolType::eq(const Ty &Value) const {
     if (this->is_list_type()) {
@@ -88,7 +46,6 @@ template <typename Ty>
 bool SymbolType::neq(const Ty &Value) const {
     return !(this->eq(Value));
 }
-
 void SymbolTableGenerator::visit(parser::Program &program) {
     for (const auto &decl : program.declarations) {
         auto id = decl->get_id();
@@ -424,13 +381,8 @@ void DeclarationAnalyzer::visit(parser::NonlocalDecl &nonlocal_decl) {
     sym->put(name, real_type);
 }
 
-template <typename... Args>
-void TypeChecker::typeError(parser::Node *node, const string &message,
-                            Args... rest) {
-    node->semError(rest...);
-    node->semError(message);
-}
 void TypeChecker::typeError(parser::Node *node, const string &message) {
+    errors->emplace_back(new SemanticError(node->location, message));
     if (!node->has_type_err()) {
         node->typeError = message;
     } else {
@@ -449,6 +401,7 @@ void TypeChecker::visit(parser::BinaryExpr &node) {
     node.left->accept(*this);
     node.right->accept(*this);
     auto lc = node.left->inferredType, rc = node.right->inferredType;
+    if (lc == nullptr || rc == nullptr) return;
     if (node.operator_ == "+") {
         if (lc->get_name() == "int" && rc->get_name() == "int") {
             node.inferredType = new ClassValueType("int");
@@ -1001,7 +954,7 @@ void TypeChecker::visit(parser::AssignStmt &node) {
         s->accept(*this);
         is_lvalue = false;
         auto T = s->inferredType;
-        if (is_error) continue;
+        if (is_error || T == nullptr) continue;
         if (auto index = dynamic_cast<parser::IndexExpr *>(s.get());
             index != nullptr &&
             index->list->inferredType->get_name() == "str") {
@@ -1120,6 +1073,8 @@ SymbolType *TypeChecker::get_common_type_2(SymbolType *const x,
     return new ClassValueType(get_common_type(x, y));
 }
 bool TypeChecker::is_subtype(SymbolType const *sub, SymbolType const *super) {
+    assert(sub != nullptr);
+    assert(super != nullptr);
     // rule 3
     // <Empty> <= [T]
     if (super->is_list_type() && sub->get_name() == "<Empty>") return true;

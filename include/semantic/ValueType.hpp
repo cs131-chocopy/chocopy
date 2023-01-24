@@ -33,8 +33,7 @@ class RefType : public SymbolType {
     RefType(const string &name) : name(name) {}
 
     const string get_name() const override { return name; }
-    void set_name(string_view className) override { name = className; }
-    string get_type() const override { return ""; };
+    virtual json toJSON() const final { abort(); }
 
     string name;
 };
@@ -73,7 +72,7 @@ class ValueType : public SymbolType {
  */
 class ListValueType : public ValueType {
    public:
-    explicit ListValueType(ValueType *element) { this->element_type = element; }
+    explicit ListValueType(ValueType *element);
 
     explicit ListValueType(parser::ListType *typeAnnotation);
 
@@ -83,14 +82,7 @@ class ListValueType : public ValueType {
         return "[" + this->element_type->get_name() + "]";
     }
 
-    void set_name(string_view className) override {}
-
-    string get_type() const override {
-        auto func_type = string(typeid(this).name()).substr(14);
-        func_type.erase(remove(func_type.begin(), func_type.end(), 'E'),
-                        func_type.end());
-        return func_type;
-    }
+    virtual json toJSON() const override;
 
     ValueType *element_type;
 };
@@ -114,16 +106,7 @@ class ClassValueType : public ValueType {
     };
     const string get_name() const override { return class_name; }
 
-    void set_name(string_view className) override {
-        this->class_name = className;
-    }
-
-    string get_type() const override {
-        auto func_type = string(typeid(this).name()).substr(14);
-        func_type.erase(remove(func_type.begin(), func_type.end(), 'E'),
-                        func_type.end());
-        return func_type;
-    }
+    virtual json toJSON() const override;
 
     string class_name;
 };

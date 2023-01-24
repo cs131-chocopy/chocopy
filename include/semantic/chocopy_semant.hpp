@@ -160,9 +160,7 @@ class TypeChecker : public ast::ASTAnalyzer {
     /** Inserts an error message in NODE if there isn"t one already.
      *  The message is constructed with MESSAGE and ARGS as for
      *  String.format. */
-    template <typename... Args>
-    void typeError(parser::Node *node, const string &message, Args... rest);
-    static void typeError(parser::Node *node, const string &message);
+    void typeError(parser::Node *node, const string &message);
 
     /** The current symbol table (changes depending on the function
      *  being analyzed). */

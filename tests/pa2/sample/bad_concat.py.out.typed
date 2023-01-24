@@ -1,27 +1,31 @@
 {
   "kind" : "Program",
+  "location" : [ 1, 1, 3, 9 ],
   "declarations" : [ ],
   "statements" : [ {
     "kind" : "ExprStmt",
+    "location" : [ 1, 1, 1, 19 ],
     "expr" : {
       "kind" : "BinaryExpr",
-      "typeError" : "Cannot apply operator `+` on types `str` and `[str]`",
+      "location" : [ 1, 1, 1, 19 ],
+      "errorMsg" : "Cannot apply operator `+` on types `str` and `[str]`",
       "inferredType" : {
         "kind" : "ClassValueType",
         "className" : "object"
       },
       "left" : {
         "kind" : "StringLiteral",
+        "location" : [ 1, 1, 1, 7 ],
         "inferredType" : {
           "kind" : "ClassValueType",
           "className" : "str"
         },
-        "value" : "Hello",
-        "location" : [ 1, 1, 1, 7 ]
+        "value" : "Hello"
       },
       "operator" : "+",
       "right" : {
         "kind" : "ListExpr",
+        "location" : [ 1, 11, 1, 19 ],
         "inferredType" : {
           "kind" : "ListValueType",
           "elementType" : {
@@ -31,39 +35,39 @@
         },
         "elements" : [ {
           "kind" : "StringLiteral",
+          "location" : [ 1, 12, 1, 18 ],
           "inferredType" : {
             "kind" : "ClassValueType",
             "className" : "str"
           },
-          "value" : "World",
-          "location" : [ 1, 12, 1, 18 ]
-        } ],
-        "location" : [ 1, 11, 1, 19 ]
-      },
-      "location" : [ 1, 1, 1, 19 ]
-    },
-    "location" : [ 1, 1, 1, 19 ]
+          "value" : "World"
+        } ]
+      }
+    }
   }, {
     "kind" : "ExprStmt",
+    "location" : [ 2, 1, 2, 7 ],
     "expr" : {
       "kind" : "BinaryExpr",
-      "typeError" : "Cannot apply operator `+` on types `int` and `[int]`",
+      "location" : [ 2, 1, 2, 7 ],
+      "errorMsg" : "Cannot apply operator `+` on types `int` and `[int]`",
       "inferredType" : {
         "kind" : "ClassValueType",
         "className" : "int"
       },
       "left" : {
         "kind" : "IntegerLiteral",
+        "location" : [ 2, 1, 2, 1 ],
         "inferredType" : {
           "kind" : "ClassValueType",
           "className" : "int"
         },
-        "value" : 1,
-        "location" : [ 2, 1, 2, 1 ]
+        "value" : 1
       },
       "operator" : "+",
       "right" : {
         "kind" : "ListExpr",
+        "location" : [ 2, 5, 2, 7 ],
         "inferredType" : {
           "kind" : "ListValueType",
           "elementType" : {
@@ -73,39 +77,39 @@
         },
         "elements" : [ {
           "kind" : "IntegerLiteral",
+          "location" : [ 2, 6, 2, 6 ],
           "inferredType" : {
             "kind" : "ClassValueType",
             "className" : "int"
           },
-          "value" : 2,
-          "location" : [ 2, 6, 2, 6 ]
-        } ],
-        "location" : [ 2, 5, 2, 7 ]
-      },
-      "location" : [ 2, 1, 2, 7 ]
-    },
-    "location" : [ 2, 1, 2, 7 ]
+          "value" : 2
+        } ]
+      }
+    }
   }, {
     "kind" : "ExprStmt",
+    "location" : [ 3, 1, 3, 8 ],
     "expr" : {
       "kind" : "BinaryExpr",
-      "typeError" : "Cannot apply operator `+` on types `object` and `[int]`",
+      "location" : [ 3, 1, 3, 8 ],
+      "errorMsg" : "Cannot apply operator `+` on types `<Empty>` and `[int]`",
       "inferredType" : {
         "kind" : "ClassValueType",
         "className" : "object"
       },
       "left" : {
         "kind" : "ListExpr",
+        "location" : [ 3, 1, 3, 2 ],
         "inferredType" : {
           "kind" : "ClassValueType",
-          "className" : "object"
+          "className" : "<Empty>"
         },
-        "elements" : [ ],
-        "location" : [ 3, 1, 3, 2 ]
+        "elements" : [ ]
       },
       "operator" : "+",
       "right" : {
         "kind" : "ListExpr",
+        "location" : [ 3, 6, 3, 8 ],
         "inferredType" : {
           "kind" : "ListValueType",
           "elementType" : {
@@ -115,18 +119,31 @@
         },
         "elements" : [ {
           "kind" : "IntegerLiteral",
+          "location" : [ 3, 7, 3, 7 ],
           "inferredType" : {
             "kind" : "ClassValueType",
             "className" : "int"
           },
-          "value" : 1,
-          "location" : [ 3, 7, 3, 7 ]
-        } ],
-        "location" : [ 3, 6, 3, 8 ]
-      },
-      "location" : [ 3, 1, 3, 8 ]
-    },
-    "location" : [ 3, 1, 3, 8 ]
+          "value" : 1
+        } ]
+      }
+    }
   } ],
-  "location" : [ 1, 1, 3, 8 ]
+  "errors" : {
+    "errors" : [ {
+      "kind" : "CompilerError",
+      "location" : [ 1, 1, 1, 19 ],
+      "message" : "Cannot apply operator `+` on types `str` and `[str]`"
+    }, {
+      "kind" : "CompilerError",
+      "location" : [ 2, 1, 2, 7 ],
+      "message" : "Cannot apply operator `+` on types `int` and `[int]`"
+    }, {
+      "kind" : "CompilerError",
+      "location" : [ 3, 1, 3, 8 ],
+      "message" : "Cannot apply operator `+` on types `<Empty>` and `[int]`"
+    } ],
+    "kind" : "Errors",
+    "location" : [ 0, 0, 0, 0 ]
+  }
 }
