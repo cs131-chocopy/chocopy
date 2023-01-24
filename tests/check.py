@@ -6,6 +6,7 @@ from functional import seq
 import subprocess
 from termcolor import colored, cprint
 import json
+from multiprocessing import Pool
 
 TESTDATA_DIR = os.path.abspath(os.path.dirname(__file__))
 PROJECT_DIR = os.path.dirname(TESTDATA_DIR)
@@ -174,10 +175,11 @@ def check_testcases_in_directory(directory: str, pa: int) -> tuple[int, int]:
         .filter(lambda x: x.endswith('.py'))\
         .map(lambda x: x[:-3])\
         .to_list()
-    results = [
-        check_testcase(directory, testcase, pa)
-        for testcase in testcases
-    ]
+    with Pool() as p:
+        results = p.starmap(check_testcase, [
+            (directory, testcase, pa)
+            for testcase in testcases
+        ])
     ret = sum(results), len(results)
     print(f'(Passed, Total) = {ret}')
     return ret
