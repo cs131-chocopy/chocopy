@@ -1708,7 +1708,8 @@ int main(int argc, char *argv[]) {
 
     auto tree = parse(input_path.c_str());
 
-    auto error = std::make_unique<vector<parser::CompilerErr *>>();
+    auto error =
+        std::make_unique<vector<std::unique_ptr<parser::CompilerErr>>>();
 
     auto symboltableGenerator = semantic::SymbolTableGenerator(error.get());
     tree->accept(symboltableGenerator);
@@ -1719,7 +1720,6 @@ int main(int argc, char *argv[]) {
     tree->accept(declarationAnalyzer);
 
     auto globalScope = std::move(declarationAnalyzer.globals);
-
     if (!error->empty()) {
         tree->add_error(error.get());
     } else {

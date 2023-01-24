@@ -382,7 +382,8 @@ void DeclarationAnalyzer::visit(parser::NonlocalDecl &nonlocal_decl) {
 }
 
 void TypeChecker::typeError(parser::Node *node, const string &message) {
-    errors->emplace_back(new SemanticError(node->location, message));
+    errors->emplace_back(
+        std::make_unique<SemanticError>(node->location, message));
     if (!node->has_type_err()) {
         node->typeError = message;
     } else {
@@ -638,11 +639,6 @@ void TypeChecker::visit(parser::FuncDef &node) {
     node.lambda_params = std::move(new_lambda_params);
 
     if (!have_return && node.returnType != nullptr) {
-        this->errors->push_back(
-            new SemanticError(node.name->location,
-                              fmt::format("All paths in this function/method "
-                                          "must have a return statement: {}",
-                                          node.name->name)));
         typeError(&node, fmt::format("All paths in this function/method must "
                                      "have a return statement: {}",
                                      node.name->name));
@@ -659,11 +655,10 @@ void TypeChecker::visit(parser::Ident &node) {
         type = sym->get<SymbolType *>(node.name);
         if (type) {
             if (is_lvalue) {
-                this->errors->push_back(new SemanticError(
-                    node.location,
-                    fmt::format("Cannot assign to variable that is not "
-                                "explicitly declared in this scope: {}",
-                                node.name)));
+                typeError(&node,
+                          fmt::format("Cannot assign to variable that is not "
+                                      "explicitly declared in this scope: {}",
+                                      node.name));
             } else {
                 if (curr_lambda_params &&
                     global->get<SymbolType *>(node.name) != type) {
@@ -672,15 +667,13 @@ void TypeChecker::visit(parser::Ident &node) {
                 node.inferredType = type;
             }
         } else {
-            this->errors->push_back(new SemanticError(
-                node.location, fmt::format("Not a variable: {}", node.name)));
+            typeError(&node, fmt::format("Not a variable: {}", node.name));
         }
     } else {
         if (type->is_value_type()) {
             node.inferredType = type;
         } else {
-            this->errors->push_back(new SemanticError(
-                node.location, fmt::format("Not a variable: {}", node.name)));
+            typeError(&node, fmt::format("Not a variable: {}", node.name));
             node.inferredType = new ClassValueType("object");
         }
     }
@@ -1165,11 +1158,10 @@ const string ValueType::get_name() const {
 
 #ifdef PA2
 int main(int argc, char *argv[]) {
-    // To debug
-    // std::freopen("bad_unary_expr.py","r",stdin);
     std::unique_ptr<parser::Program> tree(parse(argv[1]));
 
-    auto error = std::make_unique<vector<parser::CompilerErr *>>();
+    auto error =
+        std::make_unique<vector<std::unique_ptr<parser::CompilerErr>>>();
 
     auto symboltableGenerator = semantic::SymbolTableGenerator(error.get());
     tree->accept(symboltableGenerator);

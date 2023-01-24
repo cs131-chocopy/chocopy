@@ -729,7 +729,7 @@ class Program : public Node {
 
     explicit Program(Location location) : Node(location, "Program"){};
 
-    void add_error(vector<CompilerErr *> *errs) {
+    void add_error(vector<std::unique_ptr<CompilerErr>> *errs) {
         for (auto &err : *errs) {
             this->errors->compiler_errors.emplace_back(std::move(err));
         }

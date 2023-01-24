@@ -150,7 +150,7 @@ class TypeChecker : public ast::ASTAnalyzer {
      * C : currentClass
      * R : expReturnType */
     TypeChecker(SymbolTable *globalSymbols,
-                vector<parser::CompilerErr *> *errors0) {
+                vector<std::unique_ptr<parser::CompilerErr>> *errors0) {
         this->sym = globalSymbols;
         this->global = globalSymbols;
         this->errors = errors0;
@@ -177,7 +177,7 @@ class TypeChecker : public ast::ASTAnalyzer {
     bool is_lvalue{false};
 
     /** Collector for errors. */
-    vector<parser::CompilerErr *> *errors;
+    vector<std::unique_ptr<parser::CompilerErr>> *errors;
 
     /** set up default class hierarchy
      * <None> <= object
@@ -235,7 +235,8 @@ class TypeChecker : public ast::ASTAnalyzer {
 
 class SymbolTableGenerator : public ast::ASTAnalyzer {
    public:
-    SymbolTableGenerator(vector<parser::CompilerErr *> *e) : errors(e) {
+    SymbolTableGenerator(vector<std::unique_ptr<parser::CompilerErr>> *e)
+        : errors(e) {
         auto *foo = new ClassDefType("", "object");
         auto *init = new FunctionDefType();
         init->func_name = "__init__";
@@ -302,7 +303,7 @@ class SymbolTableGenerator : public ast::ASTAnalyzer {
     SymbolType *ret = nullptr;
     std::unique_ptr<SymbolTable> globals = std::make_unique<SymbolTable>();
     SymbolTable *sym = globals.get();
-    vector<parser::CompilerErr *> *errors;
+    vector<std::unique_ptr<parser::CompilerErr>> *errors;
     vector<parser::Node *> ignore;
 };
 
@@ -318,17 +319,18 @@ class DeclarationAnalyzer : public ast::ASTAnalyzer {
     void visit(parser::VarDef &varDef) override;
     void visit(parser::Program &program) override;
 
-    explicit DeclarationAnalyzer(vector<parser::CompilerErr *> *errors,
-                                 const std::vector<parser::Node *> &ignore,
-                                 std::unique_ptr<SymbolTable> globals) {
-        this->errors = errors;
+    explicit DeclarationAnalyzer(
+        vector<std::unique_ptr<parser::CompilerErr>> *errors,
+        const std::vector<parser::Node *> &ignore,
+        std::unique_ptr<SymbolTable> globals)
+        : errors(errors) {
         for (const auto x : ignore) ignore_set.insert(x);
         this->globals = std::move(globals);
         sym = this->globals.get();
     }
 
     /** Collector for errors. */
-    vector<parser::CompilerErr *> *errors;
+    vector<std::unique_ptr<parser::CompilerErr>> *errors;
 
     std::unique_ptr<SymbolTable> globals;
 
