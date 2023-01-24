@@ -354,7 +354,7 @@ void yyerror(const char *s) {
 std::unique_ptr<::parser::Program> parse(const char* input_path) {
     if (input_path != NULL) {
         if (!(yyin = fopen(input_path, "r"))) {
-            fprintf(stderr, "[ERR] Open input file %s failed.\n", input_path);
+            std::cerr << fmt::format("[ERR] Open input file {} failed.", input_path) << std::endl;
             exit(EXIT_FAILURE);
         }
     } else {
