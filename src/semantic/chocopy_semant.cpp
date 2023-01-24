@@ -50,18 +50,16 @@ void SymbolTableGenerator::visit(parser::Program &program) {
     for (const auto &decl : program.declarations) {
         auto id = decl->get_id();
         const auto &name = id->name;
-        ret = nullptr;
-        decl->accept(*this);
-
         if (sym->declares(name)) {
             errors->emplace_back(new SemanticError(
                 id->location,
                 "Duplicate declaration of identifier in same scope: " + name));
-            ignore.emplace_back(decl.get());
-            delete ret;
-        } else {
-            sym->put(name, ret);
+            continue;
         }
+        ret = nullptr;
+        decl->accept(*this);
+        if (ret == nullptr) continue;
+        sym->put(name, ret);
     }
 }
 void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
@@ -71,23 +69,27 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
         errors->emplace_back(
             new SemanticError(class_def.superClass->location,
                               "Super-class not defined: " + super_name));
+        return;
     }
     const auto super_class = dynamic_cast<ClassDefType *>(_super_class);
     if (_super_class != nullptr && super_class == nullptr) {
         errors->emplace_back(
             new SemanticError(class_def.superClass->location,
                               "Super-class must be a class: " + super_name));
+        return;
     }
     if (super_name == "int" || super_name == "str" || super_name == "bool") {
         errors->emplace_back(
             new SemanticError(class_def.superClass->location,
                               "Cannot extend special class: " + super_name));
+        return;
     }
     SymbolTable const *const super_scope =
         super_class == nullptr ? nullptr : super_class->current_scope;
 
     const auto &class_name = class_def.name->name;
     const auto cur = new ClassDefType(super_name, class_name);
+    hierachy_tree->add_class(class_name, super_name);
     cur->current_scope->parent = this->sym;
 
     this->sym = cur->current_scope;
@@ -100,7 +102,6 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
             errors->emplace_back(new SemanticError(
                 id->location,
                 "Duplicate declaration of identifier in same scope: " + name));
-            ignore.emplace_back(decl.get());
             continue;
         }
 
@@ -121,9 +122,9 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
             const auto func = dynamic_cast<FunctionDefType *>(ret);
             assert(func);
             const auto params = func->params;
-            if (params->size() < 1 ||
-                dynamic_cast<ClassValueType *>(params->front()) == nullptr ||
-                params->front()->get_name() != class_name) {
+            if (params.size() < 1 ||
+                dynamic_cast<ClassValueType *>(params.front()) == nullptr ||
+                params.front()->get_name() != class_name) {
                 errors->emplace_back(
                     new SemanticError(id->location,
                                       "First parameter of the following method "
@@ -137,7 +138,6 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
                     if (*super_func == *func) {
                         sym->put(name, func);
                     } else {
-                        ignore.emplace_back(decl.get());
                         errors->emplace_back(
                             new SemanticError(id->location,
                                               "Method overridden with "
@@ -145,7 +145,6 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
                                                   name));
                     }
                 } else {
-                    ignore.emplace_back(decl.get());
                     errors->emplace_back(new SemanticError(
                         id->location, "Cannot re-define attribute: " + name));
                 }
@@ -156,7 +155,7 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
     }
 
     if (super_scope) {
-        for (const auto &kv : *super_scope->tab) {
+        for (const auto &kv : super_scope->tab) {
             if (sym->declares(kv.first)) continue;
             sym->put(kv.first, kv.second);
             cur->inherit_members.emplace_back(kv.first);
@@ -171,8 +170,8 @@ void SymbolTableGenerator::visit(parser::FuncDef &func_def) {
     const auto &name = id->name;
 
     const auto cur = new FunctionDefType;
-    cur->current_scope->parent = this->sym;
-    this->sym = cur->current_scope;
+    cur->current_scope.parent = this->sym;
+    this->sym = &cur->current_scope;
 
     cur->func_name = name;
     cur->return_type = ValueType::annotate_to_val(func_def.returnType);
@@ -182,7 +181,7 @@ void SymbolTableGenerator::visit(parser::FuncDef &func_def) {
         const auto &name = id->name;
 
         const auto type = ValueType::annotate_to_val(param->type);
-        cur->params->emplace_back(type);
+        cur->params.emplace_back(type);
 
         if (sym->declares(name)) {
             errors->emplace_back(new SemanticError(
@@ -202,7 +201,6 @@ void SymbolTableGenerator::visit(parser::FuncDef &func_def) {
             errors->emplace_back(new SemanticError(
                 id->location,
                 "Duplicate declaration of identifier in same scope: " + name));
-            ignore.emplace_back(decl.get());
             continue;
         }
 
@@ -224,40 +222,8 @@ void SymbolTableGenerator::visit(parser::GlobalDecl &global_decl) {
     ret = new GlobalRefType(global_decl.get_id()->name);
 }
 
-void DeclarationAnalyzer::debug_sym() {
-    for (const auto &x : *sym->tab) {
-        if ((x.second)->is_list_type()) {
-            LOG(INFO)
-                << x.first << " : ["
-                << ((ClassValueType *)((ListValueType *)x.second)->element_type)
-                       ->get_name()
-                << "]\n";
-        } else if ((x.second)->is_func_type()) {
-            if (dynamic_cast<FunctionDefType *>(x.second))
-                LOG(INFO) << "Function " << x.first << " : "
-                          << dynamic_cast<FunctionDefType *>(x.second)
-                                 ->return_type->get_name()
-                          << "\nparam\n";
-            for (const auto y :
-                 *dynamic_cast<FunctionDefType *>(x.second)->params)
-                if (!y->is_list_type())
-                    LOG(INFO) << "      : " << ((ClassValueType *)y)->get_name()
-                              << "\n";
-                else
-                    LOG(INFO) << "      : "
-                              << ((ClassValueType *)((ListValueType *)y)
-                                      ->element_type)
-                                     ->get_name()
-                              << "\n";
-        } else if ((x.second)->is_value_type()) {
-            LOG(INFO) << x.first << " : "
-                      << ((ClassValueType *)x.second)->get_name() << "\n";
-        }
-    }
-}
 void DeclarationAnalyzer::visit(parser::Program &program) {
     for (const auto &decl : program.declarations) {
-        if (ignore(decl.get())) continue;
         decl->accept(*this);
     }
 
@@ -289,7 +255,6 @@ void DeclarationAnalyzer::visit(parser::ClassDef &class_def) {
     sym = class_type->current_scope;
 
     for (const auto &decl : class_def.declaration) {
-        if (ignore(decl.get())) continue;
         if (const auto var_def = dynamic_cast<parser::VarDef *>(decl.get());
             var_def) {
             const auto &id = var_def->var->identifier;
@@ -312,26 +277,17 @@ void DeclarationAnalyzer::visit(parser::FuncDef &func_def) {
     // cur->current_scope->parent = this->sym;
     FunctionDefType *const func_type = sym->declares<FunctionDefType *>(name);
     assert(func_type);
-    sym = func_type->current_scope;
+    sym = &func_type->current_scope;
 
-    for (int i = 0; i < func_type->params->size(); i++) {
+    for (int i = 0; i < func_type->params.size(); i++) {
         const auto &annoation = func_def.params.at(i)->type;
         const auto value_type =
-            dynamic_cast<ValueType *>(func_type->params->at(i));
+            dynamic_cast<ValueType *>(func_type->params.at(i));
         assert(value_type);
         checkValueType(value_type, annoation);
     }
 
     for (const auto &decl : func_def.declarations) {
-        if (ignore(decl.get())) {
-            if (dynamic_cast<parser::VarDef *>(decl.get())) {
-                const auto t = ValueType::annotate_to_val(
-                    ((parser::VarDef *)decl.get())->var->type);
-                checkValueType(t, ((parser::VarDef *)decl.get())->var->type);
-                delete t;
-            }
-            continue;
-        }
         decl->accept(*this);
     }
 
@@ -369,7 +325,7 @@ void DeclarationAnalyzer::visit(parser::NonlocalDecl &nonlocal_decl) {
 
     ValueType *real_type = nullptr;
     auto table = sym->parent;
-    while (real_type == nullptr && table != globals.get()) {
+    while (real_type == nullptr && table != globals) {
         real_type = table->declares<ValueType *>(name);
         table = table->parent;
     }
@@ -415,9 +371,8 @@ void TypeChecker::visit(parser::BinaryExpr &node) {
         auto lcl = dynamic_cast<ListValueType *>(lc);
         auto rcl = dynamic_cast<ListValueType *>(rc);
         if (lcl != nullptr && rcl != nullptr) {
-            node.inferredType =
-                new ListValueType((ValueType *)get_common_type_2(
-                    lcl->element_type, rcl->element_type));
+            node.inferredType = new ListValueType((ValueType *)get_common_type(
+                lcl->element_type, rcl->element_type));
             return;
         }
         typeError(&node,
@@ -502,23 +457,23 @@ void TypeChecker::visit(parser::CallExpr &node) {
 
     std::vector<SymbolType *>::const_iterator param;
     if (func != nullptr) {
-        if (node.args.size() != func->params->size()) {
+        if (node.args.size() != func->params.size()) {
             typeError(&node,
                       fmt::format("Expected {} arguments; got {}",
-                                  func->params->size(), node.args.size()));
+                                  func->params.size(), node.args.size()));
             return;
         }
-        param = func->params->cbegin();
+        param = func->params.cbegin();
     } else {
         const auto init_func =
             class_->current_scope->get<FunctionDefType *>("__init__");
-        if (node.args.size() != init_func->params->size() - 1) {
+        if (node.args.size() != init_func->params.size() - 1) {
             typeError(&node, fmt::format("Expected {} arguments; got {}",
-                                         init_func->params->size() - 1,
+                                         init_func->params.size() - 1,
                                          node.args.size()));
             return;
         }
-        param = init_func->params->cbegin();
+        param = init_func->params.cbegin();
         param++;
     }
 
@@ -565,16 +520,10 @@ void TypeChecker::visit(parser::ForStmt &node) {
     }
 
     if (node.iterable->inferredType->get_name() == "str") {
-        if (!is_super_class(global, "str", T->get_name())) {
-            typeError(&node,
-                      fmt::format(
-                          "id {} in for statement is not a super class of str",
-                          node.identifier->name));
-        }
     } else if (auto lType =
                    dynamic_cast<ListValueType *>(node.iterable->inferredType)) {
         auto T1 = lType->element_type;
-        if (!is_super_class(global, T1->get_name(), T->get_name())) {
+        if (!is_subtype(T1, T)) {
             typeError(
                 &node,
                 fmt::format(
@@ -601,7 +550,7 @@ void TypeChecker::visit(parser::FuncDef &node) {
     saved_func.push(curr_func);
     curr_func = sym->get<FunctionDefType *>(node.name->name);
     assert(curr_func);
-    sym = curr_func->current_scope;
+    sym = &curr_func->current_scope;
 
     std::set<std::string> declared_local_vars;
     for (const auto &s : node.declarations) {
@@ -716,8 +665,8 @@ void TypeChecker::visit(parser::IfExpr &node) {
     }
     node.thenExpr->accept(*this);
     node.elseExpr->accept(*this);
-    auto lca = get_common_type_2(node.thenExpr->inferredType,
-                                 node.elseExpr->inferredType);
+    auto lca = get_common_type(node.thenExpr->inferredType,
+                               node.elseExpr->inferredType);
     node.inferredType = lca;
 }
 void TypeChecker::visit(parser::IndexExpr &node) {
@@ -762,7 +711,8 @@ void TypeChecker::visit(parser::ListExpr &node) {
                     v = new ClassValueType("object");
                 } else {
                     auto lca = get_common_type(v, T);
-                    v = new ClassValueType(lca);
+                    assert(lca->is_value_type());
+                    v = static_cast<ValueType *>(lca);
                 }
             }
         } else {
@@ -825,10 +775,10 @@ void TypeChecker::visit(parser::MethodCallExpr &node) {
         return;
     }
 
-    if (node.args.size() != func->params->size() - 1) {
+    if (node.args.size() != func->params.size() - 1) {
         typeError(&node,
                   fmt::format("Expected {} arguments; got {}",
-                              func->params->size() - 1, node.args.size()));
+                              func->params.size() - 1, node.args.size()));
         return;
     }
 
@@ -836,7 +786,7 @@ void TypeChecker::visit(parser::MethodCallExpr &node) {
         const auto &arg = node.args.at(i);
         arg->accept(*this);
         const auto arg_type = arg->inferredType;
-        const auto param_type = func->params->at(i + 1);
+        const auto param_type = func->params.at(i + 1);
         if (!is_subtype(arg_type, param_type)) {
             typeError(
                 &node,
@@ -959,111 +909,14 @@ void TypeChecker::visit(parser::AssignStmt &node) {
         }
     }
 }
-
-void TypeChecker::debug_sym() {
-    for (const auto &x : *sym->tab) {
-        if ((x.second)->is_list_type()) {
-            LOG(INFO)
-                << x.first << " : ["
-                << ((ClassValueType *)((ListValueType *)x.second)->element_type)
-                       ->get_name()
-                << "]\n";
-        } else if ((x.second)->is_func_type()) {
-            if (dynamic_cast<FunctionDefType *>(x.second)) {
-                LOG(INFO) << "Function " << x.first << " : [ "
-                          << dynamic_cast<FunctionDefType *>(x.second)
-                                 ->return_type->get_name()
-                          << " ]";
-                debug_nested_func_sym(
-                    ((FunctionDefType *)x.second)->current_scope, 1);
-            }
-            for (const auto y :
-                 *dynamic_cast<FunctionDefType *>(x.second)->params)
-                if (!y->is_list_type())
-                    LOG(INFO) << "      : " << ((ClassValueType *)y)->get_name()
-                              << "\n";
-                else
-                    LOG(INFO) << "      : "
-                              << ((ClassValueType *)((ListValueType *)y)
-                                      ->element_type)
-                                     ->get_name()
-                              << "\n";
-        } else if ((x.second)->is_value_type()) {
-            LOG(INFO) << x.first << " : "
-                      << ((ClassValueType *)x.second)->get_name() << "\n";
-        }
-    }
-}
-
-void TypeChecker::debug_nested_func_sym(SymbolTable *func_sym, int tab) {
-    for (auto x : *func_sym->tab) {
-        if ((x.second)->is_list_type()) {
-            LOG(INFO) << fmt::format(
-                "{:>{}} : [ {} ]", x.first, tab * 20,
-                ((ClassValueType *)((ListValueType *)x.second)->element_type)
-                    ->get_name());
-        } else if ((x.second)->is_func_type()) {
-            if (dynamic_cast<FunctionDefType *>(x.second)) {
-                LOG(INFO) << fmt::format(
-                    "{:>{}} : [ {} ]", "Function " + x.first, tab * 20,
-                    dynamic_cast<FunctionDefType *>(x.second)
-                        ->return_type->get_name());
-                debug_nested_func_sym(
-                    ((FunctionDefType *)x.second)->current_scope, tab++);
-            }
-            for (const auto y :
-                 *dynamic_cast<FunctionDefType *>(x.second)->params)
-                if (!y->is_list_type())
-                    LOG(INFO)
-                        << fmt::format("{:>{}}       : [ {} ]", "", tab * 20,
-                                       ((ClassValueType *)y)->get_name());
-                else
-                    LOG(INFO) << fmt::format(
-                        "{:>{}}       : [ {} ]", "", tab * 20,
-                        ((ClassValueType *)((ListValueType *)y)->element_type)
-                            ->get_name());
-        } else if ((x.second)->is_value_type()) {
-            LOG(INFO) << fmt::format("{:>{}} : [ {} ]", x.first, tab * 20,
-                                     ((ClassValueType *)x.second)->get_name());
-        }
-    }
-}
-/** Get the right type */
-const string TypeChecker::get_common_type(SymbolType const *const first,
-                                          SymbolType const *const second) {
-    string tmp = first->get_name();
-    list<string> first_dfs = {tmp};
-    while (tmp != "object") {
-        for (const auto &x : super_classes) {
-            if (tmp == x.first) {
-                first_dfs.push_back(x.second);
-                tmp = x.second;
-                break;
-            }
-        }
-    }
-    tmp = second->get_name();
-    while (tmp != "object") {
-        if (std::find(first_dfs.begin(), first_dfs.end(), tmp) !=
-            first_dfs.end()) {
-            return tmp;
-        }
-        for (const auto &x : super_classes) {
-            if (tmp == x.first) {
-                tmp = x.second;
-                break;
-            }
-        }
-    }
-    return "object";
-}
-SymbolType *TypeChecker::get_common_type_2(SymbolType *const x,
-                                           SymbolType *const y) {
+SymbolType *TypeChecker::get_common_type(SymbolType *const x,
+                                         SymbolType *const y) {
     if (is_subtype(x, y)) return y;
     if (is_subtype(y, x)) return x;
     if (x->is_list_type() || y->is_list_type())
         return new ClassValueType("object");
-    return new ClassValueType(get_common_type(x, y));
+    return new ClassValueType(
+        hierachy_tree->common_ancestor(x->get_name(), y->get_name()));
 }
 bool TypeChecker::is_subtype(SymbolType const *sub, SymbolType const *super) {
     assert(sub != nullptr);
@@ -1091,44 +944,21 @@ bool TypeChecker::is_subtype(SymbolType const *sub, SymbolType const *super) {
 
     // rule 2
     // <None> <= T
-    if (sub->get_name() == "<None>" && super->get_name() != "int" &&
-        super->get_name() != "bool" && super->get_name() != "str")
-        return true;
+    if (sub->get_name() == "<None>") {
+        return super->get_name() != "int" && super->get_name() != "bool" &&
+               super->get_name() != "str";
+    }
 
     // rule 1
     if (super->get_name() == "object") return true;
     if (sub->is_list_type() || super->is_list_type()) return false;
-    return is_super_class(global, sub->get_name(), super->get_name());
+    return hierachy_tree->is_superclass(sub->get_name(), super->get_name());
 }
 bool TypeChecker::is_subtype(const string &sub_class_name,
                              SymbolType const *super) {
     const auto sub = new ClassValueType(sub_class_name);
     return is_subtype(sub, super);
 }
-void TypeChecker::setup_num_to_class() {
-    for (const auto &x : *sym->tab) {
-        if (dynamic_cast<ClassDefType *>(x.second)) {
-            auto tmp_dad =
-                sym->get<ClassDefType *>(((ClassDefType *)x.second)->get_dad());
-            super_classes[x.second->get_name()] =
-                ((ClassDefType *)x.second)->get_dad();
-            add_edge(((ClassDefType *)x.second)->get_dad(),
-                     x.second->get_name());
-            while (tmp_dad != nullptr && tmp_dad->get_name() != "object" &&
-                   !super_classes.contains(tmp_dad->get_name())) {
-                add_edge(tmp_dad->get_dad(), tmp_dad->get_name());
-                tmp_dad = sym->get<ClassDefType *>(tmp_dad->get_dad());
-            }
-        }
-    }
-    dfs("object");
-    sym->class_tag_["list"] = -1;
-    sym->class_tag_["object"] = 0;
-    sym->class_tag_["int"] = 1;
-    sym->class_tag_["bool"] = 2;
-    sym->class_tag_["str"] = 3;
-}
-
 ValueType *ValueType::annotate_to_val(parser::TypeAnnotation *annotation) {
     if (dynamic_cast<parser::ClassType *>(annotation)) {
         return new ClassValueType((parser::ClassType *)annotation);
@@ -1159,28 +989,17 @@ const string ValueType::get_name() const {
 #ifdef PA2
 int main(int argc, char *argv[]) {
     std::unique_ptr<parser::Program> tree(parse(argv[1]));
-
-    auto error =
-        std::make_unique<vector<std::unique_ptr<parser::CompilerErr>>>();
-
-    auto symboltableGenerator = semantic::SymbolTableGenerator(error.get());
-    tree->accept(symboltableGenerator);
-
-    auto declarationAnalyzer =
-        semantic::DeclarationAnalyzer(error.get(), symboltableGenerator.ignore,
-                                      std::move(symboltableGenerator.globals));
-    tree->accept(declarationAnalyzer);
-
-    auto globalScope = std::move(declarationAnalyzer.globals);
-    if (!error->empty()) {
-        tree->add_error(error.get());
-    } else {
-        auto *typeChecker =
-            new semantic::TypeChecker(globalScope.get(), error.get());
+    if (tree->errors->compiler_errors.size() == 0) {
+        auto symboltableGenerator = semantic::SymbolTableGenerator(*tree);
+        tree->accept(symboltableGenerator);
+    }
+    if (tree->errors->compiler_errors.size() == 0) {
+        auto declarationAnalyzer = semantic::DeclarationAnalyzer(*tree);
+        tree->accept(declarationAnalyzer);
+    }
+    if (tree->errors->compiler_errors.size() == 0) {
+        auto *typeChecker = new semantic::TypeChecker(*tree);
         tree->accept(*typeChecker);
-        if (!error->empty()) {
-            tree->add_error(error.get());
-        }
     }
 
     auto j = tree->toJSON();

@@ -6,7 +6,7 @@
 namespace semantic {
 ClassDefType::~ClassDefType() {
     for (const auto &e : inherit_members) {
-        current_scope->tab->erase(e);
+        current_scope->tab.erase(e);
     }
     delete this->current_scope;
 }
@@ -22,14 +22,13 @@ FunctionDefType::~FunctionDefType() {
     //     delete params;
     // }
     delete return_type;
-    delete current_scope;
 }
 bool FunctionDefType::operator==(const FunctionDefType &f2) const {
-    std::vector<SymbolType *> *a = this->params;
-    std::vector<SymbolType *> *b = f2.params;
-    if (a->size() == b->size()) {
-        for (int i = 1; i < a->size(); i++) {
-            if (a->at(i)->get_name() != b->at(i)->get_name()) return false;
+    auto &a = this->params;
+    auto &b = f2.params;
+    if (a.size() == b.size()) {
+        for (int i = 1; i < a.size(); i++) {
+            if (a.at(i)->get_name() != b.at(i)->get_name()) return false;
         }
         if (this->return_type->get_name() != f2.return_type->get_name())
             return false;
@@ -42,7 +41,7 @@ json FunctionDefType::toJSON() const {
     json d;
     d["kind"] = "FuncType";
     d["parameters"] = json::array();
-    for (auto &parameter : *this->params) {
+    for (auto &parameter : this->params) {
         d["parameters"].emplace_back(parameter->toJSON());
     }
 

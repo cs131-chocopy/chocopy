@@ -68,21 +68,17 @@ int LightWalker::get_next_type_id() { return next_type_id++; }
 
 int LightWalker::get_const_type_id() { return next_const_id++; }
 
-int LightWalker::get_class_id(const string &name) const {
-    return sym->class_tag_[name];
-}
-
 string LightWalker::get_nested_func_name(
     semantic::FunctionDefType const *const func,
     bool with_start_dollar = true) {
-    const auto parent_sym = func->current_scope->parent;
+    const auto parent_sym = func->current_scope.parent;
     const auto grand_parent_sym = parent_sym->parent;
     if (grand_parent_sym) {
-        for (auto &x : *grand_parent_sym->tab) {
+        for (auto &x : grand_parent_sym->tab) {
             auto parent_func =
                 dynamic_cast<semantic::FunctionDefType *>(x.second);
             if (parent_func) {
-                if (parent_func->current_scope == parent_sym) {
+                if (&parent_func->current_scope == parent_sym) {
                     return with_start_dollar
                                ? "$" +
                                      get_nested_func_name(parent_func, false) +
@@ -130,7 +126,7 @@ Type *LightWalker::semantic_type_to_llvm_type(semantic::SymbolType *type) {
         const auto func_def_type =
             dynamic_cast<semantic::FunctionDefType *>(type);
         std::vector<Type *> arg_types;
-        for (auto param : *func_def_type->params) {
+        for (auto param : func_def_type->params) {
             arg_types.emplace_back(semantic_type_to_llvm_type(param));
         }
         auto func_return_type =
@@ -141,7 +137,8 @@ Type *LightWalker::semantic_type_to_llvm_type(semantic::SymbolType *type) {
     assert(0);
 }
 
-LightWalker::LightWalker(semantic::SymbolTable *sym) : sym(sym) {
+LightWalker::LightWalker(parser::Program &program)
+    : sym(&program.symbol_table) {
     module = std::make_unique<Module>("ChocoPy code");
     builder = new IRBuilder(nullptr, module.get());
 
@@ -268,7 +265,7 @@ void LightWalker::visit(parser::Program &node) {
     STR_T = Type::get_str_type(module.get());
     ARR_T = Type::get_array_type(module.get());
 
-    for (const auto &obj_type : sym->class_tag_) {
+    for (const auto &obj_type : node.hierachy_tree.class_tag) {
         if (obj_type.first == "list")
             module->add_class_type(
                 new Class(&*module, ".list", obj_type.second, nullptr));
@@ -277,7 +274,7 @@ void LightWalker::visit(parser::Program &node) {
             module->add_class_type(
                 new Class(&*module, obj_type.first, obj_type.second, nullptr));
     }
-    for (int i = 0; i < sym->class_tag_.size(); i++) {
+    for (int i = 0; i < node.hierachy_tree.class_tag.size(); i++) {
         OBJ_T->emplace_back(Type::get_class_type(module.get(), i));
     }
 
@@ -1015,7 +1012,7 @@ void LightWalker::visit(parser::FuncDef &node) {
     builder->set_insert_point(b);
     scope.enter();
     auto saved_sym = sym;
-    sym = func_def_type->current_scope;
+    sym = &func_def_type->current_scope;
     for (const auto &decl : node.declarations) {
         if (auto node = dynamic_cast<parser::FuncDef *>(decl.get()); node) {
             // lambda function
@@ -1689,7 +1686,7 @@ int main(int argc, char *argv[]) {
             passes.push_back(argv[i + 1]);
             i += 1;
         } else if (argv[i] == "-strfor"s) {
-            if (argv[i + 1] == "true") {
+            if (argv[i + 1] == "true"s) {
                 lightir::enable_str_for = true;
             } else {
                 lightir::enable_str_for = false;
@@ -1706,29 +1703,21 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    auto tree = parse(input_path.c_str());
-
     auto error =
         std::make_unique<vector<std::unique_ptr<parser::CompilerErr>>>();
 
-    auto symboltableGenerator = semantic::SymbolTableGenerator(error.get());
-    tree->accept(symboltableGenerator);
-
-    auto declarationAnalyzer =
-        semantic::DeclarationAnalyzer(error.get(), symboltableGenerator.ignore,
-                                      std::move(symboltableGenerator.globals));
-    tree->accept(declarationAnalyzer);
-
-    auto globalScope = std::move(declarationAnalyzer.globals);
-    if (!error->empty()) {
-        tree->add_error(error.get());
-    } else {
-        auto *typeChecker =
-            new semantic::TypeChecker(globalScope.get(), error.get());
+    std::unique_ptr<parser::Program> tree(parse(input_path.c_str()));
+    if (tree->errors->compiler_errors.size() == 0) {
+        auto symboltableGenerator = semantic::SymbolTableGenerator(*tree);
+        tree->accept(symboltableGenerator);
+    }
+    if (tree->errors->compiler_errors.size() == 0) {
+        auto declarationAnalyzer = semantic::DeclarationAnalyzer(*tree);
+        tree->accept(declarationAnalyzer);
+    }
+    if (tree->errors->compiler_errors.size() == 0) {
+        auto *typeChecker = new semantic::TypeChecker(*tree);
         tree->accept(*typeChecker);
-        if (!error->empty()) {
-            tree->add_error(error.get());
-        }
     }
 
     std::shared_ptr<lightir::Module> m;
@@ -1738,7 +1727,7 @@ int main(int argc, char *argv[]) {
         auto j = tree->toJSON();
         LOG(INFO) << "ChocoPy Language Server:\n" << j.dump(2) << "\n";
 
-        auto *LightWalker = new lightir::LightWalker(globalScope.get());
+        auto *LightWalker = new lightir::LightWalker(*tree);
         tree->accept(*LightWalker);
         m = LightWalker->get_module();
         m->source_file_name_ = input_path;

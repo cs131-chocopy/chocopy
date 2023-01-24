@@ -1399,29 +1399,21 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    auto tree = parse(input_path.c_str());
-
     auto error =
         std::make_unique<vector<std::unique_ptr<parser::CompilerErr>>>();
 
-    auto symboltableGenerator = semantic::SymbolTableGenerator(error.get());
-    tree->accept(symboltableGenerator);
-
-    auto declarationAnalyzer =
-        semantic::DeclarationAnalyzer(error.get(), symboltableGenerator.ignore,
-                                      std::move(symboltableGenerator.globals));
-    tree->accept(declarationAnalyzer);
-
-    auto globalScope = std::move(declarationAnalyzer.globals);
-    if (!error->empty()) {
-        tree->add_error(error.get());
-    } else {
-        auto *typeChecker =
-            new semantic::TypeChecker(globalScope.get(), error.get());
+    std::unique_ptr<parser::Program> tree(parse(input_path.c_str()));
+    if (tree->errors->compiler_errors.size() == 0) {
+        auto symboltableGenerator = semantic::SymbolTableGenerator(*tree);
+        tree->accept(symboltableGenerator);
+    }
+    if (tree->errors->compiler_errors.size() == 0) {
+        auto declarationAnalyzer = semantic::DeclarationAnalyzer(*tree);
+        tree->accept(declarationAnalyzer);
+    }
+    if (tree->errors->compiler_errors.size() == 0) {
+        auto *typeChecker = new semantic::TypeChecker(*tree);
         tree->accept(*typeChecker);
-        if (!error->empty()) {
-            tree->add_error(error.get());
-        }
     }
 
     std::shared_ptr<lightir::Module> m;
@@ -1431,7 +1423,7 @@ int main(int argc, char *argv[]) {
         auto j = tree->toJSON();
         LOG(INFO) << "ChocoPy Language Server:\n" << j.dump(2) << "\n";
 
-        auto *LightWalker = new lightir::LightWalker(globalScope.get());
+        auto *LightWalker = new lightir::LightWalker(*tree);
         tree->accept(*LightWalker);
         m = LightWalker->get_module();
         m->source_file_name_ = input_path;
@@ -1585,29 +1577,21 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    auto tree = parse(input_path.c_str());
-
     auto error =
         std::make_unique<vector<std::unique_ptr<parser::CompilerErr>>>();
 
-    auto symboltableGenerator = semantic::SymbolTableGenerator(error.get());
-    tree->accept(symboltableGenerator);
-
-    auto declarationAnalyzer =
-        semantic::DeclarationAnalyzer(error.get(), symboltableGenerator.ignore,
-                                      std::move(symboltableGenerator.globals));
-    tree->accept(declarationAnalyzer);
-
-    auto globalScope = std::move(declarationAnalyzer.globals);
-    if (!error->empty()) {
-        tree->add_error(error.get());
-    } else {
-        auto *typeChecker =
-            new semantic::TypeChecker(globalScope.get(), error.get());
+    std::unique_ptr<parser::Program> tree(parse(input_path.c_str()));
+    if (tree->errors->compiler_errors.size() == 0) {
+        auto symboltableGenerator = semantic::SymbolTableGenerator(*tree);
+        tree->accept(symboltableGenerator);
+    }
+    if (tree->errors->compiler_errors.size() == 0) {
+        auto declarationAnalyzer = semantic::DeclarationAnalyzer(*tree);
+        tree->accept(declarationAnalyzer);
+    }
+    if (tree->errors->compiler_errors.size() == 0) {
+        auto *typeChecker = new semantic::TypeChecker(*tree);
         tree->accept(*typeChecker);
-        if (!error->empty()) {
-            tree->add_error(error.get());
-        }
     }
 
     std::shared_ptr<lightir::Module> m;
@@ -1617,7 +1601,7 @@ int main(int argc, char *argv[]) {
         json j = tree->toJSON();
         LOG(INFO) << "ChocoPy Language Server:\n" << j.dump(2) << "\n";
 
-        auto *LightWalker = new lightir::LightWalker(globalScope.get());
+        auto *LightWalker = new lightir::LightWalker(*tree);
         tree->accept(*LightWalker);
         m = LightWalker->get_module();
         m->source_file_name_ = input_path;

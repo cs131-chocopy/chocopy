@@ -154,7 +154,7 @@ class ScopeAnalyzer {
 
 class LightWalker : public ast::Visitor {
    public:
-    explicit LightWalker(semantic::SymbolTable *sym);
+    explicit LightWalker(parser::Program &program);
     std::shared_ptr<Module> get_module() { return std::move(module); };
 
     /** Predefined classes. The list "class" is a fake class; we use it only
@@ -203,7 +203,6 @@ class LightWalker : public ast::Visitor {
     int next_const_id = 9;
     int get_next_type_id();
     int get_const_type_id();
-    int get_class_id(const string &name) const;
     string get_nested_func_name(semantic::FunctionDefType const *const, bool);
     GlobalVariable *generate_init_object(parser::Literal *literal);
     Type *semantic_type_to_llvm_type(semantic::SymbolType *type);

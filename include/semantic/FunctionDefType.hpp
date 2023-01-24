@@ -22,8 +22,8 @@ class FunctionDefType : public SymbolType {
 
     string func_name;
     ValueType *return_type{};
-    std::vector<SymbolType *> *params = new std::vector<SymbolType *>();
-    SymbolTable *current_scope = new SymbolTable();
+    std::vector<SymbolType *> params;
+    SymbolTable current_scope;
 
     bool operator==(const FunctionDefType &f2) const;
     bool is_func_type() const final { return true; }

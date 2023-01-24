@@ -92,9 +92,8 @@ class ListValueType : public ValueType {
  */
 class ClassValueType : public ValueType {
    public:
-    explicit ClassValueType(string className) {
-        this->class_name = std::move(className);
-    }
+    explicit ClassValueType(string className)
+        : class_name(std::move(className)) {}
 
     explicit ClassValueType(parser::ClassType *classTypeAnnotation);
 

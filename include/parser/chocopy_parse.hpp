@@ -14,6 +14,9 @@
 #include <utility>
 #include <vector>
 
+#include "SymbolTable.hpp"
+#include "hierarchy_tree.hpp"
+
 using namespace std;
 using json = nlohmann::json;
 
@@ -711,6 +714,10 @@ class Program : public Node {
     vector<std::unique_ptr<parser::Stmt>> statements;
     std::unique_ptr<Errors> errors{new Errors({})};
     vector<std::unique_ptr<Decl>> declarations;
+
+    // For semantic analysis
+    semantic::SymbolTable symbol_table;
+    semantic::HierachyTree hierachy_tree;
 
     Program(Location location, vector<std::unique_ptr<Decl>> *declarations,
             vector<std::unique_ptr<parser::Stmt>> *statements)

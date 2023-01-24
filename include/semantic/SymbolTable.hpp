@@ -13,7 +13,6 @@
 
 using std::map;
 using std::string;
-using std::vector;
 
 namespace semantic {
 /** A block-structured symbol table a mapping identifiers to information
@@ -22,18 +21,15 @@ class SymbolTable {
    public:
     /** A table representing a region nested in that represented by
      *  PARENT0. */
-    explicit SymbolTable(SymbolTable *parent0) {
-        this->parent = (SymbolTable *)parent0;
-    }
-    SymbolTable() { this->parent = nullptr; }
+    explicit SymbolTable(SymbolTable *parent) : parent(parent) {}
+    SymbolTable() : parent(nullptr) {}
     ~SymbolTable() {
         // ! life is short, just let it leak
         // for (const auto &symbol : *tab) {
         //     delete symbol.second;
         // }
-        delete tab;
     }
-    map<string, SymbolType *> *tab = new map<string, SymbolType *>();
+    map<string, SymbolType *> tab;
 
     bool is_nonlocal(const string &name) const {
         return this->parent != nullptr &&
@@ -41,15 +37,15 @@ class SymbolTable {
     }
     bool is_nonlocal_helper(const string &name) const {
         return this->parent != nullptr &&
-               (tab->contains(name) || this->parent->is_nonlocal_helper(name));
+               (tab.contains(name) || this->parent->is_nonlocal_helper(name));
     }
 
     /** Returns the mapping in this scope or in the parent scope using a
      * recursive traversal */
     template <typename T>
     T get(const string &name) {
-        if (tab->count(name) > 0)
-            return dynamic_cast<T>((*tab)[name]);
+        if (tab.count(name) > 0)
+            return dynamic_cast<T>(tab.at(name));
         else if (parent != nullptr)
             return parent->get<T>(name);
         else
@@ -58,34 +54,18 @@ class SymbolTable {
 
     template <typename T = SymbolType *>
     T declares(const string &name) const {
-        if (tab->count(name) > 0) return dynamic_cast<T>((*tab)[name]);
+        if (tab.count(name) > 0) return dynamic_cast<T>(tab.at(name));
         return nullptr;
     }
 
     /** Adds a new mapping in the current scope, possibly shadowing mappings in
      * the parent scope. */
     SymbolTable *put(const string &name, SymbolType *value) {
-        (*tab)[name] = value;
+        tab[name] = value;
         return this;
     }
 
     SymbolTable *parent;
-    map<string, int> class_tag_;
-    struct edge {
-        string target;
-        int pre;
-    };
-    vector<edge> way;
-    vector<string> nametable;
-    map<string, int> head, lhs, rhs;
-
-    void dfs_gen(const string &x, map<string, int> &typeset,
-                 vector<string> &list) {
-        for (int y = head[x]; y != -1; y = way[y].pre) {
-            dfs_gen(way[y].target, typeset, list);
-        }
-        if (typeset.count(x)) list.emplace_back(x);
-    }
 };
 }  // namespace semantic
 #endif  // CHOCOPY_COMPILER_SYMBOLTABLE_HPP

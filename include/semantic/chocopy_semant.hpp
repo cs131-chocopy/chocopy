@@ -18,6 +18,7 @@
 #include "SymbolTable.hpp"
 #include "SymbolType.hpp"
 #include "ValueType.hpp"
+#include "hierarchy_tree.hpp"
 
 using std::stack;
 using std::string;
@@ -63,7 +64,6 @@ class WhileStmt;
 
 }  // namespace parser
 
-using std::map;
 using std::string;
 
 namespace ast {
@@ -149,14 +149,11 @@ class TypeChecker : public ast::ASTAnalyzer {
      * M : classes
      * C : currentClass
      * R : expReturnType */
-    TypeChecker(SymbolTable *globalSymbols,
-                vector<std::unique_ptr<parser::CompilerErr>> *errors0) {
-        this->sym = globalSymbols;
-        this->global = globalSymbols;
-        this->errors = errors0;
-        setup_num_to_class();
-        debug_sym();
-    }
+    TypeChecker(parser::Program &program)
+        : errors(&program.errors->compiler_errors),
+          global(&program.symbol_table),
+          sym(&program.symbol_table),
+          hierachy_tree(&program.hierachy_tree) {}
     /** Inserts an error message in NODE if there isn"t one already.
      *  The message is constructed with MESSAGE and ARGS as for
      *  String.format. */
@@ -166,132 +163,80 @@ class TypeChecker : public ast::ASTAnalyzer {
      *  being analyzed). */
     SymbolTable *sym;
     stack<SymbolTable *> saved{};
-    SymbolTable *global;
+    SymbolTable *const global;
+    HierachyTree *const hierachy_tree;
 
     /** For the nested function declaration */
     FunctionDefType *curr_func = nullptr;
     std::vector<std::string> *curr_lambda_params;
     stack<FunctionDefType *> saved_func{};
 
-    SymbolType *passing_type{};
     bool is_lvalue{false};
 
     /** Collector for errors. */
     vector<std::unique_ptr<parser::CompilerErr>> *errors;
 
-    /** set up default class hierarchy
-     * <None> <= object
-     * <Empty> <= object
-     * <None> <= <None>
-     * <Empty> <= <Empty>
-     */
-    map<string, string> super_classes = {
-        {"int", "object"},   {"bool", "int"},      {"none", "object"},
-        {"empty", "object"}, {"<None>", "object"}, {"<Empty>", "object"}};
-
-    const string get_common_type(SymbolType const *const first,
-                                 SymbolType const *const second);
     // The function can check both ClassType and ListType
-    SymbolType *get_common_type_2(SymbolType *const, SymbolType *const);
+    SymbolType *get_common_type(SymbolType *const, SymbolType *const);
     bool is_subtype(SymbolType const *, SymbolType const *);
     bool is_subtype(const string &, SymbolType const *);
-    void setup_num_to_class();
-
-    /** linear-list-stored graph for the object graph
-     *
-     * OBJECT 0
-     * INT1 BOOL2 STR3 LIST4 A5   F10 ....
-     *                       | \
-     *                      B6 E9
-     *                      | \
-     *                      C7 D8
-     */
-
-    /** initialize the edge */
-    void add_edge(const string &a, const string &b) {
-        if (!sym->head.count(a)) sym->head[a] = -1;
-        if (!sym->head.count(b)) sym->head[b] = -1;
-        sym->way.emplace_back(SymbolTable::edge{b, sym->head[a]});
-        sym->head[a] = sym->way.size() - 1;
-    }
-    int dfn = -1;
-    /** depth first search */
-    void dfs(const string &x) {
-        sym->lhs[x] = ++dfn;
-        sym->nametable.emplace_back(x);
-        for (int y = sym->head[x]; y != -1; y = sym->way[y].pre) {
-            dfs(sym->way[y].target);
-        }
-        sym->rhs[x] = dfn;
-        if (x != "object")
-            sym->class_tag_[x] = sym->lhs[x] + 3;
-        else
-            sym->class_tag_[x] = sym->lhs[x];
-    }
-
-    void debug_sym();
-    void debug_nested_func_sym(SymbolTable *func_sym, int tab);
 };
 
 class SymbolTableGenerator : public ast::ASTAnalyzer {
    public:
-    SymbolTableGenerator(vector<std::unique_ptr<parser::CompilerErr>> *e)
-        : errors(e) {
+    SymbolTableGenerator(parser::Program &program)
+        : errors(&program.errors->compiler_errors),
+          globals(&program.symbol_table),
+          sym(&program.symbol_table),
+          hierachy_tree(&program.hierachy_tree) {
         auto *foo = new ClassDefType("", "object");
         auto *init = new FunctionDefType();
         init->func_name = "__init__";
         init->return_type = new ClassValueType("<None>");
-        init->params = new std::vector<SymbolType *>();
-        init->params->emplace_back(new ClassValueType("object"));
-        foo->current_scope->tab->insert({"__init__", init});
-        sym->tab->insert({"object", foo});
+        init->params.emplace_back(new ClassValueType("object"));
+        foo->current_scope->tab.insert({"__init__", init});
+        sym->tab.insert({"object", foo});
 
         foo = new ClassDefType("object", "str");
         init = new FunctionDefType();
         init->func_name = "__init__";
         init->return_type = new ClassValueType("<None>");
-        init->params = new std::vector<SymbolType *>();
-        init->params->emplace_back(new ClassValueType("str"));
-        foo->current_scope->tab->insert({"__init__", init});
-        sym->tab->insert({"str", foo});
+        init->params.emplace_back(new ClassValueType("str"));
+        foo->current_scope->tab.insert({"__init__", init});
+        sym->tab.insert({"str", foo});
 
         foo = new ClassDefType("object", "int");
         init = new FunctionDefType();
         init->func_name = "__init__";
         init->return_type = new ClassValueType("<None>");
-        init->params = new std::vector<SymbolType *>();
-        init->params->emplace_back(new ClassValueType("int"));
-        foo->current_scope->tab->insert({"__init__", init});
-        sym->tab->insert({"int", foo});
+        init->params.emplace_back(new ClassValueType("int"));
+        foo->current_scope->tab.insert({"__init__", init});
+        sym->tab.insert({"int", foo});
 
         foo = new ClassDefType("object", "bool");
         init = new FunctionDefType();
         init->func_name = "__init__";
         init->return_type = new ClassValueType("<None>");
-        init->params = new std::vector<SymbolType *>();
-        init->params->emplace_back(new ClassValueType("bool"));
-        foo->current_scope->tab->insert({"__init__", init});
-        sym->tab->insert({"bool", foo});
+        init->params.emplace_back(new ClassValueType("bool"));
+        foo->current_scope->tab.insert({"__init__", init});
+        sym->tab.insert({"bool", foo});
 
         auto bar = new FunctionDefType();
         bar->func_name = "len";
         bar->return_type = new ClassValueType("int");
-        bar->params = new std::vector<SymbolType *>();
-        bar->params->emplace_back(new ClassValueType("object"));
-        sym->tab->insert({"len", bar});
+        bar->params.emplace_back(new ClassValueType("object"));
+        sym->tab.insert({"len", bar});
 
         bar = new FunctionDefType();
         bar->func_name = "print";
         bar->return_type = new ClassValueType("<None>");
-        bar->params = new std::vector<SymbolType *>();
-        bar->params->emplace_back(new ClassValueType("object"));
-        sym->tab->insert({"print", bar});
+        bar->params.emplace_back(new ClassValueType("object"));
+        sym->tab.insert({"print", bar});
 
         bar = new FunctionDefType();
         bar->func_name = "input";
         bar->return_type = new ClassValueType("str");
-        bar->params = new std::vector<SymbolType *>();
-        sym->tab->insert({"input", bar});
+        sym->tab.insert({"input", bar});
     }
     void visit(parser::Program &) override;
     void visit(parser::ClassDef &) override;
@@ -300,11 +245,12 @@ class SymbolTableGenerator : public ast::ASTAnalyzer {
     void visit(parser::NonlocalDecl &) override;
     void visit(parser::GlobalDecl &) override;
 
+   private:
     SymbolType *ret = nullptr;
-    std::unique_ptr<SymbolTable> globals = std::make_unique<SymbolTable>();
-    SymbolTable *sym = globals.get();
-    vector<std::unique_ptr<parser::CompilerErr>> *errors;
-    vector<parser::Node *> ignore;
+    SymbolTable *const globals;
+    SymbolTable *sym;
+    HierachyTree *const hierachy_tree;
+    vector<std::unique_ptr<parser::CompilerErr>> *const errors;
 };
 
 /**
@@ -319,26 +265,17 @@ class DeclarationAnalyzer : public ast::ASTAnalyzer {
     void visit(parser::VarDef &varDef) override;
     void visit(parser::Program &program) override;
 
-    explicit DeclarationAnalyzer(
-        vector<std::unique_ptr<parser::CompilerErr>> *errors,
-        const std::vector<parser::Node *> &ignore,
-        std::unique_ptr<SymbolTable> globals)
-        : errors(errors) {
-        for (const auto x : ignore) ignore_set.insert(x);
-        this->globals = std::move(globals);
-        sym = this->globals.get();
-    }
+    explicit DeclarationAnalyzer(parser::Program &program)
+        : errors(&program.errors->compiler_errors),
+          globals(&program.symbol_table),
+          sym(&program.symbol_table) {}
 
     /** Collector for errors. */
     vector<std::unique_ptr<parser::CompilerErr>> *errors;
 
-    std::unique_ptr<SymbolTable> globals;
-
    private:
-    bool ignore(parser::Node *node) { return ignore_set.contains(node); }
-    std::set<parser::Node *> ignore_set{};
-    void debug_sym();
     ClassDefType *current_class = nullptr;
+    SymbolTable *const globals;
     SymbolTable *sym;
     ClassDefType *getClass(const string &name) {
         return globals->declares<ClassDefType *>(name);
@@ -360,23 +297,6 @@ class DeclarationAnalyzer : public ast::ASTAnalyzer {
         }
     }
 };
-
-// check if b is super class of a
-inline bool is_super_class(SymbolTable *sym, string a, string b) {
-    if (b == "object") {
-        return true;
-    }
-    auto p = a;
-    while (p != "object" && p != b) {
-        if (auto t = sym->get<ClassDefType *>(p); t != nullptr) {
-            p = t->super_class;
-        } else {
-            // throw(string("Error: super class is not a class!"));
-            return false;
-        }
-    }
-    return (p == b);
-}
 
 }  // namespace semantic
 #endif  // CHOCOPY_COMPILER_CHOCOPY_SEMANT_HPP
