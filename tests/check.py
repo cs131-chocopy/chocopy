@@ -20,6 +20,7 @@ CGEN_EXECUTABLE = os.path.join(BUILD_DIR, 'cgen')
 
 print_lock = Lock()
 
+
 def compare_ast_node(student_ast_node: dict, reference_ast_node: dict, verbose: bool = False) -> bool:
     assert isinstance(student_ast_node, dict)
     assert isinstance(reference_ast_node, dict)
@@ -132,7 +133,8 @@ def check_testcase(directory: str, testcase: str, pa: int) -> int:
         cprint(f'[{testcase}] [Runtime error: {e}]', 'red')
         return 0
     if p.returncode != 0:
-        cprint(f'[{testcase}] [Return value != 0, stderr: {p.stderr.decode()}]', 'red')
+        cprint(
+            f'[{testcase}] [Return value != 0, stderr: {p.stderr.decode()}]', 'red')
         return 0
 
     if pa == 1 or pa == 2:
