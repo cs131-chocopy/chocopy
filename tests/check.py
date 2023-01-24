@@ -6,7 +6,7 @@ from functional import seq
 import subprocess
 from termcolor import colored, cprint
 import json
-from multiprocessing import Pool
+from multiprocessing import Pool, Lock
 
 TESTDATA_DIR = os.path.abspath(os.path.dirname(__file__))
 PROJECT_DIR = os.path.dirname(TESTDATA_DIR)
@@ -18,6 +18,7 @@ PARSER_EXECUTABLE = os.path.join(BUILD_DIR, 'parser')
 SEMANTIC_EXECUTABLE = os.path.join(BUILD_DIR, 'semantic')
 CGEN_EXECUTABLE = os.path.join(BUILD_DIR, 'cgen')
 
+print_lock = Lock()
 
 def compare_ast_node(student_ast_node: dict, reference_ast_node: dict, verbose: bool = False) -> bool:
     assert isinstance(student_ast_node, dict)
@@ -148,9 +149,10 @@ def check_testcase(directory: str, testcase: str, pa: int) -> int:
             cprint(f'[{testcase}] Passed', 'green')
             return 1
         else:
-            print(f'[{testcase}]')
-            compare_ast(student_ast, reference_ast, verbose=True)
-            cprint(f'Failed!', 'red')
+            with print_lock:
+                print(f'[{testcase}]')
+                compare_ast(student_ast, reference_ast, verbose=True)
+                cprint(f'Failed!', 'red')
             return 0
     elif pa == 3:
         raise NotImplementedError()
