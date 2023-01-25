@@ -1,9 +1,4 @@
-//
-// Created by yangy on 8/22/2021.
-//
-
-#ifndef CHOCOPY_COMPILER_RISCVBACKEND_HPP
-#define CHOCOPY_COMPILER_RISCVBACKEND_HPP
+#pragma once
 
 #include <fmt/core.h>
 
@@ -845,4 +840,3 @@ class RiscVBackEnd {
     }
 };
 }  // namespace cgen
-#endif  // CHOCOPY_COMPILER_RISCVBACKEND_HPP

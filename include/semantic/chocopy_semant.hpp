@@ -1,9 +1,4 @@
-//
-// Created by yiwei yang on 2021/7/26.
-//
-
-#ifndef CHOCOPY_COMPILER_CHOCOPY_SEMANT_HPP
-#define CHOCOPY_COMPILER_CHOCOPY_SEMANT_HPP
+#pragma once
 
 #include <cassert>
 #include <map>
@@ -197,51 +192,52 @@ class SymbolTableGenerator : public ast::ASTAnalyzer {
           global_sym(&program.symbol_table),
           sym(&program.symbol_table),
           hierachy_tree(&program.hierachy_tree) {
+        auto object_value_type = std::make_shared<ClassValueType>("object");
+        auto none_value_type = std::make_shared<ClassValueType>("<None>");
+
         auto object_class = std::make_shared<ClassDefType>("", "object");
         auto object_init = std::make_shared<FunctionDefType>();
         object_init->func_name = "__init__";
-        object_init->return_type = std::make_shared<ClassValueType>("<None>");
-        object_init->params.emplace_back(
-            std::make_shared<ClassValueType>("object"));
+        object_init->return_type = none_value_type;
+        object_init->params.emplace_back(object_value_type);
         object_class->current_scope.put("__init__", object_init);
         sym->tab.insert({"object", object_class});
 
         auto str_class = std::make_shared<ClassDefType>("object", "str");
         auto str_init = std::make_shared<FunctionDefType>();
         str_init->func_name = "__init__";
-        str_init->return_type = std::make_shared<ClassValueType>("<None>");
-        str_init->params.emplace_back(make_shared<ClassValueType>("str"));
+        str_init->return_type = none_value_type;
+        str_init->params.emplace_back(std::make_shared<ClassValueType>("str"));
         str_class->current_scope.put("__init__", str_init);
         sym->tab.insert({"str", str_class});
 
         auto int_class = std::make_shared<ClassDefType>("object", "int");
         auto int_init = std::make_shared<FunctionDefType>();
         int_init->func_name = "__init__";
-        int_init->return_type = std::make_shared<ClassValueType>("<None>");
-        int_init->params.emplace_back(new ClassValueType("int"));
+        int_init->return_type = none_value_type;
+        int_init->params.emplace_back(std::make_shared<ClassValueType>("int"));
         int_class->current_scope.put("__init__", int_init);
         sym->tab.insert({"int", int_class});
 
         auto bool_class = std::make_shared<ClassDefType>("object", "bool");
         auto bool_init = std::make_shared<FunctionDefType>();
         bool_init->func_name = "__init__";
-        bool_init->return_type = std::make_shared<ClassValueType>("<None>");
-        bool_init->params.emplace_back(make_shared<ClassValueType>("bool"));
+        bool_init->return_type = none_value_type;
+        bool_init->params.emplace_back(
+            std::make_shared<ClassValueType>("bool"));
         bool_class->current_scope.put("__init__", bool_init);
         sym->tab.insert({"bool", bool_class});
 
         auto len_func = std::make_shared<FunctionDefType>();
         len_func->func_name = "len";
         len_func->return_type = std::make_shared<ClassValueType>("int");
-        len_func->params.emplace_back(
-            std::make_shared<ClassValueType>("object"));
+        len_func->params.emplace_back(object_value_type);
         sym->tab.insert({"len", len_func});
 
         auto print_func = std::make_shared<FunctionDefType>();
         print_func->func_name = "print";
-        print_func->return_type = std::make_shared<ClassValueType>("<None>");
-        print_func->params.emplace_back(
-            std::make_shared<ClassValueType>("object"));
+        print_func->return_type = none_value_type;
+        print_func->params.emplace_back(object_value_type);
         sym->tab.insert({"print", print_func});
 
         auto input_func = std::make_shared<FunctionDefType>();
@@ -311,4 +307,3 @@ class DeclarationAnalyzer : public ast::ASTAnalyzer {
 };
 
 }  // namespace semantic
-#endif  // CHOCOPY_COMPILER_CHOCOPY_SEMANT_HPP

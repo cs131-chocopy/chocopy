@@ -1,5 +1,4 @@
-#ifndef CHOCOPY_COMPILER_CHOCOPY_CGEN_HPP
-#define CHOCOPY_COMPILER_CHOCOPY_CGEN_HPP
+#pragma once
 
 #include <vector>
 #ifdef LLVM
@@ -128,5 +127,3 @@ class CodeGen {
 };
 
 }  // namespace cgen
-
-#endif

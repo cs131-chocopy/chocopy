@@ -1,9 +1,4 @@
-//
-// Created by yiwei yang on 2/15/21.
-//
-
-#ifndef CHOCOPY_COMPILER_CONSTANT_HPP
-#define CHOCOPY_COMPILER_CONSTANT_HPP
+#pragma once
 
 #include <map>
 #include <utility>
@@ -134,4 +129,3 @@ class ConstantZero : public Constant {
     string print() override;
 };
 }  // namespace lightir
-#endif  // CHOCOPY_COMPILER_CONSTANT_HPP

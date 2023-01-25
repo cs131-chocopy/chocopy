@@ -1,9 +1,4 @@
-//
-// Created by yiwei yang on 2021/7/26.
-//
-
-#ifndef CHOCOPY_COMPILER_FUNCTIONDEFTYPE_HPP
-#define CHOCOPY_COMPILER_FUNCTIONDEFTYPE_HPP
+#pragma once
 
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -31,4 +26,3 @@ class FunctionDefType : public SymbolType {
 };
 
 }  // namespace semantic
-#endif  // CHOCOPY_COMPILER_FUNCTIONDEFTYPE_HPP

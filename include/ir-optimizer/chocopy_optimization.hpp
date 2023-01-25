@@ -1,9 +1,4 @@
-//
-// Created by yangy on 8/19/2021.
-//
-
-#ifndef CHOCOPY_COMPILER_CHOCOPY_OPTIMIZATION_HPP
-#define CHOCOPY_COMPILER_CHOCOPY_OPTIMIZATION_HPP
+#pragma once
 
 #include <fstream>
 #include <list>
@@ -394,5 +389,3 @@ class Multithread : public Pass {
     void run() override;
 };
 }  // namespace lightir
-
-#endif  // CHOCOPY_COMPILER_CHOCOPY_OPTIMIZATION_HPP

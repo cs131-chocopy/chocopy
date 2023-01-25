@@ -1,9 +1,4 @@
-//
-// Created by yiwei yang on 2021/7/26.
-//
-
-#ifndef CHOCOPY_COMPILER_CHOCOPY_LIGHTIR_HPP
-#define CHOCOPY_COMPILER_CHOCOPY_LIGHTIR_HPP
+#pragma once
 
 #include <memory>
 #include <regex>
@@ -228,4 +223,3 @@ class LightWalker : public ast::Visitor {
 };
 
 }  // namespace lightir
-#endif  // CHOCOPY_COMPILER_CHOCOPY_LIGHTIR_HPP

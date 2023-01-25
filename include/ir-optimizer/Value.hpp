@@ -1,9 +1,4 @@
-//
-// Created by yiwei yang on 2/15/21.
-//
-
-#ifndef CHOCOPY_COMPILER_VALUE_HPP
-#define CHOCOPY_COMPILER_VALUE_HPP
+#pragma once
 
 #include <iostream>
 #include <list>
@@ -57,4 +52,3 @@ class Value {
     list<Use> use_list_; /* The list contains people who call the value */
 };
 }  // namespace lightir
-#endif  // CHOCOPY_COMPILER_VALUE_HPP

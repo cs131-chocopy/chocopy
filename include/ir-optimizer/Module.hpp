@@ -1,10 +1,3 @@
-//
-// Created by yiwei yang on 2/15/21.
-//
-
-#ifndef CHOCOPY_COMPILER_MODULE_HPP
-#define CHOCOPY_COMPILER_MODULE_HPP
-
 #pragma once
 
 #ifdef LLVM
@@ -617,4 +610,3 @@ class Module {
     map<pair<Type *, int>, ArrayType *> array_map_;
 };
 }  // namespace lightir
-#endif  // CHOCOPY_COMPILER_MODULE_HPP

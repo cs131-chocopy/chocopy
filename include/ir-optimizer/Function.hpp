@@ -1,10 +1,3 @@
-//
-// Created by yiwei yang on 2/15/21.
-//
-
-#ifndef CHOCOPY_COMPILER_FUNCTION_HPP
-#define CHOCOPY_COMPILER_FUNCTION_HPP
-
 #pragma once
 
 #include <cassert>
@@ -103,4 +96,3 @@ class Argument : public Value {
     unsigned arg_no_; /* argument No. */
 };
 }  // namespace lightir
-#endif  // CHOCOPY_COMPILER_FUNCTION_HPP

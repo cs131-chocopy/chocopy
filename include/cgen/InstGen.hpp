@@ -1,9 +1,4 @@
-//
-// Created by yiwei yang on 8/25/21.
-//
-
-#ifndef CHOCOPY_COMPILER_INSTGEN_HPP
-#define CHOCOPY_COMPILER_INSTGEN_HPP
+#pragma once
 
 #include <string>
 #include <string_view>
@@ -192,4 +187,3 @@ class InstGen {
 };
 
 }  // namespace cgen
-#endif  // CHOCOPY_COMPILER_INSTGEN_HPP

@@ -1,9 +1,3 @@
-//
-// Created by yiwei yang on 2/15/21.
-//
-#ifndef CHOCOPY_COMPILER_PARSE_HPP
-#define CHOCOPY_COMPILER_PARSE_HPP
-
 #pragma once
 
 #include <iostream>
@@ -17,7 +11,8 @@
 #include "chocopy_logging.hpp"
 #include "hierarchy_tree.hpp"
 
-using namespace std;
+using std::unique_ptr;
+using std::vector;
 using json = nlohmann::json;
 
 namespace semantic {
@@ -144,7 +139,7 @@ class CompilerErr : public Node {
 class Errors : public Node {
    public:
     /** The accumulated error messages in the order added. */
-    vector<std::unique_ptr<CompilerErr>> compiler_errors;
+    vector<unique_ptr<CompilerErr>> compiler_errors;
     explicit Errors(Location location) : Node(location, "Errors") {}
 
     json toJSON() const override;
@@ -154,8 +149,8 @@ class Errors : public Node {
 /** An identifier with attached type annotation. */
 class TypedVar : public Node {
    public:
-    std::unique_ptr<Ident> identifier;
-    std::unique_ptr<TypeAnnotation> type;
+    unique_ptr<Ident> identifier;
+    unique_ptr<TypeAnnotation> type;
 
     /** The AST for
      *       IDENTIFIER : TYPE.
@@ -261,8 +256,8 @@ class TypeAnnotation : public Node {
 /** Single and multiple assignments. DEPRECATED from semantic */
 class AssignStmt : public Stmt {
    public:
-    vector<std::unique_ptr<Expr>> targets;
-    std::unique_ptr<Expr> value;
+    vector<unique_ptr<Expr>> targets;
+    unique_ptr<Expr> value;
 
     /** AST for TARGETS[0] = TARGETS[1] = ... = VALUE spanning source locations
      *  [LEFT..RIGHT].
@@ -297,9 +292,9 @@ class BinaryExpr : public Expr {
         Unknown
     };
 
-    std::unique_ptr<Expr> left;
+    unique_ptr<Expr> left;
     string operator_;
-    std::unique_ptr<Expr> right;
+    unique_ptr<Expr> right;
 
     /** An AST for expressions of the form LEFTEXPR OP RIGHTEXPR
      *  from text in range [LEFTLOC..RIGHTLOC]. */
@@ -351,11 +346,11 @@ class BoolLiteral : public Literal {
 /** A function call. */
 class CallExpr : public Expr {
    public:
-    std::unique_ptr<Ident> function;
-    vector<std::unique_ptr<Expr>> args;
+    unique_ptr<Ident> function;
+    vector<unique_ptr<Expr>> args;
 
     CallExpr(Location location, Ident *function,
-             vector<std::unique_ptr<Expr>> *args)
+             vector<unique_ptr<Expr>> *args)
         : Expr(location, "CallExpr"), function(function) {
         this->args = std::move(*args);
         delete args;
@@ -371,13 +366,13 @@ class CallExpr : public Expr {
 /** A class definition. */
 class ClassDef : public Decl {
    public:
-    std::unique_ptr<Ident> name;
-    std::unique_ptr<Ident> superClass;
-    vector<std::unique_ptr<Decl>> declaration;
+    unique_ptr<Ident> name;
+    unique_ptr<Ident> superClass;
+    vector<unique_ptr<Decl>> declaration;
 
     /** A class definition. */
     ClassDef(Location location, Ident *name, Ident *superClass,
-             vector<std::unique_ptr<Decl>> *declaration)
+             vector<unique_ptr<Decl>> *declaration)
         : Decl(location, "ClassDef"), name(name), superClass(superClass) {
         this->declaration = std::move(*declaration);
         delete declaration;
@@ -405,7 +400,7 @@ class ClassType : public TypeAnnotation {
 /** A statement containing only an expression. */
 class ExprStmt : public Stmt {
    public:
-    std::unique_ptr<Expr> expr;
+    unique_ptr<Expr> expr;
     ExprStmt(Location location, Expr *expr)
         : Stmt(location, "ExprStmt"), expr(expr) {}
 
@@ -416,9 +411,9 @@ class ExprStmt : public Stmt {
 /** For statements. */
 class ForStmt : public Stmt {
    public:
-    std::unique_ptr<Ident> identifier;
-    std::unique_ptr<Expr> iterable;
-    vector<std::unique_ptr<parser::Stmt>> body;
+    unique_ptr<Ident> identifier;
+    unique_ptr<Expr> iterable;
+    vector<unique_ptr<parser::Stmt>> body;
 
     /** The AST for
      *      for IDENTIFIER in ITERABLE:
@@ -426,7 +421,7 @@ class ForStmt : public Stmt {
      *  spanning source locations [LEFT..RIGHT].
      */
     ForStmt(Location location, Ident *identifier, Expr *iterable,
-            vector<std::unique_ptr<parser::Stmt>> *body)
+            vector<unique_ptr<parser::Stmt>> *body)
         : Stmt(location, "ForStmt"),
           identifier(identifier),
           iterable(iterable) {
@@ -441,11 +436,11 @@ class ForStmt : public Stmt {
 /** Def statements. */
 class FuncDef : public Decl {
    public:
-    std::unique_ptr<Ident> name;
-    vector<std::unique_ptr<TypedVar>> params;
-    std::unique_ptr<TypeAnnotation> returnType;
-    vector<std::unique_ptr<Decl>> declarations;
-    vector<std::unique_ptr<parser::Stmt>> statements;
+    unique_ptr<Ident> name;
+    vector<unique_ptr<TypedVar>> params;
+    unique_ptr<TypeAnnotation> returnType;
+    vector<unique_ptr<Decl>> declarations;
+    vector<unique_ptr<parser::Stmt>> statements;
     vector<string> lambda_params;
 
     /** The AST for
@@ -455,10 +450,10 @@ class FuncDef : public Decl {
      *  spanning source locations [LEFT..RIGHT].
      */
     FuncDef(Location location, Ident *name,
-            vector<std::unique_ptr<TypedVar>> *params,
+            vector<unique_ptr<TypedVar>> *params,
             TypeAnnotation *returnType,
-            vector<std::unique_ptr<Decl>> *declarations,
-            vector<std::unique_ptr<parser::Stmt>> *statements)
+            vector<unique_ptr<Decl>> *declarations,
+            vector<unique_ptr<parser::Stmt>> *statements)
         : Decl(location, "FuncDef"), name(name), returnType(returnType) {
         this->params = std::move(*params);
         delete params;
@@ -474,7 +469,7 @@ class FuncDef : public Decl {
 
 class GlobalDecl : public Decl {
    public:
-    std::unique_ptr<Ident> variable;
+    unique_ptr<Ident> variable;
     GlobalDecl(Location location, Ident *variable)
         : Decl(location, "GlobalDecl"), variable(variable) {}
     json toJSON() const override;
@@ -488,12 +483,12 @@ class IfStmt : public Stmt {
    public:
     enum cond { THEN_ELSE = 0, THEN_ELIF, THEN };
     /** Test condition. */
-    std::unique_ptr<Expr> condition;
+    unique_ptr<Expr> condition;
     /** "True" branch. */
-    vector<std::unique_ptr<parser::Stmt>> thenBody;
+    vector<unique_ptr<parser::Stmt>> thenBody;
     /** "False" branch. */
-    vector<std::unique_ptr<parser::Stmt>> elseBody;
-    std::unique_ptr<IfStmt> elifBody;
+    vector<unique_ptr<parser::Stmt>> elseBody;
+    unique_ptr<IfStmt> elifBody;
     /** Bool manifest else or elif or int */
     char el = cond::THEN;
     /** The AST for
@@ -504,8 +499,8 @@ class IfStmt : public Stmt {
      *  spanning source locations [LEFT..RIGHT].
      */
     IfStmt(Location location, Expr *condition,
-           vector<std::unique_ptr<parser::Stmt>> *thenBody,
-           vector<std::unique_ptr<parser::Stmt>> *elseBody)
+           vector<unique_ptr<parser::Stmt>> *thenBody,
+           vector<unique_ptr<parser::Stmt>> *elseBody)
         : Stmt(location, "IfStmt"), el(cond::THEN_ELSE), condition(condition) {
         this->thenBody = std::move(*thenBody);
         delete thenBody;
@@ -515,7 +510,7 @@ class IfStmt : public Stmt {
 
     /** elseBody can be IfStmt to support polymorphism */
     IfStmt(Location location, Expr *condition,
-           vector<std::unique_ptr<parser::Stmt>> *thenBody, IfStmt *elifBody)
+           vector<unique_ptr<parser::Stmt>> *thenBody, IfStmt *elifBody)
         : Stmt(location, "IfStmt"),
           el(cond::THEN_ELIF),
           condition(condition),
@@ -525,7 +520,7 @@ class IfStmt : public Stmt {
     }
 
     IfStmt(Location location, Expr *condition,
-           vector<std::unique_ptr<parser::Stmt>> *thenBody)
+           vector<unique_ptr<parser::Stmt>> *thenBody)
         : Stmt(location, "IfStmt"), condition(condition) {
         this->thenBody = std::move(*thenBody);
         delete thenBody;
@@ -539,11 +534,11 @@ class IfStmt : public Stmt {
 class IfExpr : public Expr {
    public:
     /** Boolean condition. */
-    std::unique_ptr<Expr> condition;
+    unique_ptr<Expr> condition;
     /** True branch. */
-    std::unique_ptr<Expr> thenExpr;
+    unique_ptr<Expr> thenExpr;
     /** False branch. */
-    std::unique_ptr<Expr> elseExpr;
+    unique_ptr<Expr> elseExpr;
 
     /** The AST for
      *     THENEXPR if CONDITION else ELSEEXPR
@@ -564,9 +559,9 @@ class IfExpr : public Expr {
 class IndexExpr : public Expr {
    public:
     /** Indexed list. */
-    std::unique_ptr<Expr> list;
+    unique_ptr<Expr> list;
     /** Expression for index value. */
-    std::unique_ptr<Expr> index;
+    unique_ptr<Expr> index;
 
     /** The AST for
      *      LIST[INDEX].
@@ -602,13 +597,13 @@ class IntegerLiteral : public Literal {
 class ListExpr : public Expr {
    public:
     /** List of element expressions. */
-    vector<std::unique_ptr<Expr>> elements;
+    vector<unique_ptr<Expr>> elements;
 
     /** The AST for
      *      [ ELEMENTS ].
      *  spanning source locations [LEFT..RIGHT].
      */
-    ListExpr(Location location, vector<std::unique_ptr<Expr>> *elements)
+    ListExpr(Location location, vector<unique_ptr<Expr>> *elements)
         : Expr(location, "ListExpr") {
         this->elements = std::move(*elements);
         delete elements;
@@ -623,7 +618,7 @@ class ListExpr : public Expr {
 /** Type denotation for a list type. */
 class ListType : public TypeAnnotation {
    public:
-    std::unique_ptr<TypeAnnotation> elementType;
+    unique_ptr<TypeAnnotation> elementType;
     /** The AST for the type annotation
      *       [ ELEMENTTYPE ].
      *  spanning source locations [LEFT..RIGHT].
@@ -638,8 +633,8 @@ class ListType : public TypeAnnotation {
 /** Attribute accessor. */
 class MemberExpr : public Expr {
    public:
-    std::unique_ptr<Expr> object;
-    std::unique_ptr<Ident> member;
+    unique_ptr<Expr> object;
+    unique_ptr<Ident> member;
     /** The AST for
      *     OBJECT.MEMBER.
      *  spanning source locations [LEFT..RIGHT].
@@ -659,15 +654,15 @@ class MemberExpr : public Expr {
 class MethodCallExpr : public Expr {
    public:
     /** Expression for the bound method to be called. */
-    std::unique_ptr<MemberExpr> method;
+    unique_ptr<MemberExpr> method;
     /** Actual parameters. */
-    vector<std::unique_ptr<Expr>> args;
+    vector<unique_ptr<Expr>> args;
     /** The AST for
      *      METHOD(ARGS).
      *  spanning source locations [LEFT..RIGHT].
      */
     MethodCallExpr(Location location, MemberExpr *method,
-                   vector<std::unique_ptr<Expr>> *args)
+                   vector<unique_ptr<Expr>> *args)
         : Expr(location, "MethodCallExpr"), method(method) {
         this->args = std::move(*args);
         delete args;
@@ -694,7 +689,7 @@ class NoneLiteral : public Literal {
 /** Nonlocal declaration. */
 class NonlocalDecl : public Decl {
    public:
-    std::unique_ptr<Ident> variable;
+    unique_ptr<Ident> variable;
     /** The AST for
      *      nonlocal VARIABLE
      *  spanning source locations [LEFT..RIGHT].
@@ -709,16 +704,16 @@ class NonlocalDecl : public Decl {
 
 class Program : public Node {
    public:
-    vector<std::unique_ptr<parser::Stmt>> statements;
-    std::unique_ptr<Errors> errors{new Errors({})};
-    vector<std::unique_ptr<Decl>> declarations;
+    vector<unique_ptr<parser::Stmt>> statements;
+    unique_ptr<Errors> errors{new Errors({})};
+    vector<unique_ptr<Decl>> declarations;
 
     // For semantic analysis
     semantic::SymbolTable symbol_table;
     semantic::HierachyTree hierachy_tree;
 
-    Program(Location location, vector<std::unique_ptr<Decl>> *declarations,
-            vector<std::unique_ptr<parser::Stmt>> *statements)
+    Program(Location location, vector<unique_ptr<Decl>> *declarations,
+            vector<unique_ptr<parser::Stmt>> *statements)
         : Node(location, "Program") {
         this->declarations = std::move(*declarations);
         delete declarations;
@@ -726,7 +721,7 @@ class Program : public Node {
         delete statements;
     };
 
-    Program(Location location, vector<std::unique_ptr<Decl>> *declarations)
+    Program(Location location, vector<unique_ptr<Decl>> *declarations)
         : Node(location, "Program") {
         this->declarations = std::move(*declarations);
         delete declarations;
@@ -734,7 +729,7 @@ class Program : public Node {
 
     explicit Program(Location location) : Node(location, "Program"){};
 
-    void add_error(vector<std::unique_ptr<CompilerErr>> *errs) {
+    void add_error(vector<unique_ptr<CompilerErr>> *errs) {
         for (auto &err : *errs) {
             this->errors->compiler_errors.emplace_back(std::move(err));
         }
@@ -749,7 +744,7 @@ class Program : public Node {
 class ReturnStmt : public Stmt {
    public:
     /** Returned value. */
-    std::unique_ptr<Expr> value;
+    unique_ptr<Expr> value;
     /** The AST for
      *     return VALUE
      *  spanning source locations [LEFT..RIGHT].
@@ -785,7 +780,7 @@ class UnaryExpr : public Expr {
     enum class operator_code { Minus = 0, Not, Unknown };
 
     string operator_;
-    std::unique_ptr<Expr> operand;
+    unique_ptr<Expr> operand;
 
     /** The AST for
      *      OPERATOR OPERAND
@@ -810,9 +805,9 @@ class UnaryExpr : public Expr {
 class VarDef : public Decl {
    public:
     /** The variable and its assigned type. */
-    std::unique_ptr<TypedVar> var;
+    unique_ptr<TypedVar> var;
     /** The initial value assigned. */
-    std::unique_ptr<Literal> value;
+    unique_ptr<Literal> value;
 
     /** The AST for
      *      VAR = VALUE
@@ -830,9 +825,9 @@ class VarDef : public Decl {
 class WhileStmt : public Stmt {
    public:
     /** Test for whether to continue. */
-    std::unique_ptr<Expr> condition;
+    unique_ptr<Expr> condition;
     /** Loop body. */
-    vector<std::unique_ptr<parser::Stmt>> body;
+    vector<unique_ptr<parser::Stmt>> body;
 
     /** The AST for
      *      while CONDITION:
@@ -840,7 +835,7 @@ class WhileStmt : public Stmt {
      *  spanning source locations [LEFT..RIGHT].
      */
     WhileStmt(Location location, Expr *condition,
-              vector<std::unique_ptr<parser::Stmt>> *body)
+              vector<unique_ptr<parser::Stmt>> *body)
         : Stmt(location, "WhileStmt"), condition(condition) {
         this->body = std::move(*body);
         delete body;
@@ -862,5 +857,3 @@ class PassStmt : public Stmt, public Decl {
     void accept(ast::Visitor &visitor) override;
 };
 }  // namespace parser
-
-#endif  // CHOCOPY_COMPILER_PARSE_HPP

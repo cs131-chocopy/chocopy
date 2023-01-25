@@ -1,9 +1,4 @@
-//
-// Created by yiwei yang on 2021/7/26.
-//
-
-#ifndef CHOCOPY_COMPILER_SYMBOLTABLE_HPP
-#define CHOCOPY_COMPILER_SYMBOLTABLE_HPP
+#pragma once
 
 #include <map>
 #include <memory>
@@ -80,4 +75,3 @@ class SymbolTable {
     SymbolTable *parent;
 };
 }  // namespace semantic
-#endif  // CHOCOPY_COMPILER_SYMBOLTABLE_HPP

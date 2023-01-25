@@ -1,7 +1,3 @@
-//
-// Created by yiwei yang on 2/18/21.
-//
-
 #include "chocopy_semant.hpp"
 
 #include <fmt/core.h>
@@ -149,13 +145,13 @@ void SymbolTableGenerator::visit(parser::FuncDef &func_def) {
     this->sym = &func->current_scope;
 
     func->func_name = name;
-    func->return_type = ValueType::annotate_to_val(func_def.returnType);
+    func->return_type = ValueType::annotate_to_val(func_def.returnType.get());
 
     for (const auto &param : func_def.params) {
         const auto id = param->identifier.get();
         const auto &name = id->name;
 
-        const auto type = ValueType::annotate_to_val(param->type);
+        const auto type = ValueType::annotate_to_val(param->type.get());
         func->params.emplace_back(type);
 
         if (sym->declares(name)) {
@@ -188,7 +184,7 @@ void SymbolTableGenerator::visit(parser::FuncDef &func_def) {
     this->sym = this->sym->parent;
 }
 void SymbolTableGenerator::visit(parser::VarDef &var_def) {
-    return_value = ValueType::annotate_to_val(var_def.var->type);
+    return_value = ValueType::annotate_to_val(var_def.var->type.get());
 }
 void SymbolTableGenerator::visit(parser::NonlocalDecl &nonlocal_decl) {
     return_value =
@@ -941,13 +937,10 @@ shared_ptr<ValueType> ValueType::annotate_to_val(
     }
     return nullptr;
 }
-shared_ptr<ValueType> ValueType::annotate_to_val(
-    std::unique_ptr<parser::TypeAnnotation> &annotation) {
-    return annotate_to_val(annotation.get());
-}
 
 ListValueType::ListValueType(parser::ListType *typeAnnotation)
-    : element_type(ValueType::annotate_to_val(typeAnnotation->elementType)) {}
+    : element_type(
+          ValueType::annotate_to_val(typeAnnotation->elementType.get())) {}
 
 ClassValueType::ClassValueType(parser::ClassType *classTypeAnnotation)
     : class_name(classTypeAnnotation->className) {}

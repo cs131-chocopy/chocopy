@@ -1,7 +1,3 @@
-//
-// Created by yiwei yang on 2/16/21.
-//
-
 #include "IRprinter.hpp"
 
 #include <regex>

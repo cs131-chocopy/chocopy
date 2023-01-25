@@ -1,15 +1,9 @@
-//
-// Created by yiwei yang on 2/15/21.
-//
-
-#ifndef CHOCOPY_COMPILER_GLOBALVARIABLE_HPP
-#define CHOCOPY_COMPILER_GLOBALVARIABLE_HPP
+#pragma once
 
 #include "Constant.hpp"
 #include "Module.hpp"
 #include "User.hpp"
 
-using std::map;
 using std::string;
 using std::vector;
 
@@ -43,4 +37,3 @@ class GlobalVariable : public User {
     string print() override;
 };
 }  // namespace lightir
-#endif  // CHOCOPY_COMPILER_GLOBALVARIABLE_HPP

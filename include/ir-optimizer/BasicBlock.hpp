@@ -1,10 +1,3 @@
-//
-// Created by yiwei yang on 2/15/21.
-//
-
-#ifndef CHOCOPY_COMPILER_BASICBLOCK_HPP
-#define CHOCOPY_COMPILER_BASICBLOCK_HPP
-
 #pragma once
 
 #include <list>
@@ -15,9 +8,7 @@
 #include "Module.hpp"
 #include "Value.hpp"
 
-using std::map;
 using std::string;
-using std::vector;
 namespace lightir {
 class Instruction;
 
@@ -71,4 +62,3 @@ class BasicBlock : public Value {
     Function *parent_;
 };
 }  // namespace lightir
-#endif  // CHOCOPY_COMPILER_BASICBLOCK_HPP

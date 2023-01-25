@@ -1,6 +1,3 @@
-//
-// Created by yiwei yang on 2021/8/7.
-//
 #include "Class.hpp"
 
 #include <utility>

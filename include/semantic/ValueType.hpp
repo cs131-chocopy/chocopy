@@ -1,9 +1,4 @@
-//
-// Created by yiwei yang on 2/16/21.
-//
-
-#ifndef CHOCOPY_COMPILER_VALUETYPE_HPP
-#define CHOCOPY_COMPILER_VALUETYPE_HPP
+#pragma once
 
 #include <memory>
 #include <string>
@@ -63,8 +58,6 @@ class ValueType : public SymbolType {
     bool is_value_type() const override { return true; }
 
     static shared_ptr<ValueType> annotate_to_val(
-        std::unique_ptr<parser::TypeAnnotation> &annotation);
-    static shared_ptr<ValueType> annotate_to_val(
         parser::TypeAnnotation *annotation);
 
     const string get_name() const override;
@@ -112,4 +105,3 @@ class ClassValueType : public ValueType {
 };
 
 }  // namespace semantic
-#endif  // CHOCOPY_COMPILER_VALUETYPE_HPP

@@ -1,9 +1,4 @@
-//
-// Created by yiwei yang on 2/15/21.
-//
-
-#ifndef CHOCOPY_COMPILER_TYPE_HPP
-#define CHOCOPY_COMPILER_TYPE_HPP
+#pragma once
 
 #include <iostream>
 #include <utility>
@@ -258,5 +253,3 @@ class VoidType : public Type {
 };
 
 }  // namespace lightir
-
-#endif  // CHOCOPY_COMPILER_TYPE_HPP

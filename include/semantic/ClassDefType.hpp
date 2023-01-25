@@ -1,9 +1,4 @@
-//
-// Created by yiwei yang on 2021/7/26.
-//
-
-#ifndef CHOCOPY_COMPILER_CLASSDEFTYPE_HPP
-#define CHOCOPY_COMPILER_CLASSDEFTYPE_HPP
+#pragma once
 
 #include <iostream>
 #include <utility>
@@ -25,4 +20,3 @@ class ClassDefType : public SymbolType {
     SymbolTable current_scope;
 };
 }  // namespace semantic
-#endif  // CHOCOPY_COMPILER_CLASSDEFTYPE_HPP

@@ -1,9 +1,4 @@
-//
-// Created by yiwei yang on 2021/7/31.
-//
-
-#ifndef CHOCOPY_COMPILER_CLASS_HPP
-#define CHOCOPY_COMPILER_CLASS_HPP
+#pragma once
 
 #include <fmt/format.h>
 
@@ -139,4 +134,3 @@ class List : public Class {
     Type::type inside_tag_;
 };
 }  // namespace lightir
-#endif  // CHOCOPY_COMPILER_CLASS_HPP

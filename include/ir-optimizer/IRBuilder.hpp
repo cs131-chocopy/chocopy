@@ -1,9 +1,4 @@
-//
-// Created by yiwei yang on 2/15/21.
-//
-
-#ifndef CHOCOPY_COMPILER_IRBUILDER_HPP
-#define CHOCOPY_COMPILER_IRBUILDER_HPP
+#pragma once
 
 #include <utility>
 
@@ -148,5 +143,3 @@ class IRBuilder {
     void delete_instr(Instruction *lnstr) { this->BB_->delete_instr(lnstr); }
 };
 }  // namespace lightir
-
-#endif  // CHOCOPY_COMPILER_IRBUILDER_HPP

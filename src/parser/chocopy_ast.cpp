@@ -1,6 +1,3 @@
-//
-// Created by yiwei yang on 2/15/21.
-//
 #include "chocopy_ast.hpp"
 
 void parser::AssignStmt::accept(ast::Visitor &visitor) { visitor.visit(*this); }

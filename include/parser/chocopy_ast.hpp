@@ -1,10 +1,3 @@
-//
-// Created by yiwei yang on 2/16/21.
-//
-
-#ifndef CHOCOPY_COMPILER_AST_HPP
-#define CHOCOPY_COMPILER_AST_HPP
-
 #pragma once
 
 #include <iostream>
@@ -94,5 +87,3 @@ class Visitor {
 };
 
 }  // namespace ast
-
-#endif  // CHOCOPY_COMPILER_AST_HPP

@@ -1,9 +1,4 @@
-//
-// Created by yiwei yang on 2/18/21.
-//
-
-#ifndef CHOCOPY_COMPILER_SYMBOLTYPE_HPP
-#define CHOCOPY_COMPILER_SYMBOLTYPE_HPP
+#pragma once
 
 #include <nlohmann/json.hpp>
 #include <string>
@@ -29,5 +24,3 @@ class SymbolType {
     bool neq(const SymbolType *_Value) const;
 };
 }  // namespace semantic
-
-#endif  // CHOCOPY_COMPILER_SYMBOLTYPE_HPP

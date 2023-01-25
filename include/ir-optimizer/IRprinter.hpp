@@ -1,9 +1,4 @@
-//
-// Created by yiwei yang on 2/16/21.
-//
-
-#ifndef CHOCOPY_COMPILER_IRPRINTER_HPP
-#define CHOCOPY_COMPILER_IRPRINTER_HPP
+#pragma once
 
 #include <fmt/format.h>
 
@@ -23,5 +18,3 @@ string print_as_op(Value *v, bool print_ty, const string &method_ = "");
 string print_cmp_type(lightir::CmpInst::CmpOp op);
 
 }  // namespace lightir
-
-#endif  // CHOCOPY_COMPILER_IRPRINTER_HPP

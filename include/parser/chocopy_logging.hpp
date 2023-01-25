@@ -1,9 +1,4 @@
-//
-// Created by yiwei yang on 2/24/21.
-//
-
-#ifndef CHOCOPY_COMPILER_CHOCOPY_LOGGING_HPP
-#define CHOCOPY_COMPILER_CHOCOPY_LOGGING_HPP
+#pragma once
 
 #include <fmt/color.h>
 #include <fmt/format.h>
@@ -92,5 +87,3 @@ constexpr auto get_underlying(E e) noexcept {
 #define LOG_INFO LOG_IF(INFO)
 #define LOG_WARNING LOG_IF(WARNING)
 #define LOG_ERROR LOG_IF(ERROR)
-
-#endif  // CHOCOPY_COMPILER_CHOCOPY_LOGGING_HPP
