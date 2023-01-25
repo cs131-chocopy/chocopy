@@ -6,7 +6,6 @@
 #define CHOCOPY_COMPILER_CHOCOPY_SEMANT_HPP
 
 #include <cassert>
-#include <chocopy_logging.hpp>
 #include <map>
 #include <memory>
 #include <set>
@@ -18,6 +17,7 @@
 #include "SymbolTable.hpp"
 #include "SymbolType.hpp"
 #include "ValueType.hpp"
+#include "chocopy_logging.hpp"
 #include "hierarchy_tree.hpp"
 
 using std::shared_ptr;
@@ -168,8 +168,8 @@ class TypeChecker : public ast::ASTAnalyzer {
     HierachyTree *const hierachy_tree;
 
     /** For the nested function declaration */
-    FunctionDefType *curr_func{};
-    std::vector<std::string> *curr_lambda_params;
+    FunctionDefType *cur_func{};
+    std::vector<std::string> *cur_lambda_params;
     stack<FunctionDefType *> saved_func{};
 
     bool is_lvalue{false};
@@ -181,7 +181,13 @@ class TypeChecker : public ast::ASTAnalyzer {
     shared_ptr<SymbolType> get_common_type(shared_ptr<SymbolType>,
                                            shared_ptr<SymbolType>);
     bool is_subtype(SymbolType const *, SymbolType const *);
-    bool is_subtype(const string &, SymbolType const *);
+
+    std::shared_ptr<ClassValueType>
+        object_value_type = std::make_shared<ClassValueType>("object"),
+        int_value_type = std::make_shared<ClassValueType>("int"),
+        bool_value_type = std::make_shared<ClassValueType>("bool"),
+        none_value_type = std::make_shared<ClassValueType>("<None>"),
+        str_value_type = std::make_shared<ClassValueType>("str");
 };
 
 class SymbolTableGenerator : public ast::ASTAnalyzer {

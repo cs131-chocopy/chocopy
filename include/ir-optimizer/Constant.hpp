@@ -5,14 +5,13 @@
 #ifndef CHOCOPY_COMPILER_CONSTANT_HPP
 #define CHOCOPY_COMPILER_CONSTANT_HPP
 
-#include <chocopy_parse.hpp>
 #include <map>
 #include <utility>
 
 #include "User.hpp"
 #include "Value.hpp"
+#include "chocopy_parse.hpp"
 
-using std::map;
 using std::string;
 using std::vector;
 namespace lightir {

@@ -7,8 +7,6 @@
 
 #include <fmt/format.h>
 
-#include <chocopy_logging.hpp>
-
 #include "BasicBlock.hpp"
 #include "Constant.hpp"
 #include "Function.hpp"
@@ -17,6 +15,7 @@
 #include "Type.hpp"
 #include "User.hpp"
 #include "Value.hpp"
+#include "chocopy_logging.hpp"
 
 namespace lightir {
 

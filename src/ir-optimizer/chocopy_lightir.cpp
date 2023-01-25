@@ -1,7 +1,6 @@
+#include "chocopy_lightir.hpp"
+
 #include <cassert>
-#include <chocopy_lightir.hpp>
-#include <chocopy_parse.hpp>
-#include <chocopy_semant.hpp>
 #include <fstream>
 #include <string>
 #include <utility>
@@ -16,6 +15,8 @@
 #include "Module.hpp"
 #include "Type.hpp"
 #include "Value.hpp"
+#include "chocopy_parse.hpp"
+#include "chocopy_semant.hpp"
 #if __cplusplus > 202000L && !defined(__clang__)
 #include <ranges>
 #endif

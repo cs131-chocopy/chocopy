@@ -1,8 +1,8 @@
+#include "chocopy_cgen.hpp"
+
 #include <fmt/core.h>
 
 #include <cassert>
-#include <chocopy_cgen.hpp>
-#include <chocopy_lightir.hpp>
 #include <string>
 
 #include "BasicBlock.hpp"
@@ -14,6 +14,7 @@
 #include "RiscVBackEnd.hpp"
 #include "Type.hpp"
 #include "Value.hpp"
+#include "chocopy_lightir.hpp"
 #if __cplusplus > 202000L && !defined(__clang__)
 #include <ranges>
 #endif

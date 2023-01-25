@@ -5,14 +5,14 @@
 #ifndef CHOCOPY_COMPILER_TYPE_HPP
 #define CHOCOPY_COMPILER_TYPE_HPP
 
-#include <chocopy_parse.hpp>
-#include <chocopy_semant.hpp>
 #include <iostream>
 #include <utility>
 #include <vector>
 
 #include "Constant.hpp"
 #include "Value.hpp"
+#include "chocopy_parse.hpp"
+#include "chocopy_semant.hpp"
 
 using namespace std;
 namespace lightir {

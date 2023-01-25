@@ -10,7 +10,6 @@
 #ifdef LLVM
 #include <llvm/IR/Module.h>
 #endif
-#include <chocopy_logging.hpp>
 #include <iterator>
 #include <list>
 #include <map>
@@ -23,6 +22,7 @@
 #include "GlobalVariable.hpp"
 #include "Type.hpp"
 #include "Value.hpp"
+#include "chocopy_logging.hpp"
 
 using std::list;
 using std::map;

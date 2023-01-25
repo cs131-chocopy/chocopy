@@ -1,9 +1,9 @@
 #include "Type.hpp"
 
-#include <chocopy_logging.hpp>
 #include <utility>
 
 #include "Module.hpp"
+#include "chocopy_logging.hpp"
 
 namespace lightir {
 

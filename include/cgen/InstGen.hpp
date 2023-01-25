@@ -5,11 +5,12 @@
 #ifndef CHOCOPY_COMPILER_INSTGEN_HPP
 #define CHOCOPY_COMPILER_INSTGEN_HPP
 
-#include <chocopy_logging.hpp>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
+
+#include "chocopy_logging.hpp"
 
 using std::string;
 using std::string_view;

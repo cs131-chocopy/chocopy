@@ -16,7 +16,7 @@
 using namespace std;
 std::stack<int> stack_indent;
 
-#include <chocopy_parse.hpp>
+#include "chocopy_parse.hpp"
 #include "chocopy.tab.h"
 
 int ColNum = 1;

@@ -26,10 +26,8 @@ class SymbolType {
     virtual const string get_name() const = 0;
     virtual json toJSON() const = 0;
 
-    template <typename _Ty>
-    bool eq(const _Ty &_Value) const;
-    template <typename _Ty>
-    bool neq(const _Ty &_Value) const;
+    bool eq(const SymbolType *_Value) const;
+    bool neq(const SymbolType *_Value) const;
 };
 }  // namespace semantic
 

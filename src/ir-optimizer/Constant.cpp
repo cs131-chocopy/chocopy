@@ -2,10 +2,10 @@
 
 #include <fmt/core.h>
 
-#include <chocopy_parse.hpp>
 #include <iostream>
 
 #include "Module.hpp"
+#include "chocopy_parse.hpp"
 
 using namespace std;
 namespace lightir {

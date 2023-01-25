@@ -7,10 +7,11 @@
 
 #pragma once
 
-#include <chocopy_parse.hpp>
 #include <iostream>
 #include <memory>
 #include <vector>
+
+#include "chocopy_parse.hpp"
 
 namespace parser {
 class AssignStmt;

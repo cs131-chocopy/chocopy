@@ -1,7 +1,8 @@
 #include "User.hpp"
 
 #include <cassert>
-#include <chocopy_logging.hpp>
+
+#include "chocopy_logging.hpp"
 
 namespace lightir {
 

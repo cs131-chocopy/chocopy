@@ -2,7 +2,7 @@
 // Created by yiwei yang on 2/24/21.
 //
 
-#include <chocopy_logging.hpp>
+#include "chocopy_logging.hpp"
 
 void LogWriter::operator<(const LogStream &stream) {
     std::ostringstream msg;

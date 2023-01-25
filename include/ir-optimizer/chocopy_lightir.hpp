@@ -5,9 +5,6 @@
 #ifndef CHOCOPY_COMPILER_CHOCOPY_LIGHTIR_HPP
 #define CHOCOPY_COMPILER_CHOCOPY_LIGHTIR_HPP
 
-#include <chocopy_ast.hpp>
-#include <chocopy_optimization.hpp>
-#include <chocopy_semant.hpp>
 #include <memory>
 #include <regex>
 
@@ -19,6 +16,9 @@
 #include "Module.hpp"
 #include "SymbolType.hpp"
 #include "Type.hpp"
+#include "chocopy_ast.hpp"
+#include "chocopy_optimization.hpp"
+#include "chocopy_semant.hpp"
 
 const std::regex to_class_replace("\\$(.+?)+__init__\\.");
 

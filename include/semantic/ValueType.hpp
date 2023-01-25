@@ -5,12 +5,13 @@
 #ifndef CHOCOPY_COMPILER_VALUETYPE_HPP
 #define CHOCOPY_COMPILER_VALUETYPE_HPP
 
-#include <SymbolType.hpp>
-#include <chocopy_ast.hpp>
-#include <chocopy_logging.hpp>
 #include <memory>
 #include <string>
 #include <utility>
+
+#include "SymbolType.hpp"
+#include "chocopy_ast.hpp"
+#include "chocopy_logging.hpp"
 
 using nlohmann::json;
 using std::shared_ptr;

@@ -6,8 +6,6 @@
 
 #pragma once
 
-#include <chocopy_ast.hpp>
-#include <chocopy_logging.hpp>
 #include <iostream>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -15,6 +13,8 @@
 #include <vector>
 
 #include "SymbolTable.hpp"
+#include "chocopy_ast.hpp"
+#include "chocopy_logging.hpp"
 #include "hierarchy_tree.hpp"
 
 using namespace std;
