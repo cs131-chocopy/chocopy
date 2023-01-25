@@ -102,10 +102,10 @@ class ClassValueType : public ValueType {
     explicit ClassValueType(parser::ClassType *classTypeAnnotation);
     ClassValueType() = default;
 
-    bool is_special_class() const override {
+    bool is_special_class() const {
         return class_name != "str" && class_name != "int" &&
                class_name != "bool";
-    };
+    }
     const string get_name() const override { return class_name; }
     virtual json toJSON() const override;
     string class_name;

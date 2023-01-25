@@ -18,10 +18,6 @@ class ClassDefType : public SymbolType {
         : super_class(std::move(parent)), class_name(std::move(self)){};
 
     const string get_name() const override { return class_name; }
-    bool is_special_class() const override {
-        return class_name != "str" && class_name != "int" &&
-               class_name != "bool";
-    };
     virtual json toJSON() const override { abort(); }
     std::vector<string> inherit_members;
     string super_class;
