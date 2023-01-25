@@ -76,7 +76,7 @@ string LightWalker::get_nested_func_name(
     if (grand_parent_sym) {
         for (auto &x : grand_parent_sym->tab) {
             auto parent_func =
-                dynamic_cast<semantic::FunctionDefType *>(x.second);
+                dynamic_cast<semantic::FunctionDefType *>(x.second.get());
             if (parent_func) {
                 if (&parent_func->current_scope == parent_sym) {
                     return with_start_dollar
@@ -88,9 +88,9 @@ string LightWalker::get_nested_func_name(
                 }
             }
             auto parent_class =
-                dynamic_cast<semantic::ClassDefType *>(x.second);
+                dynamic_cast<semantic::ClassDefType *>(x.second.get());
             if (parent_class) {
-                if (parent_class->current_scope == parent_sym) {
+                if (&parent_class->current_scope == parent_sym) {
                     return "$$METHOD$$" + parent_class->get_name() + "." +
                            func->get_name();
                 }
@@ -127,10 +127,10 @@ Type *LightWalker::semantic_type_to_llvm_type(semantic::SymbolType *type) {
             dynamic_cast<semantic::FunctionDefType *>(type);
         std::vector<Type *> arg_types;
         for (auto param : func_def_type->params) {
-            arg_types.emplace_back(semantic_type_to_llvm_type(param));
+            arg_types.emplace_back(semantic_type_to_llvm_type(param.get()));
         }
         auto func_return_type =
-            semantic_type_to_llvm_type(func_def_type->return_type);
+            semantic_type_to_llvm_type(func_def_type->return_type.get());
         auto func_type = FunctionType::get(func_return_type, arg_types);
         return func_type;
     }
@@ -265,7 +265,7 @@ void LightWalker::visit(parser::Program &node) {
     STR_T = Type::get_str_type(module.get());
     ARR_T = Type::get_array_type(module.get());
 
-    for (const auto &obj_type : node.hierachy_tree.class_tag) {
+    for (const auto &obj_type : node.hierachy_tree.class_id) {
         if (obj_type.first == "list")
             module->add_class_type(
                 new Class(&*module, ".list", obj_type.second, nullptr));
@@ -274,7 +274,7 @@ void LightWalker::visit(parser::Program &node) {
             module->add_class_type(
                 new Class(&*module, obj_type.first, obj_type.second, nullptr));
     }
-    for (int i = 0; i < node.hierachy_tree.class_tag.size(); i++) {
+    for (int i = 0; i < node.hierachy_tree.class_id.size(); i++) {
         OBJ_T->emplace_back(Type::get_class_type(module.get(), i));
     }
 
@@ -453,7 +453,7 @@ void LightWalker::visit(parser::Program &node) {
         if (auto node = dynamic_cast<parser::FuncDef *>(decl.get()); node) {
             auto &func_name = node->get_id()->name;
             auto func_def_type =
-                sym->declares<semantic::FunctionDefType *>(func_name);
+                sym->declares<semantic::FunctionDefType>(func_name);
             assert(func_def_type);
             auto unique_func_name = get_nested_func_name(func_def_type);
 
@@ -730,7 +730,8 @@ void LightWalker::visit(parser::CallExpr &node) {
         node.args.at(0)->accept(*this);
         auto v1 = this->visitor_return_value;
         auto arg_type = node.args.at(0)->inferredType;
-        if (dynamic_cast<semantic::ListValueType *>(arg_type) == nullptr &&
+        if (dynamic_cast<semantic::ListValueType *>(arg_type.get()) ==
+                nullptr &&
             arg_type->get_name() != "str") {
             v1 = builder->create_load(invalid_value);
         }
@@ -744,7 +745,7 @@ void LightWalker::visit(parser::CallExpr &node) {
     } else {
         Function *func;
         std::vector<Value *> args;
-        auto is_object_init = sym->get<semantic::ClassDefType *>(func_name);
+        auto is_object_init = sym->get<semantic::ClassDefType>(func_name);
         if (is_object_init) {
             auto class_type =
                 dynamic_cast<Class *>(scope.find_in_global(func_name));
@@ -784,12 +785,12 @@ void LightWalker::visit(parser::CallExpr &node) {
     }
 }
 void LightWalker::visit(parser::ClassDef &node) {
-    const auto class_type = sym->get<semantic::ClassDefType *>(node.name->name);
+    const auto class_type = sym->get<semantic::ClassDefType>(node.name->name);
     const auto super_class_type =
-        sym->get<semantic::ClassDefType *>(node.superClass->name);
+        sym->get<semantic::ClassDefType>(node.superClass->name);
     assert(super_class_type);
     auto saved_sym = sym;
-    sym = class_type->current_scope;
+    sym = &class_type->current_scope;
 
     auto class_ = dynamic_cast<Class *>(scope.find_in_global(node.name->name));
     assert(class_);
@@ -805,7 +806,7 @@ void LightWalker::visit(parser::ClassDef &node) {
         const auto &name = decl->get_id()->name;
         if (const auto var_def = dynamic_cast<parser::VarDef *>(decl.get());
             var_def) {
-            if (!super_class_type->current_scope->declares(name)) {
+            if (!super_class_type->current_scope.declares(name)) {
                 var_def->var->type->accept(*this);
                 assert(visitor_return_type);
                 const auto attr_type = visitor_return_type;
@@ -846,7 +847,7 @@ void LightWalker::visit(parser::ClassDef &node) {
             func_def) {
             auto &func_name = func_def->get_id()->name;
             auto func_def_type =
-                sym->declares<semantic::FunctionDefType *>(func_name);
+                sym->declares<semantic::FunctionDefType>(func_name);
             assert(func_def_type);
             auto unique_func_name = get_nested_func_name(func_def_type);
 
@@ -944,7 +945,7 @@ void LightWalker::visit(parser::ForStmt &node) {
         }
     } else {
         auto list_type = dynamic_cast<semantic::ListValueType *>(
-            node.iterable->inferredType);
+            node.iterable->inferredType.get());
         if (list_type != nullptr) {
             auto element_type = list_type->element_type;
             auto p_actual_list = builder->create_gep(list, CONST(4));
@@ -985,7 +986,7 @@ void LightWalker::visit(parser::ForStmt &node) {
 }
 void LightWalker::visit(parser::FuncDef &node) {
     auto &func_name = node.get_id()->name;
-    auto func_def_type = sym->declares<semantic::FunctionDefType *>(func_name);
+    auto func_def_type = sym->declares<semantic::FunctionDefType>(func_name);
     assert(func_def_type);
     auto unique_func_name = get_nested_func_name(func_def_type);
     // std::cerr << "enter " << unique_func_name << std::endl;
@@ -1018,7 +1019,7 @@ void LightWalker::visit(parser::FuncDef &node) {
             // lambda function
             auto &func_name = node->get_id()->name;
             auto func_def_type =
-                sym->declares<semantic::FunctionDefType *>(func_name);
+                sym->declares<semantic::FunctionDefType>(func_name);
             assert(func_def_type);
             auto unique_func_name = get_nested_func_name(func_def_type);
 
@@ -1192,7 +1193,8 @@ void LightWalker::visit(parser::IntegerLiteral &node) {
     visitor_return_value = C;
 }
 void LightWalker::visit(parser::ListExpr &node) {
-    auto type = dynamic_cast<semantic::ListValueType *>(node.inferredType);
+    auto type =
+        dynamic_cast<semantic::ListValueType *>(node.inferredType.get());
     vector<Value *> para;
     if (type == nullptr) {
         para.push_back(CONST(0));
@@ -1450,6 +1452,10 @@ void LightWalker::visit(parser::VarDef &node) {
             auto init_value_type_name = node.value->inferredType->get_name();
             const auto class_type =
                 dynamic_cast<Class *>(scope.find_in_global(class_name));
+            if (!class_type) {
+                std::cerr << fmt::format("class {} not found", class_name)
+                          << std::endl;
+            }
             assert(class_type);
             const auto var_type = init_value_type_name == "str"
                                       ? ptr_vstr_type
@@ -1463,9 +1469,9 @@ void LightWalker::visit(parser::VarDef &node) {
                        init_value_type_name == "str" ||
                        init_value_type_name == "bool") {
                 auto g = generate_init_object(node.value.get());
-                builder->create_store(
-                    g, t);  // 这里为什么用 store 而不是直接给 t
-                            // 一个初值呢？因为框架限制，ddl 到了没时间重构
+                builder->create_store(g, t);
+                // 这里为什么用 store 而不是直接给 t
+                // 一个初值呢？因为框架限制，ddl 到了没时间重构
             } else {
                 assert(0);
             }

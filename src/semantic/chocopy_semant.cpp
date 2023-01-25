@@ -22,7 +22,6 @@
 #include "chocopy_parse.hpp"
 
 using std::set;
-
 namespace semantic {
 template <typename Ty>
 bool SymbolType::eq(const Ty &Value) const {
@@ -30,7 +29,7 @@ bool SymbolType::eq(const Ty &Value) const {
         if (dynamic_cast<ListValueType const *>(Value))
             return ((ListValueType const *)this)
                 ->element_type->eq(
-                    ((ListValueType const *)Value)->element_type);
+                    ((ListValueType const *)Value)->element_type.get());
         else
             return false;
     } else if (this->is_value_type()) {
@@ -50,29 +49,32 @@ void SymbolTableGenerator::visit(parser::Program &program) {
     for (const auto &decl : program.declarations) {
         auto id = decl->get_id();
         const auto &name = id->name;
+
         if (sym->declares(name)) {
             errors->emplace_back(new SemanticError(
                 id->location,
                 "Duplicate declaration of identifier in same scope: " + name));
             continue;
         }
-        ret = nullptr;
+
+        return_value = nullptr;
         decl->accept(*this);
-        if (ret == nullptr) continue;
-        sym->put(name, ret);
+
+        if (return_value == nullptr) continue;
+        sym->put(name, return_value);
     }
 }
 void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
     const auto &super_name = class_def.superClass->name;
-    const auto _super_class = globals->get<SymbolType *>(super_name);
-    if (_super_class == nullptr) {
+    const auto super_class_type = global_sym->get<SymbolType>(super_name);
+    if (super_class_type == nullptr) {
         errors->emplace_back(
             new SemanticError(class_def.superClass->location,
                               "Super-class not defined: " + super_name));
         return;
     }
-    const auto super_class = dynamic_cast<ClassDefType *>(_super_class);
-    if (_super_class != nullptr && super_class == nullptr) {
+    const auto super_class_def = dynamic_cast<ClassDefType *>(super_class_type);
+    if (super_class_def == nullptr) {
         errors->emplace_back(
             new SemanticError(class_def.superClass->location,
                               "Super-class must be a class: " + super_name));
@@ -84,15 +86,14 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
                               "Cannot extend special class: " + super_name));
         return;
     }
-    SymbolTable const *const super_scope =
-        super_class == nullptr ? nullptr : super_class->current_scope;
-
+    const auto &super_scope = super_class_def->current_scope;
     const auto &class_name = class_def.name->name;
-    const auto cur = new ClassDefType(super_name, class_name);
+    const auto class_ = std::make_shared<ClassDefType>(super_name, class_name);
     hierachy_tree->add_class(class_name, super_name);
-    cur->current_scope->parent = this->sym;
+    assert(this->sym == global_sym);
+    class_->current_scope.parent = global_sym;
 
-    this->sym = cur->current_scope;
+    this->sym = &class_->current_scope;
 
     for (const auto &decl : class_def.declaration) {
         const auto id = decl->get_id();
@@ -107,23 +108,20 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
 
         decl->accept(*this);
 
-        if (super_scope == nullptr) {
-            sym->put(name, ret);
-            continue;
-        }
-
-        if (dynamic_cast<ValueType *>(ret)) {
-            if (super_scope->declares(name)) {
+        if (return_value->is_value_type()) {
+            if (super_scope.declares(name)) {
                 errors->emplace_back(new SemanticError(
                     id->location, "Cannot re-define attribute: " + name));
             }
-            sym->put(name, ret);
+            sym->put(name, return_value);
         } else {
-            const auto func = dynamic_cast<FunctionDefType *>(ret);
+            const auto func =
+                std::dynamic_pointer_cast<FunctionDefType>(return_value);
             assert(func);
             const auto params = func->params;
             if (params.size() < 1 ||
-                dynamic_cast<ClassValueType *>(params.front()) == nullptr ||
+                std::dynamic_pointer_cast<ClassValueType>(params.front()) ==
+                    nullptr ||
                 params.front()->get_name() != class_name) {
                 errors->emplace_back(
                     new SemanticError(id->location,
@@ -131,9 +129,9 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
                                       "must be of the enclosing class: " +
                                           name));
             }
-            if (name != "__init__" && super_scope->declares(name)) {
+            if (name != "__init__" && super_scope.declares(name)) {
                 auto super_func =
-                    super_class->current_scope->get<FunctionDefType *>(name);
+                    super_class_def->current_scope.get<FunctionDefType>(name);
                 if (super_func) {
                     if (*super_func == *func) {
                         sym->put(name, func);
@@ -154,34 +152,32 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
         }
     }
 
-    if (super_scope) {
-        for (const auto &kv : super_scope->tab) {
-            if (sym->declares(kv.first)) continue;
-            sym->put(kv.first, kv.second);
-            cur->inherit_members.emplace_back(kv.first);
-        }
+    for (const auto [name, type] : super_scope.tab) {
+        if (sym->declares(name)) continue;
+        sym->put(name, type);
+        class_->inherit_members.emplace_back(name);
     }
 
-    ret = cur;
+    return_value = class_;
     this->sym = this->sym->parent;
 }
 void SymbolTableGenerator::visit(parser::FuncDef &func_def) {
     const auto id = func_def.get_id();
     const auto &name = id->name;
 
-    const auto cur = new FunctionDefType;
-    cur->current_scope.parent = this->sym;
-    this->sym = &cur->current_scope;
+    const auto func = std::make_shared<FunctionDefType>();
+    func->current_scope.parent = this->sym;
+    this->sym = &func->current_scope;
 
-    cur->func_name = name;
-    cur->return_type = ValueType::annotate_to_val(func_def.returnType);
+    func->func_name = name;
+    func->return_type = ValueType::annotate_to_val(func_def.returnType);
 
     for (const auto &param : func_def.params) {
         const auto id = param->identifier.get();
         const auto &name = id->name;
 
         const auto type = ValueType::annotate_to_val(param->type);
-        cur->params.emplace_back(type);
+        func->params.emplace_back(type);
 
         if (sym->declares(name)) {
             errors->emplace_back(new SemanticError(
@@ -204,22 +200,23 @@ void SymbolTableGenerator::visit(parser::FuncDef &func_def) {
             continue;
         }
 
-        ret = nullptr;
+        return_value = nullptr;
         decl->accept(*this);
-        if (ret) sym->put(name, ret);
+        if (return_value) sym->put(name, return_value);
     }
 
-    ret = cur;
+    return_value = func;
     this->sym = this->sym->parent;
 }
 void SymbolTableGenerator::visit(parser::VarDef &var_def) {
-    ret = ValueType::annotate_to_val(var_def.var->type);
+    return_value = ValueType::annotate_to_val(var_def.var->type);
 }
 void SymbolTableGenerator::visit(parser::NonlocalDecl &nonlocal_decl) {
-    ret = new NonlocalRefType(nonlocal_decl.get_id()->name);
+    return_value =
+        std::make_shared<NonlocalRefType>(nonlocal_decl.get_id()->name);
 }
 void SymbolTableGenerator::visit(parser::GlobalDecl &global_decl) {
-    ret = new GlobalRefType(global_decl.get_id()->name);
+    return_value = std::make_shared<GlobalRefType>(global_decl.get_id()->name);
 }
 
 void DeclarationAnalyzer::visit(parser::Program &program) {
@@ -239,28 +236,27 @@ void DeclarationAnalyzer::visit(parser::VarDef &var_def) {
     const auto &id = var_def.var->identifier;
     const auto &name = id->name;
 
-    assert(sym->get<ValueType *>(name));
+    assert(sym->get<ValueType>(name));
 
     if (getClass(name)) {
         errors->emplace_back(new SemanticError(
             id->location, "Cannot shadow class name: " + name));
     }
-    checkValueType(sym->get<ValueType *>(name), var_def.var->type);
+    checkValueType(sym->get<ValueType>(name), var_def.var->type);
 }
 void DeclarationAnalyzer::visit(parser::ClassDef &class_def) {
     const auto &class_name = class_def.get_id()->name;
-    const auto class_type = sym->get<ClassDefType *>(class_name);
-    assert(class_type);
-    current_class = class_type;
-    sym = class_type->current_scope;
+    const auto class_ = getClass(class_name);
+    assert(class_);
+    current_class = class_;
+    sym = &class_->current_scope;
 
     for (const auto &decl : class_def.declaration) {
-        if (const auto var_def = dynamic_cast<parser::VarDef *>(decl.get());
-            var_def) {
+        if (const auto var_def = dynamic_cast<parser::VarDef *>(decl.get())) {
             const auto &id = var_def->var->identifier;
             const auto &name = id->name;
-            assert(sym->get<ValueType *>(name));
-            checkValueType(sym->get<ValueType *>(name), var_def->var->type);
+            assert(sym->get<ValueType>(name));
+            checkValueType(sym->get<ValueType>(name), var_def->var->type);
         } else {
             decl->accept(*this);
         }
@@ -273,16 +269,14 @@ void DeclarationAnalyzer::visit(parser::FuncDef &func_def) {
     const auto id = func_def.get_id();
     const auto &name = id->name;
 
-    // const auto cur = new FunctionDefType;
-    // cur->current_scope->parent = this->sym;
-    FunctionDefType *const func_type = sym->declares<FunctionDefType *>(name);
+    const auto func_type = sym->declares<FunctionDefType>(name);
     assert(func_type);
     sym = &func_type->current_scope;
 
     for (int i = 0; i < func_type->params.size(); i++) {
         const auto &annoation = func_def.params.at(i)->type;
         const auto value_type =
-            dynamic_cast<ValueType *>(func_type->params.at(i));
+            dynamic_cast<ValueType *>(func_type->params.at(i).get());
         assert(value_type);
         checkValueType(value_type, annoation);
     }
@@ -306,34 +300,32 @@ void DeclarationAnalyzer::visit(parser::FuncDef &func_def) {
 void DeclarationAnalyzer::visit(parser::GlobalDecl &global_decl) {
     const auto id = global_decl.get_id();
     const auto &name = id->name;
-    const auto type = sym->get<GlobalRefType *>(name);
+    const auto type = sym->get<GlobalRefType>(name);
     assert(type);
 
-    const auto real_type = globals->declares<ValueType *>(name);
+    const auto real_type = globals->declares_shared<ValueType>(name);
     if (!real_type)
         errors->emplace_back(
             new SemanticError(id->location, "Not a global variable: " + name));
 
-    delete type;
     sym->put(name, real_type);
 }
 void DeclarationAnalyzer::visit(parser::NonlocalDecl &nonlocal_decl) {
     const auto id = nonlocal_decl.get_id();
     const auto &name = id->name;
-    const auto type = sym->get<NonlocalRefType *>(name);
+    const auto type = sym->get<NonlocalRefType>(name);
     assert(type);
 
-    ValueType *real_type = nullptr;
+    shared_ptr<ValueType> real_type;
     auto table = sym->parent;
     while (real_type == nullptr && table != globals) {
-        real_type = table->declares<ValueType *>(name);
+        real_type = table->declares_shared<ValueType>(name);
         table = table->parent;
     }
     if (!real_type)
         errors->emplace_back(new SemanticError(
             id->location, "Not a nonlocal variable: " + name));
 
-    delete type;
     sym->put(name, real_type);
 }
 
@@ -357,105 +349,112 @@ void TypeChecker::visit(parser::Program &program) {
 void TypeChecker::visit(parser::BinaryExpr &node) {
     node.left->accept(*this);
     node.right->accept(*this);
-    auto lc = node.left->inferredType, rc = node.right->inferredType;
-    if (lc == nullptr || rc == nullptr) return;
+    auto left_type = node.left->inferredType;
+    auto right_type = node.right->inferredType;
+    if (left_type == nullptr || right_type == nullptr) return;
     if (node.operator_ == "+") {
-        if (lc->get_name() == "int" && rc->get_name() == "int") {
-            node.inferredType = new ClassValueType("int");
+        if (left_type->get_name() == "int" && right_type->get_name() == "int") {
+            node.inferredType = std::make_shared<ClassValueType>("int");
             return;
         }
-        if (lc->get_name() == "str" && rc->get_name() == "str") {
-            node.inferredType = new ClassValueType("str");
+        if (left_type->get_name() == "str" && right_type->get_name() == "str") {
+            node.inferredType = std::make_shared<ClassValueType>("str");
             return;
         }
-        auto lcl = dynamic_cast<ListValueType *>(lc);
-        auto rcl = dynamic_cast<ListValueType *>(rc);
-        if (lcl != nullptr && rcl != nullptr) {
-            node.inferredType = new ListValueType((ValueType *)get_common_type(
-                lcl->element_type, rcl->element_type));
+        auto left_list_type = dynamic_pointer_cast<ListValueType>(left_type);
+        auto right_list_type = dynamic_pointer_cast<ListValueType>(right_type);
+        if (left_list_type != nullptr && right_list_type != nullptr) {
+            auto elem_type = get_common_type(left_list_type->element_type,
+                                             right_list_type->element_type);
+            node.inferredType = std::make_shared<ListValueType>(
+                static_pointer_cast<ValueType>(elem_type));
             return;
         }
         typeError(&node,
                   fmt::format("Cannot apply opreator + on types {} and {}",
-                              lc->get_name(), rc->get_name()));
-        if (lc->get_name() == "int" || rc->get_name() == "int") {
-            node.inferredType = new ClassValueType("int");
+                              left_type->get_name(), right_type->get_name()));
+        if (left_type->get_name() == "int" || right_type->get_name() == "int") {
+            node.inferredType = std::make_shared<ClassValueType>("int");
         } else {
-            node.inferredType = new ClassValueType("object");
+            node.inferredType = std::make_shared<ClassValueType>("object");
         }
     } else if (node.operator_ == "-" || node.operator_ == "*" ||
                node.operator_ == "//" || node.operator_ == "%") {
-        if (lc->get_name() == "int" && rc->get_name() == "int") {
-            node.inferredType = new ClassValueType("int");
+        if (left_type->get_name() == "int" && right_type->get_name() == "int") {
+            node.inferredType = std::make_shared<ClassValueType>("int");
         } else {
-            typeError(
-                &node,
-                fmt::format("Cannot apply opreator {} on types {} and {}",
-                            node.operator_, lc->get_name(), rc->get_name()));
+            typeError(&node,
+                      fmt::format("Cannot apply opreator {} on types {} and {}",
+                                  node.operator_, left_type->get_name(),
+                                  right_type->get_name()));
         }
     } else if (node.operator_ == "==" || node.operator_ == "!=") {
-        if ((lc->get_name() == "int" && rc->get_name() == "int") ||
-            (lc->get_name() == "str" && rc->get_name() == "str") ||
-            (lc->get_name() == "bool" && rc->get_name() == "bool")) {
-            node.inferredType = new ClassValueType("bool");
+        if ((left_type->get_name() == "int" &&
+             right_type->get_name() == "int") ||
+            (left_type->get_name() == "str" &&
+             right_type->get_name() == "str") ||
+            (left_type->get_name() == "bool" &&
+             right_type->get_name() == "bool")) {
+            node.inferredType = std::make_shared<ClassValueType>("bool");
         } else {
-            typeError(
-                &node,
-                fmt::format("Cannot apply opreator {} on types {} and {}",
-                            node.operator_, lc->get_name(), rc->get_name()));
+            typeError(&node,
+                      fmt::format("Cannot apply opreator {} on types {} and {}",
+                                  node.operator_, left_type->get_name(),
+                                  right_type->get_name()));
         }
     } else if (node.operator_ == "<=" || node.operator_ == ">=" ||
                node.operator_ == "<" || node.operator_ == ">") {
-        if (lc->get_name() == "int" && rc->get_name() == "int") {
-            node.inferredType = new ClassValueType("bool");
+        if (left_type->get_name() == "int" && right_type->get_name() == "int") {
+            node.inferredType = std::make_shared<ClassValueType>("bool");
         } else {
-            typeError(
-                &node,
-                fmt::format("Cannot apply opreator {} on types {} and {}",
-                            node.operator_, lc->get_name(), rc->get_name()));
+            typeError(&node,
+                      fmt::format("Cannot apply opreator {} on types {} and {}",
+                                  node.operator_, left_type->get_name(),
+                                  right_type->get_name()));
         }
     } else if (node.operator_ == "and" || node.operator_ == "or") {
-        if (lc->get_name() == "bool" && rc->get_name() == "bool") {
-            node.inferredType = new ClassValueType("bool");
+        if (left_type->get_name() == "bool" &&
+            right_type->get_name() == "bool") {
+            node.inferredType = std::make_shared<ClassValueType>("bool");
         } else {
-            typeError(
-                &node,
-                fmt::format("Cannot apply opreator {} on types {} and {}",
-                            node.operator_, lc->get_name(), rc->get_name()));
+            typeError(&node,
+                      fmt::format("Cannot apply opreator {} on types {} and {}",
+                                  node.operator_, left_type->get_name(),
+                                  right_type->get_name()));
         }
     } else if (node.operator_ == "is") {
-        auto lcn = lc->get_name(), rcn = rc->get_name();
+        auto lcn = left_type->get_name(), rcn = right_type->get_name();
         if (lcn == "int" || lcn == "bool" || lcn == "str" || rcn == "int" ||
             rcn == "bool" || rcn == "str") {
-            typeError(
-                &node,
-                fmt::format("Cannot apply opreator {} on types {} and {}",
-                            node.operator_, lc->get_name(), rc->get_name()));
+            typeError(&node,
+                      fmt::format("Cannot apply opreator {} on types {} and {}",
+                                  node.operator_, left_type->get_name(),
+                                  right_type->get_name()));
         }
-        node.inferredType = new ClassValueType("bool");
+        node.inferredType = std::make_shared<ClassValueType>("bool");
     } else {
         assert(false);
     }
 }
 void TypeChecker::visit(parser::BoolLiteral &node) {
-    node.inferredType = new ClassValueType("bool");
+    node.inferredType = std::make_shared<ClassValueType>("bool");
 }
 void TypeChecker::visit(parser::CallExpr &node) {
-    const auto func = sym->get<FunctionDefType *>(node.function->name);
-    const auto class_ = global->get<ClassDefType *>(node.function->name);
+    const auto func = sym->get_shared<FunctionDefType>(node.function->name);
+    const auto class_ = global->get<ClassDefType>(node.function->name);
     if (func == nullptr && class_ == nullptr) {
         typeError(&node, "Not a function or class: " + node.function->name);
         return;
     }
     if (func) {
-        if (!global->declares<FunctionDefType *>(node.function->name) &&
+        if (!global->declares<FunctionDefType>(node.function->name) &&
             curr_lambda_params) {
             curr_lambda_params->emplace_back(node.function->name);
         }
         node.function->inferredType = func;
     }
 
-    std::vector<SymbolType *>::const_iterator param;
+    decltype(func->params)::const_iterator param;
     if (func != nullptr) {
         if (node.args.size() != func->params.size()) {
             typeError(&node,
@@ -466,7 +465,7 @@ void TypeChecker::visit(parser::CallExpr &node) {
         param = func->params.cbegin();
     } else {
         const auto init_func =
-            class_->current_scope->get<FunctionDefType *>("__init__");
+            class_->current_scope.get<FunctionDefType>("__init__");
         if (node.args.size() != init_func->params.size() - 1) {
             typeError(&node, fmt::format("Expected {} arguments; got {}",
                                          init_func->params.size() - 1,
@@ -482,7 +481,7 @@ void TypeChecker::visit(parser::CallExpr &node) {
         arg->accept(*this);
         const auto arg_type = arg->inferredType;
         const auto param_type = *(param++);
-        if (!is_subtype(arg_type, param_type)) {
+        if (!is_subtype(arg_type.get(), param_type.get())) {
             typeError(
                 &node,
                 fmt::format("Expected type `{}`; got type `{}` in parameter {}",
@@ -491,11 +490,10 @@ void TypeChecker::visit(parser::CallExpr &node) {
     }
 
     if (func != nullptr) {
-        // node.inferredType = new
-        // ClassValueType(func->return_type->get_name());
         node.inferredType = func->return_type;
     } else {
-        node.inferredType = new ClassValueType(class_->get_name());
+        node.inferredType =
+            std::make_shared<ClassValueType>(class_->get_name());
     }
 }
 void TypeChecker::visit(parser::ExprStmt &node) { node.expr->accept(*this); }
@@ -507,19 +505,19 @@ void TypeChecker::visit(parser::ForStmt &node) {
     is_lvalue = true;
     node.identifier->accept(*this);
     is_lvalue = false;
-    auto T = sym->get<ValueType *>(node.identifier->name);
-    if (T == nullptr) return;
+    auto ident_type = sym->get<ValueType>(node.identifier->name);
+    if (ident_type == nullptr) return;
 
     if (node.iterable->inferredType->get_name() == "str") {
-    } else if (auto lType =
-                   dynamic_cast<ListValueType *>(node.iterable->inferredType)) {
-        auto T1 = lType->element_type;
-        if (!is_subtype(T1, T)) {
+    } else if (auto iter_list_type = dynamic_pointer_cast<ListValueType>(
+                   node.iterable->inferredType)) {
+        auto list_elem_type = iter_list_type->element_type;
+        if (!is_subtype(list_elem_type.get(), ident_type)) {
             typeError(
                 &node,
                 fmt::format(
                     "The type of id {}:{} and iterator type {} do not match.",
-                    node.identifier->name, T->get_name(),
+                    node.identifier->name, ident_type->get_name(),
                     node.iterable->inferredType->get_name()));
         }
     } else {
@@ -529,7 +527,7 @@ void TypeChecker::visit(parser::ForStmt &node) {
 }
 void TypeChecker::visit(parser::ClassDef &node) {
     saved.push(sym);
-    sym = sym->get<ClassDefType *>(node.name->name)->current_scope;
+    sym = &sym->get<ClassDefType>(node.name->name)->current_scope;
     for (const auto &s : node.declaration) {
         s->accept(*this);
     }
@@ -539,7 +537,7 @@ void TypeChecker::visit(parser::ClassDef &node) {
 void TypeChecker::visit(parser::FuncDef &node) {
     saved.push(sym);
     saved_func.push(curr_func);
-    curr_func = sym->get<FunctionDefType *>(node.name->name);
+    curr_func = sym->get<FunctionDefType>(node.name->name);
     assert(curr_func);
     sym = &curr_func->current_scope;
 
@@ -559,7 +557,7 @@ void TypeChecker::visit(parser::FuncDef &node) {
         }
     }
 
-    bool have_return = is_subtype("<None>", curr_func->return_type);
+    bool have_return = is_subtype("<None>", curr_func->return_type.get());
     curr_lambda_params = &node.lambda_params;
     for (const auto &s : node.statements) {
         s->accept(*this);
@@ -590,9 +588,9 @@ void TypeChecker::visit(parser::FuncDef &node) {
     saved_func.pop();
 }
 void TypeChecker::visit(parser::Ident &node) {
-    auto type = sym->declares<SymbolType *>(node.name);
+    auto type = sym->declares_shared<SymbolType>(node.name);
     if (type == nullptr) {
-        type = sym->get<SymbolType *>(node.name);
+        type = sym->get_shared<SymbolType>(node.name);
         if (type) {
             if (is_lvalue) {
                 typeError(&node,
@@ -601,7 +599,7 @@ void TypeChecker::visit(parser::Ident &node) {
                                       node.name));
             } else {
                 if (curr_lambda_params &&
-                    global->get<SymbolType *>(node.name) != type) {
+                    global->get<SymbolType>(node.name) != type.get()) {
                     curr_lambda_params->emplace_back(node.name);
                 }
                 node.inferredType = type;
@@ -614,7 +612,7 @@ void TypeChecker::visit(parser::Ident &node) {
             node.inferredType = type;
         } else {
             typeError(&node, fmt::format("Not a variable: {}", node.name));
-            node.inferredType = new ClassValueType("object");
+            node.inferredType = std::make_shared<ClassValueType>("object");
         }
     }
 }
@@ -656,23 +654,23 @@ void TypeChecker::visit(parser::IfExpr &node) {
     }
     node.thenExpr->accept(*this);
     node.elseExpr->accept(*this);
-    auto lca = get_common_type(node.thenExpr->inferredType,
-                               node.elseExpr->inferredType);
-    node.inferredType = lca;
+    node.inferredType = get_common_type(node.thenExpr->inferredType,
+                                        node.elseExpr->inferredType);
 }
 void TypeChecker::visit(parser::IndexExpr &node) {
     node.list->accept(*this);
     node.index->accept(*this);
-    if (auto cType = dynamic_cast<ClassValueType *>(node.list->inferredType)) {
-        if (cType->get_name() == "str") {
-            node.inferredType = new ClassValueType("str");
+    if (auto class_type =
+            dynamic_pointer_cast<ClassValueType>(node.list->inferredType)) {
+        if (class_type->get_name() == "str") {
+            node.inferredType = std::make_shared<ClassValueType>("str");
         } else {
             typeError(&node, fmt::format("Indexing on a non-string type {}",
-                                         cType->get_name()));
+                                         class_type->get_name()));
         }
-    } else if (auto lType =
-                   dynamic_cast<ListValueType *>(node.list->inferredType)) {
-        node.inferredType = lType->element_type;
+    } else if (auto list_type = dynamic_pointer_cast<ListValueType>(
+                   node.list->inferredType)) {
+        node.inferredType = list_type->element_type;
     } else {
         throw("A Value type but neither ClassValueType or ListValueType?");
     }
@@ -682,73 +680,79 @@ void TypeChecker::visit(parser::IndexExpr &node) {
     }
 }
 void TypeChecker::visit(parser::IntegerLiteral &node) {
-    node.inferredType = new ClassValueType("int");
+    node.inferredType = std::make_shared<ClassValueType>("int");
 }
 void TypeChecker::visit(parser::ListExpr &node) {
     if (node.elements.empty()) {
-        node.inferredType = new ClassValueType("<Empty>");
+        node.inferredType = std::make_shared<ClassValueType>("<Empty>");
         return;
     }
-    ValueType *v = nullptr;
+    shared_ptr<ValueType> v;
     for (auto &e : node.elements) {
         e->accept(*this);
     }
     for (auto &e : node.elements) {
-        if (auto T = dynamic_cast<ClassValueType *>(e->inferredType)) {
+        if (auto elem_class_type =
+                dynamic_pointer_cast<ClassValueType>(e->inferredType)) {
             if (v == nullptr) {
-                v = new ClassValueType(T->get_name());
+                v = std::make_shared<ClassValueType>(
+                    elem_class_type->get_name());
             } else {
                 if (v->is_list_type()) {
-                    v = new ClassValueType("object");
+                    v = std::make_shared<ClassValueType>("object");
                 } else {
-                    auto lca = get_common_type(v, T);
+                    auto lca = get_common_type(v, elem_class_type);
                     assert(lca->is_value_type());
-                    v = static_cast<ValueType *>(lca);
+                    v = std::static_pointer_cast<ValueType>(lca);
                 }
             }
         } else {
-            auto T1 = dynamic_cast<ListValueType *>(e->inferredType);
+            auto elem_list_type =
+                dynamic_pointer_cast<ListValueType>(e->inferredType);
             if (v == nullptr) {
-                v = T1;
+                v = elem_list_type;
             } else {
-                if (T1->neq(v)) {
-                    v = new ClassValueType("object");
+                if (elem_list_type->neq(v.get())) {
+                    v = std::make_shared<ClassValueType>("object");
                 }
             }
         }
     }
-    node.inferredType = new ListValueType(v);
+    node.inferredType = std::make_shared<ListValueType>(v);
 }
 void TypeChecker::visit(parser::MemberExpr &node) {
     node.object->accept(*this);
-    // member needn't be inferred
-    if (auto cls = dynamic_cast<ClassValueType *>(node.object->inferredType)) {
-        if (auto type = global->get<ClassDefType *>(cls->class_name)) {
-            const auto memType =
-                type->current_scope->declares<SymbolType *>(node.member->name);
-            if (dynamic_cast<FunctionDefType *>(memType) ||
-                dynamic_cast<ValueType *>(memType)) {
-                if (memType->is_func_type() && !node.is_function_call) {
-                    typeError(&node,
-                              fmt::format("{}.{} is a function, which is not "
-                                          "fisrt class citizen in Chocopy",
-                                          cls->class_name, node.member->name));
-                } else if (!memType->is_func_type() && node.is_function_call) {
+    if (auto class_ =
+            dynamic_pointer_cast<ClassValueType>(node.object->inferredType)) {
+        if (auto class_def = global->get<ClassDefType>(class_->class_name)) {
+            const auto member_type =
+                class_def->current_scope.declares_shared<SymbolType>(
+                    node.member->name);
+            if (dynamic_cast<FunctionDefType *>(member_type.get()) ||
+                dynamic_cast<ValueType *>(member_type.get())) {
+                if (member_type->is_func_type() && !node.is_function_call) {
+                    typeError(
+                        &node,
+                        fmt::format("{}.{} is a function, which is not "
+                                    "fisrt class citizen in Chocopy",
+                                    class_->class_name, node.member->name));
+                } else if (!member_type->is_func_type() &&
+                           node.is_function_call) {
                     typeError(
                         &node,
                         fmt::format("{}.{} is not a function, but be called",
-                                    cls->class_name, node.member->name));
+                                    class_->class_name, node.member->name));
                 }
-                node.inferredType = memType;
+                node.inferredType = member_type;
             } else {
                 typeError(&node,
                           fmt::format(
                               "There is no attribute named `{}` in class `{}`",
-                              node.member->name, cls->class_name));
+                              node.member->name, class_->class_name));
             }
         } else {
             typeError(&node, fmt::format("basic class {} do not have member",
-                                         cls->class_name));
+                                         class_->class_name));
         }
     } else {
         typeError(&node, fmt::format("MemberExpr object is not a class"));
@@ -759,10 +763,9 @@ void TypeChecker::visit(parser::MethodCallExpr &node) {
     node.method->accept(*this);
 
     const auto func =
-        dynamic_cast<FunctionDefType *>(node.method->inferredType);
-    // assert(func != nullptr);
+        dynamic_pointer_cast<FunctionDefType>(node.method->inferredType);
     if (func == nullptr) {
-        node.inferredType = new ClassValueType("<None>");
+        node.inferredType = std::make_shared<ClassValueType>("<None>");
         return;
     }
 
@@ -778,7 +781,7 @@ void TypeChecker::visit(parser::MethodCallExpr &node) {
         arg->accept(*this);
         const auto arg_type = arg->inferredType;
         const auto param_type = func->params.at(i + 1);
-        if (!is_subtype(arg_type, param_type)) {
+        if (!is_subtype(arg_type.get(), param_type.get())) {
             typeError(
                 &node,
                 fmt::format("Expected type `{}`; got type `{}` in parameter {}",
@@ -789,53 +792,53 @@ void TypeChecker::visit(parser::MethodCallExpr &node) {
     node.inferredType = func->return_type;
 }
 void TypeChecker::visit(parser::NoneLiteral &node) {
-    node.inferredType = new ClassValueType("<None>");
+    node.inferredType = std::make_shared<ClassValueType>("<None>");
 }
 void TypeChecker::visit(parser::ReturnStmt &node) {
-    auto R = curr_func->return_type;
-    SymbolType *T;
+    auto &func_return_type = curr_func->return_type;
+    shared_ptr<SymbolType> T;
     if (node.value == nullptr) {
-        T = new ClassValueType("<None>");
+        T = std::make_shared<ClassValueType>("<None>");
     } else {
         node.value->accept(*this);
         T = node.value->inferredType;
     }
-    if (!is_subtype(T, R)) {
-        typeError(&node, fmt::format("Expected type `{}`; got type `{}`",
-                                     R->get_name(), T->get_name()));
-    }
-    if (node.value == nullptr) {
-        delete T;
+    if (!is_subtype(T.get(), func_return_type.get())) {
+        typeError(&node,
+                  fmt::format("Expected type `{}`; got type `{}`",
+                              func_return_type->get_name(), T->get_name()));
     }
 }
 void TypeChecker::visit(parser::StringLiteral &node) {
-    node.inferredType = new ClassValueType("str");
+    node.inferredType = std::make_shared<ClassValueType>("str");
 }
 void TypeChecker::visit(parser::UnaryExpr &node) {
     node.operand->accept(*this);
     if (parser::UnaryExpr::hashcode(node.operator_) ==
         parser::UnaryExpr::operator_code::Minus) {
-        auto t = dynamic_cast<ClassValueType *>(node.operand->inferredType);
+        auto t =
+            dynamic_pointer_cast<ClassValueType>(node.operand->inferredType);
         if (t == nullptr || t->class_name != "int") {
             typeError(&node,
                       fmt::format("Cannot apply opreator {} on type {}",
                                   node.operator_,
                                   node.operand->inferredType->get_name()));
-            node.inferredType = new ClassValueType("object");
+            node.inferredType = std::make_shared<ClassValueType>("object");
             return;
         }
-        node.inferredType = new ClassValueType("int");
+        node.inferredType = std::make_shared<ClassValueType>("int");
     } else {
-        auto t = dynamic_cast<ClassValueType *>(node.operand->inferredType);
+        auto t =
+            dynamic_pointer_cast<ClassValueType>(node.operand->inferredType);
         if (t == nullptr || t->class_name != "bool") {
             typeError(&node,
                       fmt::format("Cannot apply opreator {} on type {}",
                                   node.operator_,
                                   node.operand->inferredType->get_name()));
-            node.inferredType = new ClassValueType("Object");
+            node.inferredType = std::make_shared<ClassValueType>("object");
             return;
         }
-        node.inferredType = new ClassValueType("bool");
+        node.inferredType = std::make_shared<ClassValueType>("bool");
     }
 }
 void TypeChecker::visit(parser::VarDef &node) {
@@ -857,7 +860,7 @@ void TypeChecker::visit(parser::VarDef &node) {
         auto valueType = ClassValueType(classType);
         if (!(classType->className == "object" ||
               classType->className == node.value->inferredType->get_name() ||
-              (valueType.is_special_type() &&
+              (valueType.is_special_class() &&
                node.value->inferredType->get_name() == "<None>"))) {
             typeError(&node, fmt::format("Expected type `{}`; got type `{}`",
                                          valueType.get_name(),
@@ -876,9 +879,9 @@ void TypeChecker::visit(parser::WhileStmt &node) {
 }
 void TypeChecker::visit(parser::AssignStmt &node) {
     node.value->accept(*this);
-    auto T0 = node.value->inferredType;
+    auto value_type = node.value->inferredType;
     bool is_error = false;
-    if (node.targets.size() > 1 && T0->get_name() == "[<None>]") {
+    if (node.targets.size() > 1 && value_type->get_name() == "[<None>]") {
         typeError(&node,
                   "Right-hand side of multiple assignment may not be [<None>]");
         is_error = true;
@@ -887,26 +890,27 @@ void TypeChecker::visit(parser::AssignStmt &node) {
         is_lvalue = true;
         s->accept(*this);
         is_lvalue = false;
-        auto T = s->inferredType;
-        if (is_error || T == nullptr) continue;
+        auto target_type = s->inferredType;
+        if (is_error || target_type == nullptr) continue;
         if (auto index = dynamic_cast<parser::IndexExpr *>(s.get());
             index != nullptr &&
             index->list->inferredType->get_name() == "str") {
             typeError(&node, "Cannot assign to string index");
-        } else if (!is_subtype(T0, T)) {
+        } else if (!is_subtype(value_type.get(), target_type.get())) {
             typeError(&node, fmt::format("Expected type `{}`; got type `{}`",
-                                         T->get_name(), T0->get_name()));
+                                         target_type->get_name(),
+                                         value_type->get_name()));
             is_error = true;
         }
     }
 }
-SymbolType *TypeChecker::get_common_type(SymbolType *const x,
-                                         SymbolType *const y) {
-    if (is_subtype(x, y)) return y;
-    if (is_subtype(y, x)) return x;
+shared_ptr<SymbolType> TypeChecker::get_common_type(shared_ptr<SymbolType> x,
+                                                    shared_ptr<SymbolType> y) {
+    if (is_subtype(x.get(), y.get())) return y;
+    if (is_subtype(y.get(), x.get())) return x;
     if (x->is_list_type() || y->is_list_type())
-        return new ClassValueType("object");
-    return new ClassValueType(
+        return std::make_shared<ClassValueType>("object");
+    return std::make_shared<ClassValueType>(
         hierachy_tree->common_ancestor(x->get_name(), y->get_name()));
 }
 bool TypeChecker::is_subtype(SymbolType const *sub, SymbolType const *super) {
@@ -926,8 +930,8 @@ bool TypeChecker::is_subtype(SymbolType const *sub, SymbolType const *super) {
         const auto super_e =
             dynamic_cast<ListValueType const *>(super)->element_type;
         if (sub_e->get_name() == "<None>") {
-            sub = sub_e;
-            super = super_e;
+            sub = sub_e.get();
+            super = super_e.get();
         } else {
             return false;
         }
@@ -947,21 +951,24 @@ bool TypeChecker::is_subtype(SymbolType const *sub, SymbolType const *super) {
 }
 bool TypeChecker::is_subtype(const string &sub_class_name,
                              SymbolType const *super) {
-    const auto sub = new ClassValueType(sub_class_name);
-    return is_subtype(sub, super);
+    const auto sub = std::make_unique<ClassValueType>(sub_class_name);
+    return is_subtype(sub.get(), super);
 }
-ValueType *ValueType::annotate_to_val(parser::TypeAnnotation *annotation) {
+shared_ptr<ValueType> ValueType::annotate_to_val(
+    parser::TypeAnnotation *annotation) {
     if (dynamic_cast<parser::ClassType *>(annotation)) {
-        return new ClassValueType((parser::ClassType *)annotation);
+        return std::make_shared<ClassValueType>(
+            (parser::ClassType *)annotation);
     } else {
         if (annotation != nullptr && annotation->kind == "<None>")
-            return new ClassValueType("<None>");
+            return std::make_shared<ClassValueType>("<None>");
         if (dynamic_cast<parser::ListType *>(annotation))
-            return new ListValueType((parser::ListType *)annotation);
+            return std::make_shared<ListValueType>(
+                (parser::ListType *)annotation);
     }
     return nullptr;
 }
-ValueType *ValueType::annotate_to_val(
+shared_ptr<ValueType> ValueType::annotate_to_val(
     std::unique_ptr<parser::TypeAnnotation> &annotation) {
     return annotate_to_val(annotation.get());
 }
@@ -989,8 +996,8 @@ int main(int argc, char *argv[]) {
         tree->accept(declarationAnalyzer);
     }
     if (tree->errors->compiler_errors.size() == 0) {
-        auto *typeChecker = new semantic::TypeChecker(*tree);
-        tree->accept(*typeChecker);
+        auto typeChecker = semantic::TypeChecker(*tree);
+        tree->accept(typeChecker);
     }
 
     auto j = tree->toJSON();

@@ -4,25 +4,6 @@
 #include <nlohmann/json.hpp>
 
 namespace semantic {
-ClassDefType::~ClassDefType() {
-    for (const auto &e : inherit_members) {
-        current_scope->tab.erase(e);
-    }
-    delete this->current_scope;
-}
-
-ListValueType::ListValueType(ValueType *element) : element_type(element) {}
-
-FunctionDefType::~FunctionDefType() {
-    // ! Will cause memory leak if params have duplicated names
-    // if (params) {
-    //     for (auto param : *params) {
-    //         delete param;
-    //     }
-    //     delete params;
-    // }
-    delete return_type;
-}
 bool FunctionDefType::operator==(const FunctionDefType &f2) const {
     auto &a = this->params;
     auto &b = f2.params;

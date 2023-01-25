@@ -20,6 +20,7 @@
 #include "ValueType.hpp"
 #include "hierarchy_tree.hpp"
 
+using std::shared_ptr;
 using std::stack;
 using std::string;
 
@@ -162,12 +163,12 @@ class TypeChecker : public ast::ASTAnalyzer {
     /** The current symbol table (changes depending on the function
      *  being analyzed). */
     SymbolTable *sym;
-    stack<SymbolTable *> saved{};
+    stack<SymbolTable *> saved;
     SymbolTable *const global;
     HierachyTree *const hierachy_tree;
 
     /** For the nested function declaration */
-    FunctionDefType *curr_func = nullptr;
+    FunctionDefType *curr_func{};
     std::vector<std::string> *curr_lambda_params;
     stack<FunctionDefType *> saved_func{};
 
@@ -177,7 +178,8 @@ class TypeChecker : public ast::ASTAnalyzer {
     vector<std::unique_ptr<parser::CompilerErr>> *errors;
 
     // The function can check both ClassType and ListType
-    SymbolType *get_common_type(SymbolType *const, SymbolType *const);
+    shared_ptr<SymbolType> get_common_type(shared_ptr<SymbolType>,
+                                           shared_ptr<SymbolType>);
     bool is_subtype(SymbolType const *, SymbolType const *);
     bool is_subtype(const string &, SymbolType const *);
 };
@@ -186,57 +188,60 @@ class SymbolTableGenerator : public ast::ASTAnalyzer {
    public:
     SymbolTableGenerator(parser::Program &program)
         : errors(&program.errors->compiler_errors),
-          globals(&program.symbol_table),
+          global_sym(&program.symbol_table),
           sym(&program.symbol_table),
           hierachy_tree(&program.hierachy_tree) {
-        auto *foo = new ClassDefType("", "object");
-        auto *init = new FunctionDefType();
-        init->func_name = "__init__";
-        init->return_type = new ClassValueType("<None>");
-        init->params.emplace_back(new ClassValueType("object"));
-        foo->current_scope->tab.insert({"__init__", init});
-        sym->tab.insert({"object", foo});
+        auto object_class = std::make_shared<ClassDefType>("", "object");
+        auto object_init = std::make_shared<FunctionDefType>();
+        object_init->func_name = "__init__";
+        object_init->return_type = std::make_shared<ClassValueType>("<None>");
+        object_init->params.emplace_back(
+            std::make_shared<ClassValueType>("object"));
+        object_class->current_scope.put("__init__", object_init);
+        sym->tab.insert({"object", object_class});
 
-        foo = new ClassDefType("object", "str");
-        init = new FunctionDefType();
-        init->func_name = "__init__";
-        init->return_type = new ClassValueType("<None>");
-        init->params.emplace_back(new ClassValueType("str"));
-        foo->current_scope->tab.insert({"__init__", init});
-        sym->tab.insert({"str", foo});
+        auto str_class = std::make_shared<ClassDefType>("object", "str");
+        auto str_init = std::make_shared<FunctionDefType>();
+        str_init->func_name = "__init__";
+        str_init->return_type = std::make_shared<ClassValueType>("<None>");
+        str_init->params.emplace_back(make_shared<ClassValueType>("str"));
+        str_class->current_scope.put("__init__", str_init);
+        sym->tab.insert({"str", str_class});
 
-        foo = new ClassDefType("object", "int");
-        init = new FunctionDefType();
-        init->func_name = "__init__";
-        init->return_type = new ClassValueType("<None>");
-        init->params.emplace_back(new ClassValueType("int"));
-        foo->current_scope->tab.insert({"__init__", init});
-        sym->tab.insert({"int", foo});
+        auto int_class = std::make_shared<ClassDefType>("object", "int");
+        auto int_init = std::make_shared<FunctionDefType>();
+        int_init->func_name = "__init__";
+        int_init->return_type = std::make_shared<ClassValueType>("<None>");
+        int_init->params.emplace_back(new ClassValueType("int"));
+        int_class->current_scope.put("__init__", int_init);
+        sym->tab.insert({"int", int_class});
 
-        foo = new ClassDefType("object", "bool");
-        init = new FunctionDefType();
-        init->func_name = "__init__";
-        init->return_type = new ClassValueType("<None>");
-        init->params.emplace_back(new ClassValueType("bool"));
-        foo->current_scope->tab.insert({"__init__", init});
-        sym->tab.insert({"bool", foo});
+        auto bool_class = std::make_shared<ClassDefType>("object", "bool");
+        auto bool_init = std::make_shared<FunctionDefType>();
+        bool_init->func_name = "__init__";
+        bool_init->return_type = std::make_shared<ClassValueType>("<None>");
+        bool_init->params.emplace_back(make_shared<ClassValueType>("bool"));
+        bool_class->current_scope.put("__init__", bool_init);
+        sym->tab.insert({"bool", bool_class});
 
-        auto bar = new FunctionDefType();
-        bar->func_name = "len";
-        bar->return_type = new ClassValueType("int");
-        bar->params.emplace_back(new ClassValueType("object"));
-        sym->tab.insert({"len", bar});
+        auto len_func = std::make_shared<FunctionDefType>();
+        len_func->func_name = "len";
+        len_func->return_type = std::make_shared<ClassValueType>("int");
+        len_func->params.emplace_back(
+            std::make_shared<ClassValueType>("object"));
+        sym->tab.insert({"len", len_func});
 
-        bar = new FunctionDefType();
-        bar->func_name = "print";
-        bar->return_type = new ClassValueType("<None>");
-        bar->params.emplace_back(new ClassValueType("object"));
-        sym->tab.insert({"print", bar});
+        auto print_func = std::make_shared<FunctionDefType>();
+        print_func->func_name = "print";
+        print_func->return_type = std::make_shared<ClassValueType>("<None>");
+        print_func->params.emplace_back(
+            std::make_shared<ClassValueType>("object"));
+        sym->tab.insert({"print", print_func});
 
-        bar = new FunctionDefType();
-        bar->func_name = "input";
-        bar->return_type = new ClassValueType("str");
-        sym->tab.insert({"input", bar});
+        auto input_func = std::make_shared<FunctionDefType>();
+        input_func->func_name = "input";
+        input_func->return_type = std::make_shared<ClassValueType>("str");
+        sym->tab.insert({"input", input_func});
     }
     void visit(parser::Program &) override;
     void visit(parser::ClassDef &) override;
@@ -246,9 +251,9 @@ class SymbolTableGenerator : public ast::ASTAnalyzer {
     void visit(parser::GlobalDecl &) override;
 
    private:
-    SymbolType *ret = nullptr;
-    SymbolTable *const globals;
-    SymbolTable *sym;
+    shared_ptr<SymbolType> return_value = nullptr;
+    SymbolTable *const global_sym;  // Global symbol table
+    SymbolTable *sym;               // Current symbol table
     HierachyTree *const hierachy_tree;
     vector<std::unique_ptr<parser::CompilerErr>> *const errors;
 };
@@ -274,20 +279,21 @@ class DeclarationAnalyzer : public ast::ASTAnalyzer {
     vector<std::unique_ptr<parser::CompilerErr>> *errors;
 
    private:
-    ClassDefType *current_class = nullptr;
+    ClassDefType *current_class;
     SymbolTable *const globals;
     SymbolTable *sym;
     ClassDefType *getClass(const string &name) {
-        return globals->declares<ClassDefType *>(name);
+        return globals->declares<ClassDefType>(name);
     }
     void checkValueType(
         ValueType *type,
         const std::unique_ptr<parser::TypeAnnotation> &annoation) {
-        while (dynamic_cast<ListValueType *>(type)) {
-            type = ((ListValueType *)type)->element_type;
+        while (type->is_list_type()) {
+            type = static_cast<ListValueType *>(type)->element_type.get();
         }
         assert(dynamic_cast<ClassValueType *>(type));
-        const auto &class_name = ((ClassValueType *)type)->class_name;
+        const auto &class_name =
+            static_cast<ClassValueType *>(type)->class_name;
 
         if (getClass(class_name) == nullptr) {
             errors->emplace_back(new SemanticError(

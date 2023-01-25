@@ -310,17 +310,15 @@ json BoolLiteral::toJSON() const {
 json NoneLiteral::toJSON() const { return Expr::toJSON(); }
 
 string TypeAnnotation::get_name() {
-    if (dynamic_cast<semantic::ClassValueType *>(
-            semantic::ValueType::annotate_to_val(this)))
-        return ((semantic::ClassValueType
-                     *)(semantic::ValueType::annotate_to_val(this)))
-            ->class_name;
-    else if (dynamic_cast<semantic::ListValueType *>(
-                 semantic::ValueType::annotate_to_val(this)))
-        return ((semantic::ListValueType *)semantic::ValueType::annotate_to_val(
-                    this))
-            ->get_name();
-    return "";
+    auto value_type = semantic::ValueType::annotate_to_val(this);
+    if (auto class_type =
+            dynamic_cast<semantic::ClassValueType *>(value_type.get())) {
+        return class_type->class_name;
+    } else if (auto list_type =
+                   dynamic_cast<semantic::ListValueType *>(value_type.get())) {
+        return list_type->get_name();
+    }
+    abort();
 }
 }  // namespace parser
 

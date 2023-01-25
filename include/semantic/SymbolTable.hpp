@@ -6,12 +6,14 @@
 #define CHOCOPY_COMPILER_SYMBOLTABLE_HPP
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "SymbolType.hpp"
 
 using std::map;
+using std::shared_ptr;
 using std::string;
 
 namespace semantic {
@@ -23,13 +25,7 @@ class SymbolTable {
      *  PARENT0. */
     explicit SymbolTable(SymbolTable *parent) : parent(parent) {}
     SymbolTable() : parent(nullptr) {}
-    ~SymbolTable() {
-        // ! life is short, just let it leak
-        // for (const auto &symbol : *tab) {
-        //     delete symbol.second;
-        // }
-    }
-    map<string, SymbolType *> tab;
+    map<string, shared_ptr<SymbolType>> tab;
 
     bool is_nonlocal(const string &name) const {
         return this->parent != nullptr &&
@@ -43,26 +39,42 @@ class SymbolTable {
     /** Returns the mapping in this scope or in the parent scope using a
      * recursive traversal */
     template <typename T>
-    T get(const string &name) {
+    T *get(const string &name) {
         if (tab.count(name) > 0)
-            return dynamic_cast<T>(tab.at(name));
+            return dynamic_cast<T *>(tab.at(name).get());
         else if (parent != nullptr)
             return parent->get<T>(name);
         else
             return nullptr;
     }
 
-    template <typename T = SymbolType *>
-    T declares(const string &name) const {
-        if (tab.count(name) > 0) return dynamic_cast<T>(tab.at(name));
+    template <typename T>
+    shared_ptr<T> get_shared(const string &name) {
+        if (tab.count(name) > 0)
+            return std::dynamic_pointer_cast<T>(tab.at(name));
+        else if (parent != nullptr)
+            return parent->get_shared<T>(name);
+        else
+            return nullptr;
+    }
+
+    template <typename T = SymbolType>
+    T *declares(const string &name) const {
+        if (tab.count(name) > 0) return dynamic_cast<T *>(tab.at(name).get());
+        return nullptr;
+    }
+
+    template <typename T = SymbolType>
+    shared_ptr<T> declares_shared(const string &name) const {
+        if (tab.count(name) > 0)
+            return std::dynamic_pointer_cast<T>(tab.at(name));
         return nullptr;
     }
 
     /** Adds a new mapping in the current scope, possibly shadowing mappings in
      * the parent scope. */
-    SymbolTable *put(const string &name, SymbolType *value) {
+    void put(const string &name, shared_ptr<SymbolType> value) {
         tab[name] = value;
-        return this;
     }
 
     SymbolTable *parent;

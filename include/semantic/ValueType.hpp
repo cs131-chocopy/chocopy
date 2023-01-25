@@ -12,6 +12,8 @@
 #include <string>
 #include <utility>
 
+using nlohmann::json;
+using std::shared_ptr;
 using std::string;
 
 namespace parser {
@@ -59,9 +61,10 @@ class ValueType : public SymbolType {
 
     bool is_value_type() const override { return true; }
 
-    static ValueType *annotate_to_val(
+    static shared_ptr<ValueType> annotate_to_val(
         std::unique_ptr<parser::TypeAnnotation> &annotation);
-    static ValueType *annotate_to_val(parser::TypeAnnotation *annotation);
+    static shared_ptr<ValueType> annotate_to_val(
+        parser::TypeAnnotation *annotation);
 
     const string get_name() const override;
 };
@@ -72,7 +75,8 @@ class ValueType : public SymbolType {
  */
 class ListValueType : public ValueType {
    public:
-    explicit ListValueType(ValueType *element);
+    explicit ListValueType(shared_ptr<ValueType> element)
+        : element_type(element) {}
 
     explicit ListValueType(parser::ListType *typeAnnotation);
 
@@ -84,7 +88,7 @@ class ListValueType : public ValueType {
 
     virtual json toJSON() const override;
 
-    ValueType *element_type;
+    shared_ptr<ValueType> element_type;
 };
 /**
  * A ClassValueType references types that are assigned to variables and
@@ -94,19 +98,15 @@ class ClassValueType : public ValueType {
    public:
     explicit ClassValueType(string className)
         : class_name(std::move(className)) {}
-
     explicit ClassValueType(parser::ClassType *classTypeAnnotation);
-
     ClassValueType() = default;
 
-    bool is_special_type() const override {
-        return this->class_name != "str" && this->class_name != "int" &&
-               this->class_name != "list" && this->class_name != "bool";
+    bool is_special_class() const override {
+        return class_name != "str" && class_name != "int" &&
+               class_name != "bool";
     };
     const string get_name() const override { return class_name; }
-
     virtual json toJSON() const override;
-
     string class_name;
 };
 

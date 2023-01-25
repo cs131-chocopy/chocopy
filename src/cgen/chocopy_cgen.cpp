@@ -1412,8 +1412,8 @@ int main(int argc, char *argv[]) {
         tree->accept(declarationAnalyzer);
     }
     if (tree->errors->compiler_errors.size() == 0) {
-        auto *typeChecker = new semantic::TypeChecker(*tree);
-        tree->accept(*typeChecker);
+        auto typeChecker = semantic::TypeChecker(*tree);
+        tree->accept(typeChecker);
     }
 
     std::shared_ptr<lightir::Module> m;
@@ -1590,8 +1590,8 @@ int main(int argc, char *argv[]) {
         tree->accept(declarationAnalyzer);
     }
     if (tree->errors->compiler_errors.size() == 0) {
-        auto *typeChecker = new semantic::TypeChecker(*tree);
-        tree->accept(*typeChecker);
+        auto typeChecker = semantic::TypeChecker(*tree);
+        tree->accept(typeChecker);
     }
 
     std::shared_ptr<lightir::Module> m;

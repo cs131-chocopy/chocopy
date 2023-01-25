@@ -11,7 +11,7 @@ class HierachyTree {
    public:
     map<string, string> superclass_map;
     map<string, int> depth_map;
-    map<string, int> class_tag;
+    map<string, int> class_id;
     map<string, vector<string>> subclasses_map;
     int class_tag_cnt = 4;
     HierachyTree() {
@@ -20,11 +20,12 @@ class HierachyTree {
         add_class("str", "object");
         add_class("int", "object");
         add_class("bool", "object");
-        class_tag["object"] = 0;
-        class_tag["int"] = 1;
-        class_tag["bool"] = 2;
-        class_tag["str"] = 3;
-        class_tag["list"] = -1;
+        class_id.clear();
+        class_id["object"] = 0;
+        class_id["int"] = 1;
+        class_id["bool"] = 2;
+        class_id["str"] = 3;
+        class_id["list"] = -1;
     }
     void add_class(const string& class_, const string& super_class) {
         assert(superclass_map.count(class_) == 0);
@@ -32,7 +33,7 @@ class HierachyTree {
         superclass_map[class_] = super_class;
         depth_map[class_] = depth_map.at(super_class) + 1;
         subclasses_map[super_class].emplace_back(class_);
-        class_tag[class_] = class_tag_cnt++;
+        class_id[class_] = class_tag_cnt++;
     }
     string common_ancestor(string class1, string class2) {
         assert(superclass_map.contains(class1));

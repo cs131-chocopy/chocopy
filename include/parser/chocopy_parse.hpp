@@ -203,7 +203,7 @@ class Expr : public Node {
      * {@link NoneLiteral} expressions will not have a typed assigned
      * to them.
      */
-    semantic::SymbolType *inferredType{};
+    std::shared_ptr<semantic::SymbolType> inferredType{};
 };
 
 /** A simple identifier. */
@@ -474,14 +474,12 @@ class FuncDef : public Decl {
 
 class GlobalDecl : public Decl {
    public:
-    Ident *variable;
+    std::unique_ptr<Ident> variable;
     GlobalDecl(Location location, Ident *variable)
-        : Decl(location, "GlobalDecl") {
-        this->variable = variable;
-    }
+        : Decl(location, "GlobalDecl"), variable(variable) {}
     json toJSON() const override;
 
-    Ident *get_id() override { return this->variable; }
+    Ident *get_id() override { return this->variable.get(); }
     void accept(ast::Visitor &visitor) override;
 };
 

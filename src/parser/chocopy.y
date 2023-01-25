@@ -44,7 +44,6 @@ T* combine(T* list, X *item) {
 %union {
   char *raw_str;
   int raw_int;
-  ::parser::Program *PtrProgram;
   ::parser::Stmt *PtrStmt;
   ::parser::Decl *PtrDecl;
   ::parser::AssignStmt *PtrAssignStmt;
@@ -134,7 +133,6 @@ T* combine(T* list, X *item) {
 %token TOKEN_DEDENT
 %token TOKEN_NEWLINE
 
-%type <PtrProgram> program
 %type <PtrStmt> stmt simple_stmt
 %type <PtrIfStmt> elif_list
 %type <PtrListDecl> top_level_decl class_body func_decls
@@ -155,6 +153,9 @@ T* combine(T* list, X *item) {
 %type <PtrNonlocalDecl> nonlocal_decl
 %type <PtrAssignStmt> assign_stmt
 
+%destructor { } <raw_int>
+%destructor { free($$); } <raw_str>
+%destructor { delete $$; } <*>
 
 %left TOKEN_OR
 %left TOKEN_AND
@@ -212,8 +213,8 @@ class_body :
         $$->emplace_back($1);
         @$ = @1;
     }
-    | class_body var_def { $$ = combine($$, (parser::Decl *)$2); @$ = {@1, @2}; }
-    | class_body func_def { $$ = combine($$, (parser::Decl *)$2); @$ = {@1, @2}; }
+    | class_body var_def { $$ = combine($1, (parser::Decl *)$2); @$ = {@1, @2}; }
+    | class_body func_def { $$ = combine($1, (parser::Decl *)$2); @$ = {@1, @2}; }
 
 func_def : TOKEN_DEF identifier TOKEN_l_paren typed_var_list TOKEN_r_paren func_return_type TOKEN_colon TOKEN_NEWLINE TOKEN_INDENT func_decls stmt_list TOKEN_DEDENT {
     $$ = new parser::FuncDef(@$ = {@1, @11}, $2, $4, $6, $10, $11);

@@ -5,24 +5,23 @@
 #ifndef CHOCOPY_COMPILER_FUNCTIONDEFTYPE_HPP
 #define CHOCOPY_COMPILER_FUNCTIONDEFTYPE_HPP
 
+#include <memory>
 #include <nlohmann/json.hpp>
 
 #include "SymbolTable.hpp"
 #include "SymbolType.hpp"
 #include "ValueType.hpp"
 using nlohmann::json;
+using std::shared_ptr;
 
 namespace semantic {
 class ValueType;
 class ClassValueType;
 class FunctionDefType : public SymbolType {
    public:
-    FunctionDefType() = default;
-    ~FunctionDefType();
-
     string func_name;
-    ValueType *return_type{};
-    std::vector<SymbolType *> params;
+    shared_ptr<ValueType> return_type;
+    std::vector<shared_ptr<SymbolType>> params;
     SymbolTable current_scope;
 
     bool operator==(const FunctionDefType &f2) const;
