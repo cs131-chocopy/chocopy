@@ -17,9 +17,7 @@
 #include "Value.hpp"
 #include "chocopy_parse.hpp"
 #include "chocopy_semant.hpp"
-#if __cplusplus > 202000L && !defined(__clang__)
 #include <ranges>
-#endif
 #include <regex>
 
 namespace semantic {
@@ -39,26 +37,7 @@ const std::regex to_replace("\\$(.+?)+\\.");
 const std::regex to_replace_prev(".+?\\.");
 const std::regex to_replace_post("\\..+?$");
 #define CONST(num) ConstantInt::get(num, &*module)
-vector<Constant *> new_array;
-vector<Value *> init_val;
 vector<BasicBlock *> base_layer;
-vector<BasicBlock *> for_layer_stack;
-vector<string> nonlocal_symbol;
-vector<string> iterable_symbol;
-bool is_local_global = false;
-/** Store the tmp value */
-Value *tmp_value;
-int tmp_int = 0;
-/** Check whether is rval */
-bool is_rval = true;
-string tmp_string;
-/** Check whether is the int variable */
-bool use_int = false;
-/** Check whether use the conslist to initialize a list */
-bool is_conslist = false;
-/** If there's no function or class or doubly list or above
- * just skip all the global conslist */
-bool is_global_conslist = false;
 /** Function that is being built */
 Function *curr_func = nullptr;
 
@@ -486,12 +465,6 @@ void LightWalker::visit(parser::Program &node) {
     for (auto &func : this->module->get_functions()) {
         func->set_instr_name();
     }
-    /*auto C = new ConstantInt(new IntegerType(32,module.get()),1919810);
-    auto t=builder->create_call(makeint_fun, {C});
-    t->set_name("0");
-    BitCastInst* t1 = builder->create_bitcast(t,ArrayType::get(union_put));
-    t1->set_name("1");
-    builder->create_call(put_fun, {t1});*/
 
     builder->create_asm(
         "li a0, 0 \\0A"
@@ -1702,16 +1675,14 @@ int main(int argc, char *argv[]) {
         } else {
             if (input_path.empty()) {
                 input_path = argv[i];
-                target_path = replace_all(input_path, ".py", "");
+                if (target_path.empty())
+                    target_path = replace_all(input_path, ".py", "");
             } else {
                 print_help(argv[0]);
                 return 0;
             }
         }
     }
-
-    auto error =
-        std::make_unique<vector<std::unique_ptr<parser::CompilerErr>>>();
 
     std::unique_ptr<parser::Program> tree(parse(input_path.c_str()));
     if (tree->errors->compiler_errors.size() == 0) {
@@ -1728,9 +1699,7 @@ int main(int argc, char *argv[]) {
     }
 
     std::shared_ptr<lightir::Module> m;
-    if (!error->empty()) {
-        tree->add_error(error.get());
-    } else {
+    if (tree->errors->compiler_errors.size() == 0) {
         auto j = tree->toJSON();
         LOG(INFO) << "ChocoPy Language Server:\n" << j.dump(2) << "\n";
 
@@ -1759,115 +1728,29 @@ int main(int argc, char *argv[]) {
                  << IR;
         }
 
-        if (run) {
-            /*auto command_string_llc = fmt::format("/llvm/bin/llc {}.ll",
-            target_path); int re_code_llc =
-            std::system(command_string_llc.c_str()); if (re_code_llc!=0) {
-                return 1;
-            }*/
-#ifdef RV64
+        if (assem || run) {
             auto command_string =
-                "clang -mno-relax  -no-integrated-as -O1 -w --target=riscv64-unknown-linux-gnu "s +
-                target_path + ".ll -o " + target_path + ".s -S";
-            int re_code = std::system(command_string.c_str());
-            if (target_path.ends_with("str_cat") ||
-                target_path.ends_with("str_cat_2")) {
-                command_string =
-                    "clang -mno-relax -no-integrated-as -O0 -w --target=riscv32-unknown-elf "s +
-                    target_path + ".ll -o " + target_path + ".s -S " +
-                    R"(&& /usr/bin/sed -i '' 's/.*addrsig.*//g' )" +
-                    target_path + ".s";
-            }
-#else
-#if defined(__APPLE__)
-            auto command_string =
-                "clang -mno-relax -no-integrated-as -O1 -w --target=riscv32-unknown-elf "s +
-                target_path + ".ll -o " + target_path + ".s -S " +
-                R"(&& /usr/bin/sed -i '' 's/.*addrsig.*//g' )" + target_path +
-                ".s";
-#else
-            auto command_string =
-                "/llvm/bin/llc -opaque-pointers -O0 -verify-machineinstrs -mtriple=riscv32-unknown-elf "s +
+                "llc -opaque-pointers -O0 -verify-machineinstrs -mtriple=riscv32-unknown-elf "s +
                 target_path + ".ll -o " + target_path + ".s" +
                 R"(&& /usr/bin/sed -i  's/.*addrsig.*//g' )" + target_path +
                 ".s";
-#endif
             int re_code = std::system(command_string.c_str());
-#endif
             LOG(INFO) << command_string << re_code;
-#if defined(WIN32) || defined(_WIN32) || defined(__APPLE__)
-#ifdef RV64
-            auto command_string_0 =
-                "riscv64-unknown-elf-gcc -mabi=lp64 -g -ggdb -static  "
-                "-march=rv64imac -o" +
-                target_path + " " + target_path + ".s -L./ -lchocopy_stdlib";
-#else
-            auto command_string_0 =
-                "riscv64-unknown-elf-gcc -mabi=ilp32 -g -ggdb -static "
-                "-march=rv32imac -o" +
-                target_path + " " + target_path + ".s -L./ -lchocopy_stdlib";
-#endif
-            int re_code_0 = std::system(command_string_0.c_str());
-            LOG(INFO) << command_string_0 << re_code_0;
-#ifdef RV64
-            auto command_string_1 =
-                "spike --isa=rv64imac "
-                "/opt/homebrew/Cellar/riscv-pk/master/bin/pk " +
-                target_path;
-#else
-            auto command_string_1 =
-                "spike --isa=rv32gcv0p10 "
-                "/opt/homebrew/Cellar/riscv-pk_32/master/bin/pk " +
-                target_path;
-#endif
-            int re_code_1 = std::system(command_string_1.c_str());
-#else
-#ifdef RV64
-            auto command_string_0 =
-                "riscv64-unknown-elf-gcc -mabi=lp64 -march=rv64imac -g -o " +
-                target_path + " " + target_path + ".s -L./ -lchocopy_stdlib";
-#else
+        }
+
+        if (run) {
             auto command_string_0 =
                 "riscv64-unknown-elf-gcc -mabi=ilp32 -march=rv32imac -g -o " +
                 target_path + " " + target_path +
-                ".s -L./ -L./build -lchocopy_stdlib";
-#endif
+                ".s -L./ -L./build -L../build -lchocopy_stdlib";
             int re_code_0 = std::system(command_string_0.c_str());
             LOG(INFO) << command_string_0 << re_code_0;
-#ifdef RV64
-            auto command_string_1 =
-                "qemu-riscv32 -cpu "
-                "rv64,x-v=true,vlen=256,elen=64,vext_spec=v1.0 " +
-                target_path;
-#else
             auto command_string_1 = "qemu-riscv32 " + target_path;
-#endif
             int re_code_1 = std::system(command_string_1.c_str());
-#endif
             LOG(INFO) << command_string_1 << re_code_1;
-        }
-        if (assem) {
-#ifdef RV64
-            auto command_string =
-                "clang -mno-relax --target=riscv64 -O1 -w -S --target=riscv64-unknown-linux-gnu "s +
-                target_path + ".ll -o " + target_path +
-                ".s -L. -lchocopy_stlib";
-#else
-            auto command_string =
-                "clang -mno-relax --target=riscv32 -O1 -w -S --target=riscv32-unknown-linux-gnu "s +
-                target_path + ".ll -o " + target_path +
-                ".s -L. -lchocopy_stdlib && /bin/cat " + target_path + ".s";
-#endif
-            int re_code = std::system(command_string.c_str());
-            LOG(INFO) << command_string;
-            if (re_code == 0)
-                goto result;
-            else
-                return 1;
         }
     }
 
-result:
     return 0;
 }
 #endif

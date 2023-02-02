@@ -16,6 +16,7 @@ RESULT_DIR = os.path.join(PROJECT_DIR, 'tests', 'result')  # temp dir
 BUILD_DIR = os.path.join(PROJECT_DIR, 'build')
 PARSER_EXECUTABLE = os.path.join(BUILD_DIR, 'parser')
 SEMANTIC_EXECUTABLE = os.path.join(BUILD_DIR, 'semantic')
+IR_EXECUTABLE = os.path.join(BUILD_DIR, 'ir-optimizer')
 CGEN_EXECUTABLE = os.path.join(BUILD_DIR, 'cgen')
 
 print_lock = Lock()
@@ -118,6 +119,11 @@ def check_testcase(directory: str, testcase: str, pa: int) -> int:
             SEMANTIC_EXECUTABLE,
             os.path.join(directory, f'{testcase}.py')
         ],
+        3: [
+            IR_EXECUTABLE,
+            '-o', os.path.join(RESULT_DIR, testcase),
+            '-run', os.path.join(directory, f'{testcase}.py')
+        ],
         4: [CGEN_EXECUTABLE,
             '-o', os.path.join(RESULT_DIR, testcase),
             '-run', os.path.join(directory, f'{testcase}.py')]
@@ -127,14 +133,17 @@ def check_testcase(directory: str, testcase: str, pa: int) -> int:
         p = subprocess.run(command, timeout=3, capture_output=True)
         student_output = p.stdout.decode()
     except subprocess.TimeoutExpired:
-        cprint(f'[{testcase}] Timeout!', 'red')
+        with print_lock:
+            cprint(f'[{testcase}] Timeout!', 'red')
         return 0
     except Exception as e:
-        cprint(f'[{testcase}] [Runtime error: {e}]', 'red')
+        with print_lock:
+            cprint(f'[{testcase}] [Runtime error: {e}]', 'red')
         return 0
     if p.returncode != 0:
-        cprint(
-            f'[{testcase}] [Return value != 0, stderr: {p.stderr.decode()}]', 'red')
+        with print_lock:
+            cprint(
+                f'[{testcase}] [Return value != 0, stderr: {p.stderr.decode()}]', 'red')
         return 0
 
     if pa == 1 or pa == 2:
@@ -143,12 +152,14 @@ def check_testcase(directory: str, testcase: str, pa: int) -> int:
         try:
             student_ast = json.loads(student_output)
         except Exception as e:
-            cprint(f'[{testcase}] [Parse JSON error: {e}]', 'red')
+            with print_lock:
+                cprint(f'[{testcase}] [Parse JSON error: {e}]', 'red')
             return 0
 
         # Compare AST
         if compare_ast(student_ast, reference_ast):
-            cprint(f'[{testcase}] Passed', 'green')
+            with print_lock:
+                cprint(f'[{testcase}] Passed', 'green')
             return 1
         else:
             with print_lock:
@@ -156,15 +167,15 @@ def check_testcase(directory: str, testcase: str, pa: int) -> int:
                 compare_ast(student_ast, reference_ast, verbose=True)
                 cprint(f'Failed!', 'red')
             return 0
-    elif pa == 3:
-        raise NotImplementedError()
-    elif pa == 4:
+    elif pa == 3 or pa == 4:
         # Compare program output
-        if student_output == reference_output:
-            cprint(f'[{testcase}] Passed', 'green')
+        if student_output.strip() == reference_output.strip():
+            with print_lock:
+                cprint(f'[{testcase}] Passed', 'green')
             return 1
         else:
-            cprint(f'[{testcase}] Failed!', 'red')
+            with print_lock:
+                cprint(f'[{testcase}] Failed!', 'red')
             return 0
 
     return 0
@@ -192,6 +203,7 @@ def check_testcases_in_directory(directory: str, pa: int) -> tuple[int, int]:
 def check_pa(pa: int):
     pa_directory = os.path.join(TESTDATA_DIR, f'pa{pa}')
     subdirectories = ['sample']
+    subdirectories.append('sp23')
     results = [
         check_testcases_in_directory(os.path.join(pa_directory, sub), pa)
         for sub in subdirectories
