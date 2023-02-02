@@ -777,7 +777,7 @@ string CodeGen::generateFunctionCode(Function *func) {
 }
 
 CodeGen::CodeGen(shared_ptr<Module> module)
-    : module(move(module)), backend(new RiscVBackEnd()) {}
+    : module(std::move(module)), backend(new RiscVBackEnd()) {}
 
 [[nodiscard]] string CodeGen::generateFunctionExitCode() {
     std::string asm_code;
@@ -1466,57 +1466,16 @@ int main(int argc, char *argv[]) {
     }
 
     if (run) {
-#if defined(WIN32) || defined(_WIN32) || defined(__APPLE__)
-#ifdef RV64
-        auto command_string_0 =
-            "riscv64-unknown-elf-gcc -mabi=lp64 -g -ggdb -static  "
-            "-march=rv64imac -o" +
-            target_path + " " + target_path + ".s -L./ -lchocopy_stdlib";
-#else
-        auto command_string_0 =
-            "riscv64-unknown-elf-gcc -mabi=ilp32 -g -ggdb -static "
-            "-march=rv32imac -o" +
-            target_path + " " + target_path + ".s -L./ -lchocopy_stdlib";
-#endif
-        int re_code_0 = std::system(command_string_0.c_str());
-        LOG(INFO) << command_string_0 << re_code_0;
-#ifdef RV64
-        auto command_string_1 =
-            "spike --isa=rv64imac "
-            "/opt/homebrew/Cellar/riscv-pk/master/bin/pk " +
-            target_path;
-#else
-        auto command_string_1 =
-            "spike --isa=rv32gcv0p10 "
-            "/opt/homebrew/Cellar/riscv-pk_32/master/bin/pk " +
-            target_path;
-#endif
-        int re_code_1 = std::system(command_string_1.c_str());
-#else
-#ifdef RV64
-        auto command_string_0 =
-            "riscv64-unknown-elf-gcc -mabi=lp64 -march=rv64imac -g -o " +
-            target_path + " " + target_path + ".s -L./ -lchocopy_stdlib";
-#else
         auto command_string_0 =
             "riscv64-unknown-elf-gcc -mabi=ilp32 -march=rv32imac -g -o " +
             target_path + " " + target_path +
             ".s -L./ -L./build -L../build -lchocopy_stdlib";
-#endif
         int re_code_0 = std::system(command_string_0.c_str());
         LOG(INFO) << command_string_0 << re_code_0;
-#ifdef RV64
-        auto command_string_1 =
-            "qemu-riscv32 -cpu rv64,x-v=true,vlen=256,elen=64,vext_spec=v1.0 " +
-            target_path;
-#else
         auto command_string_1 = "qemu-riscv32 " + target_path;
-#endif
         int re_code_1 = std::system(command_string_1.c_str());
-#endif
         LOG(INFO) << command_string_1 << re_code_1;
     }
-result:
     return 0;
 }
 #endif
@@ -1642,57 +1601,16 @@ int main(int argc, char *argv[]) {
             LOG(INFO) << command_string << re_code;
         }
     }
-
-#if defined(WIN32) || defined(_WIN32) || defined(__APPLE__)
-#ifdef RV64
-    auto command_string_0 =
-        "riscv64-unknown-elf-gcc -mabi=lp64 -g -ggdb -static  -march=rv64imac "
-        "-o" +
-        target_path + " " + target_path + ".s -L./ -lchocopy_stdlib";
-#else
-    auto command_string_0 =
-        "riscv64-unknown-elf-gcc -mabi=ilp32 -g -ggdb -static -march=rv32imac "
-        "-o" +
-        target_path + " " + target_path + ".s -L./ -lchocopy_stdlib";
-#endif
-    int re_code_0 = std::system(command_string_0.c_str());
-    LOG(INFO) << command_string_0 << re_code_0;
-#ifdef RV64
-    auto command_string_1 =
-        "spike --isa=rv64imac /opt/homebrew/Cellar/riscv-pk/master/bin/pk " +
-        target_path;
-#else
-    auto command_string_1 =
-        "spike --isa=rv32gcv0p10 "
-        "/opt/homebrew/Cellar/riscv-pk_32/master/bin/pk " +
-        target_path;
-#endif
-    int re_code_1 = std::system(command_string_1.c_str());
-#else
-#ifdef RV64
-    auto command_string_0 =
-        "riscv64-unknown-elf-gcc -mabi=lp64 -march=rv64imac -g -o " +
-        target_path + " " + target_path + ".s -L./ -lchocopy_stdlib";
-#else
     auto command_string_0 =
         "riscv64-unknown-elf-gcc -mabi=ilp32 -march=rv32imac -g -o " +
         target_path + " " + target_path +
         ".s -L./ -L/Users/yiweiyang/project/bak/cmake-build-debug-kali-gcc "
         "-lchocopy_stdlib";
-#endif
     int re_code_0 = std::system(command_string_0.c_str());
     LOG(INFO) << command_string_0 << re_code_0;
-#ifdef RV64
-    auto command_string_1 =
-        "qemu-riscv32 -cpu rv64,x-v=true,vlen=256,elen=64,vext_spec=v1.0 " +
-        target_path;
-#else
     auto command_string_1 = "qemu-riscv32 " + target_path;
-#endif
     int re_code_1 = std::system(command_string_1.c_str());
-#endif
     LOG(INFO) << command_string_1 << re_code_1;
-result:
     return 0;
 }
 #endif

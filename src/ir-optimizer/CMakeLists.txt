@@ -4,7 +4,7 @@ target_link_libraries(ir-optimizer-lib parser-lib semantic-lib ${llvm_libs} fmt:
 
 add_executable(ir-optimizer ${SOURCE_FILES})
 target_link_libraries(ir-optimizer parser-lib semantic-lib ${llvm_libs}  fmt::fmt)
-target_compile_definitions(ir-optimizer PUBLIC -DPA3=1) #-DRV64=0)
+target_compile_definitions(ir-optimizer PUBLIC -DPA3=1)
 # llvm_map_components_to_libnames(llvm_libs support core irreader)
 add_dependencies(ir-optimizer chocopy_stdlib)
 
