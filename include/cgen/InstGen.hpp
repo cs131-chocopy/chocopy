@@ -155,8 +155,8 @@ class InstGen {
 
        public:
         explicit Label(string label, int offset)
-            : label(move(label)), offset(offset) {}
-        explicit Label(string label) : label(move(label)), offset(0) {}
+            : label(std::move(label)), offset(offset) {}
+        explicit Label(string label) : label(std::move(label)), offset(0) {}
         string get_name() const { return fmt::format("{}+{}", label, offset); }
     };
 

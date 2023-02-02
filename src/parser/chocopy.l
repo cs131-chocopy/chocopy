@@ -9,9 +9,7 @@
 #include <cstdlib>
 #include <cstdio>
 
-#if __cplusplus > 199711L
 #define register      // Deprecated in C++11.
-#endif  // #if __cplusplus > 199711L
 
 using namespace std;
 std::stack<int> stack_indent;

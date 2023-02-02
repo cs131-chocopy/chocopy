@@ -101,15 +101,7 @@ class Type {
 
     virtual string print();
 
-#if __cplusplus > 202000L && !defined(__clang__)
     std::strong_ordering operator<=>(Type rhs);
-#else
-    bool operator==(Type rhs);
-    bool operator>(Type rhs);
-    bool operator<(Type rhs);
-    bool operator<=(Type rhs);
-    bool operator>=(Type rhs);
-#endif
    private:
     const type tid_;
     Module *m_;

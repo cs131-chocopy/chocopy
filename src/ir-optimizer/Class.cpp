@@ -37,19 +37,10 @@ Class::Class(Module *m, const string &name_, int type_tag,
     methods_ = new vector<Function *>();
     set_type(
         LabelType::get(prototype_label_ + "_type", this, this->get_module()));
-
-#if defined(WIN32) || defined(_WIN32)
-    if (std::ranges::none_of(m->get_class(), [&](const Class *c) {
-            return c->type_tag_ == type_tag;
-        })) {
-        m->add_class(this);
-    }
-#else
     bool flag = false;
     for (auto &&c : m->get_class())
         if (c->type_tag_ == type_tag) flag = true;
     if (!flag && is_append) m->add_class(this);
-#endif
 }
 
 Class::Class(Module *m, const string &name_, bool anon_)

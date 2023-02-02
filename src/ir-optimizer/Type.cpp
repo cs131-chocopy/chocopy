@@ -80,7 +80,6 @@ constexpr bool Type::is_ptr_type() {
     else
         return false;
 }
-#if __cplusplus > 202000L && !defined(__clang__)
 std::strong_ordering Type::operator<=>(Type rhs) {
     if (this->is_ptr_type()) {
         return this->get_ptr_element_type() <=> rhs.get_ptr_element_type();
@@ -88,43 +87,6 @@ std::strong_ordering Type::operator<=>(Type rhs) {
         return this->get_type_id() <=> rhs.get_type_id();
     }
 }
-#else
-bool Type::operator==(Type rhs) {
-    if (this->is_ptr_type()) {
-        return this->get_ptr_element_type() == rhs.get_ptr_element_type();
-    } else {
-        return this->get_type_id() == rhs.get_type_id();
-    }
-}
-bool Type::operator<=(Type rhs) {
-    if (this->is_ptr_type()) {
-        return this->get_ptr_element_type() <= rhs.get_ptr_element_type();
-    } else {
-        return this->get_type_id() <= rhs.get_type_id();
-    }
-}
-bool Type::operator>=(Type rhs) {
-    if (this->is_ptr_type()) {
-        return this->get_ptr_element_type() >= rhs.get_ptr_element_type();
-    } else {
-        return this->get_type_id() >= rhs.get_type_id();
-    }
-}
-bool Type::operator>(Type rhs) {
-    if (this->is_ptr_type()) {
-        return this->get_ptr_element_type() > rhs.get_ptr_element_type();
-    } else {
-        return this->get_type_id() > rhs.get_type_id();
-    }
-}
-bool Type::operator<(Type rhs) {
-    if (this->is_ptr_type()) {
-        return this->get_ptr_element_type() < rhs.get_ptr_element_type();
-    } else {
-        return this->get_type_id() < rhs.get_type_id();
-    }
-}
-#endif
 string Type::print() { return {}; }
 
 IntegerType::IntegerType(unsigned num_bits, Module *m)

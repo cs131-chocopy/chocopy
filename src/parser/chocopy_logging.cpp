@@ -8,19 +8,12 @@ void LogWriter::operator<(const LogStream &stream) {
 
 void LogWriter::output_log(const std::ostringstream &msg) {
     if (log_level_ >= env_log_level)
-#if defined(WIN32) || defined(_WIN32)
-        std::cout << fmt::format("[{}] ({}:{} L {}) \n",
-                                 level2string(log_level_), location_.file_,
-                                 location_.line_, location_.func_)
-                  << fmt::format("{}", msg.str()) << std::endl;
-#else
         std::cout << fmt::format(
                          fmt::emphasis::bold | fg(level2color(log_level_)),
                          "[{}] ({}:{} L {}) \n", level2string(log_level_),
                          location_.file_, location_.line_, location_.func_)
                   << fmt::format(fg(level2color(log_level_)), "{}", msg.str())
                   << std::endl;
-#endif
 }
 std::string level2string(LogLevel level) {
     switch (level) {
@@ -67,20 +60,10 @@ string readFile(const std::filesystem::path &path) {
 }
 
 bool hasFile(const std::filesystem::path &path, const string &file_name) {
-#if __cplusplus > 202000L && !defined(__clang__)
     return std::ranges::any_of(std::filesystem::directory_iterator(path),
                                [&](const std::filesystem::path &path) {
                                    return path.filename().string() == file_name;
                                });
-#else
-    for (const auto &tmp : std::filesystem::directory_iterator(path)) {
-        if (tmp.path().filename() == file_name) {
-            LOG(ERROR) << tmp.path().string();
-            return true;
-        }
-    }
-    return false;
-#endif
 }
 /** http://stackoverflow.com/questions/20406744/ */
 string replace_all(const std::string &str, const std::string &find,
