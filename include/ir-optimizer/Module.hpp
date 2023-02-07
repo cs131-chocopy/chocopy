@@ -1,8 +1,5 @@
 #pragma once
 
-#ifdef LLVM
-#include <llvm/IR/Module.h>
-#endif
 #include <iterator>
 #include <list>
 #include <map>
@@ -53,16 +50,14 @@ class Instruction : public User {
         PHI,
         Call,
         GEP,
-        ZExt,     // zero extend
-        InElem,   // insert element
-        ExElem,   // extract element
-        BitCast,  // bitcast
-        Trunc,    // truncate
-        VExt,     // VExt SIMD
-        ASM,
-        // Acc Intrinsic
-        ACCSTART,
-        ACCEND
+        ZExt,      // zero extend
+        InElem,    // insert element
+        ExElem,    // extract element
+        BitCast,   // bitcast
+        PtrToInt,  // ptrtoint
+        Trunc,     // truncate
+        VExt,      // VExt SIMD
+        ASM
     };
     /** create instruction, auto insert to bb
      * ty here is result type */
@@ -113,7 +108,6 @@ class Instruction : public User {
     bool is_lshr() { return op_id_ == LShr; }
 
     bool is_vext() { return op_id_ == VExt; }
-    bool is_acc() { return op_id_ == ACCEND || op_id_ == ACCSTART; }
 
     bool is_binary() {
         return (is_add() || is_sub() || is_mul() || is_div() || is_rem() ||
@@ -287,11 +281,9 @@ class StoreInst : public Instruction {
 class LoadInst : public Instruction {
    private:
     LoadInst(Type *ty, Value *ptr, BasicBlock *bb);
-    LoadInst(Value *ptr1, Value *ptr2, BasicBlock *bb);
 
    public:
     static LoadInst *create_load(Type *ty, Value *ptr, BasicBlock *bb);
-    static LoadInst *create_load(Value *ptr1, Value *ptr2, BasicBlock *bb);
     Value *get_lval() { return this->get_operand(0); }
 
     Type *get_load_type() const;
@@ -376,6 +368,21 @@ class BitCastInst : public Instruction {
     Type *dest_ty_;
 };
 
+class PtrToIntInst : public Instruction {
+   private:
+    PtrToIntInst(OpID op, Value *val, Type *ty, BasicBlock *bb);
+
+   public:
+    static PtrToIntInst *create_ptrtoint(Value *val, Type *ty, BasicBlock *bb);
+
+    Type *get_dest_type() const;
+
+    string print() override;
+
+   private:
+    Type *dest_ty_;
+};
+
 class TruncInst : public Instruction {
    private:
     TruncInst(OpID op, Value *val, Type *ty, BasicBlock *bb);
@@ -432,113 +439,6 @@ class PhiInst : public Instruction {
     string print() override;
 };
 
-class VExtInst : public Instruction {
-   public:
-    enum vv_type {
-        VLE = 0,
-        VSETVLI,
-        VADD,
-        VMUL,
-        VDIV,
-        VREM,
-        VSHR,
-        VASHR,
-        VLSHR,
-        VSE
-    };
-
-    /** Default value for riscv32
-     * This part refer to the LLVM
-     * clang/test/CodeGen/RISCV/rvv-intrinsics-overloaded */
-    int vlen = 256;
-    int elen = 64;
-    vv_type type_;
-
-    static VExtInst *create_vlw(Value *v1, BasicBlock *parent) {
-        return new VExtInst(v1, vv_type::VLE, parent);
-    }
-    static VExtInst *create_vsw(Value *v1, BasicBlock *parent) {
-        return new VExtInst(v1, vv_type::VSE, parent);
-    }
-    static VExtInst *create_vadd(Value *v1, Value *v2, BasicBlock *parent) {
-        return new VExtInst(v1, v2, vv_type::VADD, parent);
-    }
-    static VExtInst *create_vdiv(Value *v1, Value *v2, Value *v3,
-                                 BasicBlock *parent) {
-        return new VExtInst(v1, v2, v3, vv_type::VDIV, parent);
-    }
-    static VExtInst *create_vrem(Value *v1, Value *v2, Value *v3,
-                                 BasicBlock *parent) {
-        return new VExtInst(v1, v2, v3, vv_type::VREM, parent);
-    }
-    static VExtInst *create_vmul(Value *v1, Value *v2, Value *v3,
-                                 BasicBlock *parent) {
-        return new VExtInst(v1, v2, v3, vv_type::VMUL, parent);
-    }
-    static VExtInst *create_vsetvli(Value *v1, Value *v2, Value *v3,
-                                    BasicBlock *parent) {
-        return new VExtInst(v1, v2, v3, vv_type::VSETVLI, parent);
-    }
-    /** For final riscv instruction
-     *   vsetvli t0, a0, e32
-     *   vlw.v v0, (a1)
-     *   vadd.vs v2, v0, a2
-     *   vsw.v v2, (a1)
-     *
-     *   For intermediate riscv instruction
-     *       define <vscale x 4 x i32> @load_add(<vscale x 4 x i32>* %0, <vscale
-     *x 4 x i32> %1, i32 %2) #0 { entry: %a = call <vscale x 4 x i32>
-     *@llvm.riscv.vle.nxv4i32.i32(<vscale x 4 x i32>* %0, i32 %2) %b = call
-     *<vscale x 4 x i32> @llvm.riscv.vadd.nxv4i32.nxv4i32.i32(<vscale x 4 x i32>
-     *%a, <vscale x 4 x i32> %1, i32 %2) ret <vscale x 4 x i32> %b
-     *       }
-     *
-     *       ; Function Attrs: nounwind readnone
-     *       declare <vscale x 4 x i32>
-     *@llvm.riscv.vadd.nxv4i32.nxv4i32.i32(<vscale x 4 x i32>, <vscale x 4 x
-     *i32>, i32) #4
-     *
-     *       define void @main() {
-     *       label0:
-     *           %0 = insertelement <vscale x 4 x i32> undef, i32 5, i32 0
-     *           %1 = alloca <vscale x 4 x i32>
-     *           %op1 = call <vscale x 4 x i32> @load_add(<vscale x 4 x i32>*
-     *%1,<vscale x 4 x i32> %0, i32 4) %op2 = extractelement <vscale x 4 x i32>
-     *%op1, i32 0 %op3 = call %$int$prototype_type @makeint(i32 %op2) call void
-     *@print_int(%$int$prototype_type %op3) ret void
-     *       }
-     **/
-
-    string print() override;
-
-   private:
-    VExtInst(Value *v1, Value *v2, Value *v3, vv_type type_,
-             BasicBlock *parent);
-    VExtInst(Value *v1, Value *v2, vv_type type, BasicBlock *parent);
-    VExtInst(Value *v1, vv_type type, BasicBlock *parent);
-    void assert_valid();
-};
-
-class Accstart : public Instruction {
-    /** %thread_id = MTSTART %num_threads */
-   private:
-    explicit Accstart(Module *m);
-
-   public:
-    Accstart *create_accstart(Module *m);
-    string print() override;
-};
-
-class Accend : public Instruction {
-    /** %thread_id = MTSTART %num_threads */
-   private:
-    Accend(Module *m, Accstart *start);
-
-   public:
-    Accend *create_accend(Module *m, Accstart *start);
-    string print() override;
-};
-
 class AsmInst : public Instruction {
     /** tail call void asm sideeffect " addi    s0, sp, 16\0Alui     a0, 2",
      * ""() */
@@ -567,10 +467,7 @@ class Module {
     Type *get_class_type(int id_);
     IntegerType *get_int1_type();
     IntegerType *get_int32_type();
-    StringType *get_str_type();
-    ArrayType *get_array_type(Type *contained, unsigned num_elements);
-    ArrayType *get_array_type(Type *contained);
-    ArrayType *get_array_type();
+    PtrType *get_ptr_type(Type *contained);
 
     void add_function(Function *f);
     list<Function *> get_functions();
@@ -578,8 +475,6 @@ class Module {
     list<GlobalVariable *> get_global_variable();
     void add_class(Class *c);
     list<Class *> get_class();
-    void add_union(Union *u);
-    list<Union *> get_union();
     string get_instr_op_name(Instruction::OpID instr) {
         return instr_id2string_[instr];
     }
@@ -598,15 +493,13 @@ class Module {
         global_list_;                /* The Global Variables in the module */
     list<Function *> function_list_; /* The Functions in the module */
     list<Class *> class_list_;       /* The Functions in the module */
-    list<Union *> union_list_;       /* The Functions in the module */
     map<Instruction::OpID, string>
         instr_id2string_; /* Instruction from opid to string */
     IntegerType *int1_ty_;
     IntegerType *int32_ty_;
-    StringType *str_ty_;
     Type *label_ty_;
     map<int, Type *> obj_ty_;
     Type *void_ty_;
-    map<pair<Type *, int>, ArrayType *> array_map_;
+    map<pair<Type *, int>, PtrType *> ptr_map_;
 };
 }  // namespace lightir

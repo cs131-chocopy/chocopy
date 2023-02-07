@@ -28,12 +28,6 @@ class GlobalVariable : public User {
                    Constant *init);
 
     Constant *get_init() const { return init_val_; }
-    bool is_list_init() const {
-        return !init_val_
-                   ? true
-                   : ((ConstantArray *)init_val_)->get_size_of_array() == 0;
-    }
-    void set_list(const vector<Constant *> &new_array) const;
     string print() override;
 };
 }  // namespace lightir

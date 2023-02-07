@@ -33,12 +33,6 @@ GlobalVariable *GlobalVariable::create(const string &name, Module *m,
     return new GlobalVariable(name, m, init->get_type(), true, init);
 }
 
-void GlobalVariable::set_list(const vector<Constant *> &new_array) const {
-    ((ConstantArray *)this->init_val_)->set_const_array(new_array);
-    ((ArrayType *)((Value *)this)->type_)
-        ->set_num_of_elements(new_array.size());
-}
-
 string GlobalVariable::print() {
     string global_ir;
     if (init_val_ == nullptr) {
@@ -58,12 +52,7 @@ string GlobalVariable::print() {
                                 this->get_init()->print());
         is_print_head_ = true;
     } else {
-        if (this->init_val_->get_type()->is_string_type())
-            global_ir =
-                fmt::format("$str$prototype_type*{}", print_as_op(this, false));
-        else
-            global_ir = fmt::format("{}*{}", this->get_type()->print(),
-                                    print_as_op(this, false));
+        global_ir = fmt::format("ptr {}", print_as_op(this, false));
     }
     return global_ir;
 }

@@ -97,8 +97,18 @@ def compare_ast(student_ast: dict, reference_ast: dict, verbose: bool = False) -
 
 def check_testcase(directory: str, testcase: str, pa: int) -> int:
     assert 1 <= pa <= 4
-    assert os.path.exists(
-        PARSER_EXECUTABLE) and os.path.isfile(PARSER_EXECUTABLE)
+    if pa == 1:
+        assert os.path.exists(PARSER_EXECUTABLE)
+        assert os.path.isfile(PARSER_EXECUTABLE)
+    elif pa == 2:
+        assert os.path.exists(SEMANTIC_EXECUTABLE)
+        assert os.path.isfile(SEMANTIC_EXECUTABLE)
+    elif pa == 3:
+        assert os.path.exists(IR_EXECUTABLE)
+        assert os.path.isfile(IR_EXECUTABLE)
+    elif pa == 4:
+        assert os.path.exists(CGEN_EXECUTABLE)
+        assert os.path.isfile(CGEN_EXECUTABLE)
 
     reference_output_path: str = {
         1: os.path.join(directory, f'{testcase}.py.ast'),
@@ -213,6 +223,9 @@ def check_pa(pa: int):
 if __name__ == '__main__':
     print(f'[testdata: {TESTDATA_DIR}]')
     print(f'[executable: {BUILD_DIR}]')
+    if os.path.exists(RESULT_DIR):
+        import shutil
+        shutil.rmtree(RESULT_DIR)
     if not os.path.exists(RESULT_DIR):
         os.mkdir(RESULT_DIR)
 

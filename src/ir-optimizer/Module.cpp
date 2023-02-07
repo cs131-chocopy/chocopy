@@ -6,7 +6,6 @@ Module::Module(string name) : module_name_(std::move(name)) {
     void_ty_ = new VoidType(this);
     int1_ty_ = new IntegerType(1, this);
     int32_ty_ = new IntegerType(32, this);
-    str_ty_ = new StringType("", this);
     label_ty_ = new Type(Type::type::LABEL);
 
     instr_id2string_.insert({Instruction::Ret, "ret"});
@@ -37,13 +36,13 @@ Module::Module(string name) : module_name_(std::move(name)) {
     instr_id2string_.insert({Instruction::InElem, "insertelement"});
     instr_id2string_.insert({Instruction::ExElem, "extractelement"});
     instr_id2string_.insert({Instruction::BitCast, "bitcast"});
+    instr_id2string_.insert({Instruction::PtrToInt, "ptrtoint"});
 }
 
 Module::~Module() {
     delete void_ty_;
     delete int1_ty_;
     delete int32_ty_;
-    delete str_ty_;
 }
 
 Type *Module::get_void_type() { return void_ty_; }
@@ -52,24 +51,15 @@ IntegerType *Module::get_int1_type() { return int1_ty_; }
 
 IntegerType *Module::get_int32_type() { return int32_ty_; }
 
-StringType *Module::get_str_type() { return str_ty_; }
-
 Type *Module::get_label_type() { return label_ty_; }
 
 Type *Module::get_class_type(int id_) { return obj_ty_[id_]; }
 
-ArrayType *Module::get_array_type(Type *contained, unsigned num_elements) {
-    if (array_map_.find({contained, num_elements}) == array_map_.end()) {
-        array_map_[{contained, num_elements}] =
-            new ArrayType(contained, num_elements);
+PtrType *Module::get_ptr_type(Type *contained) {
+    if (ptr_map_.find({contained, -1}) == ptr_map_.end()) {
+        ptr_map_[{contained, -1}] = new PtrType(contained);
     }
-    return array_map_[{contained, num_elements}];
-}
-ArrayType *Module::get_array_type(Type *contained) {
-    if (array_map_.find({contained, -1}) == array_map_.end()) {
-        array_map_[{contained, -1}] = new ArrayType(contained, -1);
-    }
-    return array_map_[{contained, -1}];
+    return ptr_map_[{contained, -1}];
 }
 
 void Module::add_function(Function *f) { function_list_.push_back(f); }
@@ -80,8 +70,6 @@ void Module::add_global_variable(GlobalVariable *g) {
 list<GlobalVariable *> Module::get_global_variable() { return global_list_; }
 void Module::add_class(Class *c) { class_list_.push_back(c); };
 list<Class *> Module::get_class() { return class_list_; }
-void Module::add_union(Union *u) { union_list_.push_back(u); }
-list<Union *> Module::get_union() { return union_list_; };
 
 void Module::set_print_name() {
     for (auto func : this->get_functions()) {
@@ -93,9 +81,6 @@ void Module::add_class_type(Type *ty_) { obj_ty_[ty_->get_type_id()] = ty_; }
 string Module::print() {
     string module_ir;
     this->is_declaration_ = true;
-    for (auto &&union_ : this->get_union()) {
-        module_ir += fmt::format("{}\n", union_->print());
-    }
     this->is_declaration_ = false;
     for (auto &&class_ : this->get_class()) {
         module_ir += fmt::format("{}\n", class_->print_class());
@@ -129,5 +114,4 @@ string Module::print() {
     }
     return module_ir;
 }
-ArrayType *Module::get_array_type() { return get_array_type(int32_ty_); }
 }  // namespace lightir

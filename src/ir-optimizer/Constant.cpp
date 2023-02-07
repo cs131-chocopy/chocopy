@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include "Module.hpp"
+#include "Type.hpp"
 #include "chocopy_parse.hpp"
 
 using namespace std;
@@ -37,49 +38,13 @@ string ConstantNull::print() {
     return fmt::format("{} null", this->get_type()->print());
 }
 
-ConstantArray::ConstantArray(ArrayType *ty, const vector<Constant *> &val)
-    : Constant(ty, "", val.size()) {
-    for (int i = 0; i < val.size(); i++) {
-        set_operand(i, val[i]);
-    }
-    this->const_array.assign(val.begin(), val.end());
-}
-
-Constant *ConstantArray::get_element_value(int index) {
-    return this->const_array.at(index);
-}
-
-void ConstantArray::set_const_array(const vector<Constant *> &new_array) {
-    const_array = new_array;
-    this->type_ = new ArrayType(
-        dynamic_cast<ArrayType *>(this->type_)->get_element_type(),
-        new_array.size());
-};
-
-string ConstantArray::print() {
-    string const_ir;
-    const_ir += this->get_type()->print();
-    if (this->get_size_of_array() == 0)
-        const_ir += " undef";
-    else {
-        const_ir += " [";
-        for (int i = 0; i < this->get_size_of_array(); i++) {
-            const_ir += get_element_value(i)->print();
-            if (i != this->get_size_of_array() - 1) const_ir += ",";
-            const_ir += " ";
-        }
-        const_ir += " ]";
-    }
-    return const_ir;
-}
-
 ConstantZero *ConstantZero::get(Type *ty, Module *m) {
     return new ConstantZero(ty);
 }
 
 std::string ConstantZero::print() { return "zeroinitializer"; }
 ConstantStr *ConstantStr::get(const string &val, int id, Module *m) {
-    return new ConstantStr(new StringType(val, m), val, id);
+    return new ConstantStr(PtrType::get(IntegerType::get(8, m)), val, id);
 }
 string ConstantStr::print() {
     string const_ir;
@@ -88,12 +53,10 @@ string ConstantStr::print() {
             "@const_" + std::to_string(id_) +
             " = global %$str$prototype_type {\n" +
             fmt::format(
-                "  i32 {},\n  i32 {},\n  %$str$dispatchTable_type* "
+                "  i32 3,\n  i32 5,\n  %$str$dispatchTable_type* "
                 "@$str$dispatchTable,\n  i32 {},\n  "
-                "i8* getelementptr inbounds ([{} x i8], [{} x i8]* "
-                "@str.const_{}, i32 0, i32 0) ",
-                this->get_type()->get_type_id(), int(value_.size() / 4) + 5,
-                value_.size(), value_.size() + 1, value_.size() + 1, id_) +
+                "i8* @str.const_{}",
+                value_.size(), id_) +
             "\n}";
         string s;
         for (char c : value_) {

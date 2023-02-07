@@ -3,7 +3,10 @@
 #include <fmt/core.h>
 
 #include <cassert>
+#include <ranges>
+#include <regex>
 #include <string>
+#include <utility>
 
 #include "BasicBlock.hpp"
 #include "Constant.hpp"
@@ -15,23 +18,12 @@
 #include "Type.hpp"
 #include "Value.hpp"
 #include "chocopy_lightir.hpp"
-#if __cplusplus > 202000L && !defined(__clang__)
-#include <ranges>
-#endif
-#include <regex>
-#include <utility>
 
-/** From String to codegen, care about class */
-#ifdef LLVM
-using namespace llvm;
-extern Module chocopy_m;
-#else
 using namespace lightir;
-#endif
 
 namespace cgen {
 int getTypeSizeInBytes(Type *type) {
-    if (dynamic_cast<ArrayType *>(type)) {
+    if (dynamic_cast<PtrType *>(type)) {
         return 4;
     } else if (type->is_integer_type() || type->is_bool_type()) {
         return 4;  // bool and int are 4 bytes
@@ -42,12 +34,6 @@ int getTypeSizeInBytes(Type *type) {
             ret += getTypeSizeInBytes(attr->get_type());
         }
         return ret;
-    } else if (type->is_union_type()) {
-        // %$union.type = type { i32 }
-        // %$union.len = type { i32 }
-        // %$union.put = type { i32 }
-        // %$union.conslist = type { i32 }
-        return 4;
     }
     assert(0);
 }
@@ -1029,10 +1015,8 @@ string CodeGen::generateInstructionCode(Instruction *inst) {
             Reg rd = vreg_to_reg.at(inst->get_name());
             auto gep = (GetElementPtrInst *)inst;
             auto ptr = ops[0];
-            assert(dynamic_cast<ArrayType *>(ptr->get_type()) &&
-                   ((ArrayType *)ptr->get_type())->get_num_of_elements() == -1);
-            auto inner_type =
-                ((ArrayType *)ptr->get_type())->get_element_type();
+            assert(dynamic_cast<PtrType *>(ptr->get_type()));
+            auto inner_type = ((PtrType *)ptr->get_type())->get_element_type();
             if (dynamic_cast<Class *>(inner_type) ||
                 inner_type->print().ends_with("$dispatchTable_type")) {
                 // it seems that every attribute is 4 bytes
@@ -1041,14 +1025,6 @@ string CodeGen::generateInstructionCode(Instruction *inst) {
                 auto rs = getReg(ptr->get_name());
                 asm_code += vregToReg(ptr, rs);
                 asm_code += backend->emit_addi(rd, rs, idx * 4);
-            } else if (inner_type->print() == "%$union.conslist") {
-                auto rs1 = getReg(ptr->get_name());
-                asm_code += vregToReg(ptr, rs1);
-                auto rs2 = getReg(ops[1]->get_name());
-                asm_code += vregToReg(ops[1], rs2);
-                auto t0 = Reg(5);
-                asm_code += backend->emit_slli(t0, rs2, 2);
-                asm_code += backend->emit_add(rd, rs1, t0);
             } else if (auto i = dynamic_cast<IntegerType *>(inner_type)) {
                 auto rs1 = getReg(ptr->get_name());
                 asm_code += vregToReg(ptr, rs1);
@@ -1454,9 +1430,6 @@ int main(int argc, char *argv[]) {
         output_stream1 << asm_code;
         output_stream1.close();
     }
-#ifdef LLVM
-    llvmGetPassPluginInfo(m);
-#endif
     if (emit) {
         cout << "\nLLVM IR:\n; ModuleID = 'chocopy'\nsource_filename = \"\""
              << input_path << "\"\"\n\n"
@@ -1478,22 +1451,6 @@ int main(int argc, char *argv[]) {
 }
 #endif
 
-#ifdef LLVM
-llvm::PassPluginLibraryInfo llvmGetPassPluginInfo(
-    const std::shared_ptr<Module> &m) {
-    chocopy_m = m;
-    return {LLVM_PLUGIN_API_VERSION, "ChoocoPy", "v0.1",
-            [](llvm::PassBuilder &PB) {
-                PB.registerPipelineParsingCallback(
-                    [](llvm::StringRef, llvm::ModulePassManager &MPM,
-                       llvm::ArrayRef<llvm::PassBuilder::PipelineElement>) {
-                        MPM.addPass(cgen::CodeGen());
-                        return true;
-                    });
-            }};
-}
-#endif
-
 #ifdef ALL
 int main(int argc, char *argv[]) {
     string target_path;
@@ -1508,7 +1465,7 @@ int main(int argc, char *argv[]) {
 
     for (int i = 1; i < argc; ++i) {
         if (argv[i] == "-h"s || argv[i] == "--help"s) {
-            print_help_all(argv[0]);
+            print_help(argv[0]);
             return 0;
         } else if (argv[i] == "-o"s) {
             if (target_path.empty() && i + 1 < argc) {

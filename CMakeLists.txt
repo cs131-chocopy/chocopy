@@ -2,31 +2,10 @@ cmake_minimum_required(VERSION 3.7.1)
 
 project(ChocoPy-Compiler)
 
-# required package flex bison llvm
+# required package flex bison
 find_package(FLEX REQUIRED)
 find_package(BISON REQUIRED)
 find_package(FMT REQUIRED)
-# find_package(LLVM REQUIRED CONFIG)
-
-# llvm environment set
-# message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-# message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
-# include_directories(${LLVM_INCLUDE_DIRS})
-# add_definitions(${LLVM_DEFINITIONS})
-# include_directories(${LLVM_INCLUDE_DIRS})
-# add_definitions(${LLVM_DEFINITIONS})
-
-#find_package(LLVM REQUIRED CONFIG)
-# message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-# message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
-# include_directories(${LLVM_INCLUDE_DIRS})
-# separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
-# add_definitions(${LLVM_DEFINITIONS_LIST})
-
-# Workaround for using clion+wsl
-# if ($ENV{CLION_IDE_WSL})
-#     include_directories("/usr/include/llvm-${LLVM_VERSION_MAJOR}")
-# endif ()
 
 # set the directory output
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})

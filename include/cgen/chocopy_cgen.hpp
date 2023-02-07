@@ -1,12 +1,6 @@
 #pragma once
 
 #include <vector>
-#ifdef LLVM
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#endif
 #include <algorithm>
 #include <iostream>
 #include <queue>
@@ -30,9 +24,6 @@ using namespace lightir;
 using std::string;
 using std::string_view;
 
-#ifdef LLVM
-const Module chocopy_m;
-#endif
 namespace cgen {
 class InstGen;
 class RiscVBackEnd;
@@ -50,11 +41,7 @@ const int op_reg_1 = 6;
 const int op_reg_2 = 7;
 
 const string attribute = "rv32i2p0_m2p0_a2p0_c2p0";
-#ifdef LLVM
-class CodeGen : llvm::PassInfoMixin<CodeGen> {
-#else
 class CodeGen {
-#endif
    private:
     shared_ptr<Module> module;
 
@@ -80,9 +67,6 @@ class CodeGen {
 
    public:
     explicit CodeGen(shared_ptr<Module> module);
-#ifdef LLVM
-    explicit CodeGen() : CodeGen(chocopy_m){};
-#endif
     [[nodiscard]] string generateModuleCode();
 
     void lifetimeAnalysis();
@@ -115,15 +99,6 @@ class CodeGen {
 
     string comment(const string &s);
     string comment(const string &t, const string &s);
-#ifdef LLVM
-    llvm::PreservedAnalyses run(llvm::Module &M,
-                                llvm::ModuleAnalysisManager &) {
-        generateModuleCode(true);
-        return llvm::PreservedAnalyses::all();
-    }
-
-    static llvm::StringRef name() { return "ChocoPy"; }
-#endif
 };
 
 }  // namespace cgen

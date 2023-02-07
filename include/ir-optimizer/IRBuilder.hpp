@@ -107,9 +107,6 @@ class IRBuilder {
     LoadInst *create_load(Type *ty, Value *ptr) {
         return LoadInst::create_load(ty, ptr, this->BB_);
     }
-    LoadInst *create_load(Value *ptr1, Value *ptr2) {
-        return LoadInst::create_load(ptr1, ptr2, this->BB_);
-    }
     LoadInst *create_load(Value *ptr) {
         if (dynamic_cast<GlobalVariable *>(ptr)) {
             return LoadInst::create_load(ptr->get_type(), ptr, this->BB_);
@@ -133,6 +130,9 @@ class IRBuilder {
     }
     BitCastInst *create_bitcast(Value *val, Type *ty) {
         return BitCastInst::create_bitcast(val, ty, this->BB_);
+    }
+    PtrToIntInst *create_ptrtoint(Value *val, Type *ty) {
+        return PtrToIntInst::create_ptrtoint(val, ty, this->BB_);
     }
     TruncInst *create_trunc(Value *val, Type *ty) {
         return TruncInst::create_trunc(val, ty, this->BB_);

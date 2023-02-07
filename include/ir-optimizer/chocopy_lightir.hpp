@@ -12,13 +12,11 @@
 #include "SymbolType.hpp"
 #include "Type.hpp"
 #include "chocopy_ast.hpp"
-#include "chocopy_optimization.hpp"
 #include "chocopy_semant.hpp"
 
 const std::regex to_class_replace("\\$(.+?)+__init__\\.");
 
 void print_help(const string_view &exe_name);
-void print_help_all(const string_view &exe_name);
 
 namespace semantic {
 class SymbolTable;
@@ -155,7 +153,6 @@ class LightWalker : public ast::Visitor {
     /** Predefined classes. The list "class" is a fake class; we use it only
      *  to emit a prototype object for empty lists. */
     Class *object_class, *int_class, *bool_class, *str_class, *list_class;
-    Union *union_put, *union_len, *union_conslist;
 
     void visit(parser::AssignStmt &) override final;
     void visit(parser::Program &) override final;
@@ -194,7 +191,7 @@ class LightWalker : public ast::Visitor {
     semantic::SymbolTable *sym;
     ScopeAnalyzer scope;
     unique_ptr<Module> module;
-    int next_type_id = 0;
+    int next_type_id = 5;
     int next_const_id = 9;
     int get_next_type_id();
     int get_const_type_id();
@@ -215,9 +212,10 @@ class LightWalker : public ast::Visitor {
     bool get_lvalue = false;  // mark if the visitor is in lvalue context
 
     Function *strcat_fun, *concat_fun, *streql_fun, *strneql_fun, *makebool_fun,
-        *makeint_fun, *makestr_fun, *alloc_fun, *conslist_fun;
-    Type *i32_type, *i1_type, *vstr_type, *ptr_vstr_type;
-    Value *invalid_value;
+        *makeint_fun, *makestr_fun, *alloc_fun, *construct_list_fun, *input_fun,
+        *len_fun, *print_fun;
+    Function *error_oob_fun, *error_none_fun, *error_div_fun;
+    Type *i32_type, *i1_type, *str_type, *ptr_str_type, *ptr_obj, *ptr_ptr_obj;
     Value *null;
 };
 

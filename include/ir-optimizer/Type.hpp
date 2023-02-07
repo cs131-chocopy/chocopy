@@ -15,8 +15,7 @@ namespace lightir {
 class Module;
 class IntegerType;
 class FunctionType;
-class ArrayType;
-class StringType;
+class PtrType;
 class Class;
 class ConstantArray;
 
@@ -27,7 +26,6 @@ class Type {
         LABEL,
         FUNC,
         VOID,
-        UNION,
         VECTOR,
         LIST,
         OBJECT,
@@ -51,11 +49,7 @@ class Type {
 
     constexpr bool is_list_type() const { return tid_ == type::LIST; }
 
-    constexpr bool is_union_type() const { return tid_ == type::UNION; }
-
-    constexpr bool is_array_type();
-
-    constexpr bool is_ptr_type();
+    constexpr bool is_ptr_type() const { return tid_ == type::LIST; };
 
     constexpr bool is_void_type() const {
         return tid_ == type::VOID; /** reserved type */
@@ -67,10 +61,8 @@ class Type {
         return tid_ == type::BOOL; /** same as int 1 */
     }
 
-    constexpr bool is_string_type() const { return tid_ == type::STRING; }
-
     constexpr bool is_value_type() const {
-        return is_bool_type() || is_string_type() || is_integer_type();
+        return is_bool_type() || is_integer_type();
     }
 
     constexpr bool is_class_type() const { return tid_ >= type::CLASS; }
@@ -84,14 +76,6 @@ class Type {
     static IntegerType *get_int1_type(Module *m);
 
     static IntegerType *get_int32_type(Module *m);
-
-    static StringType *get_str_type(Module *m);
-
-    static ArrayType *get_array_type(Module *m);
-
-    static ArrayType *get_array_type(Type *contained);
-
-    Type *get_array_element_type();
 
     Type *get_ptr_element_type();
 
@@ -146,77 +130,17 @@ class FunctionType : public Type {
     vector<Type *> args_;
 };
 
-/** Contains both pointer type and array */
-class ArrayType : public Type {
+class PtrType : public Type {
    public:
-    ArrayType(Type *contained, unsigned num_elements);
-    explicit ArrayType(
-        Type *Contained);  // Do not specify the number of elements;
-    static ArrayType *get(Type *contained, unsigned num_elements);
-    static ArrayType *get(Type *contained);
+    explicit PtrType( Type *Contained);
+    static PtrType *get(Type *contained);
 
     Type *get_element_type() const { return contained_; }
-    int get_num_of_elements() const { return num_elements_; }
-    void set_num_of_elements(int num_) { num_elements_ = num_; }
 
     virtual string print();
 
    private:
     Type *contained_;   // The element type of the array.
-    int num_elements_;  // Number of elements in the array. -1 means ptr
-};
-
-/** For use of duck typing in function passing and list dispatch table,
- *  connected with @Bitcast */
-class Union : public Type, public Value {
-   public:
-    Union(vector<Type *> contained, string name);
-    static Union *get(vector<Type *> contained, string name);
-    static Union *get(Module *m_, string name);
-
-    vector<Type *> get_union_type() const { return contained_; }
-    virtual string print();
-    virtual string get_name() { return "$union." + this->name_; };
-    int length_ = 0;
-
-   private:
-    vector<Type *> contained_;  // The element types of the union.
-    string name_;
-};
-
-/** For use of vectorization, connected with @InsertElement and @ExtractElement
- */
-class VectorType : public Type {
-   public:
-    VectorType(Value *contained, unsigned num_elements);
-    VectorType(Value *contained);
-    static VectorType *get(Value *contained, unsigned num_elements);
-    static VectorType *get(ConstantArray *contained);
-
-    Value *get_element_value() const { return contained_; }
-    unsigned get_num_of_elements() const { return num_elements_; }
-    void set_num_of_elements(int num_) { num_elements_ = num_; }
-
-    virtual string print();
-    string print_as_op();
-
-   private:
-    Value *contained_;       // The element type of the vector.
-    unsigned num_elements_;  // Number of elements in the array. typically 4
-};
-
-class StringType : public Type {
-   public:
-    explicit StringType(string str_, Module *m);
-
-    static StringType *get(string str_, Module *m);
-
-    string get_string() const;
-
-    virtual string print() { return "i8*"; }
-
-   private:
-    string str_;
 };
 
 class LabelType : public Type {

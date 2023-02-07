@@ -23,28 +23,11 @@ IntegerType *Type::get_int1_type(Module *m) { return m->get_int1_type(); }
 
 IntegerType *Type::get_int32_type(Module *m) { return m->get_int32_type(); }
 
-StringType *Type::get_str_type(Module *m) { return m->get_str_type(); }
-
-ArrayType *Type::get_array_type(Module *m) { return m->get_array_type(); }
-
-ArrayType *Type::get_array_type(Type *contained) {
-    return ArrayType::get(contained, -1);
-}
-
-Type *Type::get_array_element_type() {
-    if (this->is_array_type())
-        return dynamic_cast<ArrayType *>(this)->get_element_type();
-    else
-        return nullptr;
-}
-
 Type *Type::get_ptr_element_type() {
-    if (!dynamic_cast<ArrayType *>(this) && !dynamic_cast<StringType *>(this))
+    if (!dynamic_cast<PtrType *>(this))
         return this;
-    else if (dynamic_cast<StringType *>(this))
-        return ArrayType::get(new IntegerType(8, m_));
     else if (this->is_ptr_type())
-        return dynamic_cast<ArrayType *>(this)->get_element_type();
+        return dynamic_cast<PtrType *>(this)->get_element_type();
     else
         return this;
 }
@@ -54,31 +37,9 @@ int Type::get_size() {
         auto bits = dynamic_cast<IntegerType *>(this)->get_num_bits();
         return bits > 0 ? bits : 1;
     }
-    if (this->is_array_type()) {
-        auto element_size =
-            dynamic_cast<ArrayType *>(this)->get_element_type()->get_size();
-        auto num_elements =
-            dynamic_cast<ArrayType *>(this)->get_num_of_elements();
-        return element_size * num_elements;
-    }
-    if (this->is_ptr_type() || this->is_string_type()) return 32;
+    if (this->is_ptr_type()) return 32;
 
     return 0;
-}
-
-constexpr bool Type::is_array_type() {
-    if (this->tid_ == type::LIST)
-        return dynamic_cast<ArrayType *>(this)->get_num_of_elements() != -1;
-    else
-        return false;
-}
-constexpr bool Type::is_ptr_type() {
-    if (!dynamic_cast<ArrayType *>(this))
-        return true;
-    else if (this->tid_ == type::LIST)
-        return dynamic_cast<ArrayType *>(this)->get_num_of_elements() == -1;
-    else
-        return false;
 }
 std::strong_ordering Type::operator<=>(Type rhs) {
     if (this->is_ptr_type()) {
@@ -144,131 +105,21 @@ string FunctionType::print() {
     return type_ir;
 }
 
-ArrayType::ArrayType(Type *contained, unsigned num_elements)
-    : Type(Type::type::LIST, contained->get_module()),
-      num_elements_(num_elements) {
-    contained_ = contained;
-}
-ArrayType::ArrayType(Type *contained)
-    : Type(Type::type::LIST, contained->get_module()), num_elements_(-1) {
+PtrType::PtrType(Type *contained)
+    : Type(Type::type::LIST, contained->get_module()) {
     contained_ = contained;
 }
 
-ArrayType *ArrayType::get(Type *contained, unsigned num_elements) {
-    return contained->get_module()->get_array_type(contained, num_elements);
-}
-
-ArrayType *ArrayType::get(Type *contained) {
-    auto res = contained->get_module()->get_array_type(contained);
-    res->num_elements_ = -1;
+PtrType *PtrType::get(Type *contained) {
+    auto res = contained->get_module()->get_ptr_type(contained);
     return res;
 }
 
-string ArrayType::print() {
+string PtrType::print() {
     string type_ir;
-    if (dynamic_cast<ArrayType *>(this)->get_num_of_elements() != -1)
-        type_ir += fmt::format(
-            "[{} x {}]",
-            std::to_string(
-                dynamic_cast<ArrayType *>(this)->get_num_of_elements()),
-            dynamic_cast<ArrayType *>(this)->get_element_type()->print());
-    else if (dynamic_cast<StringType *>(
-                 dynamic_cast<ArrayType *>(this)->get_element_type()))
-        type_ir += "i8*";
-    else
-        type_ir +=
-            dynamic_cast<ArrayType *>(this)->get_element_type()->print() + "*";
+    type_ir += "ptr";
     return type_ir;
 }
-
-Union::Union(vector<Type *> contained, string name)
-    : Type(Type::type::UNION, contained.at(0)->get_module()),
-      Value(this),
-      contained_(contained),
-      name_(std::move(name)) {
-    for (auto &&type_ : contained) {
-        this->length_ = std::max(this->length_, this->get_size());
-    }
-}
-
-Union *Union::get(vector<Type *> contained, string name) {
-    return new Union(std::move(contained), std::move(name));
-}
-
-Union *Union::get(Module *m_, string name) {
-    return new Union({m_->get_void_type()}, std::move(name));
-}
-
-string Union::print() {
-    string type_ir;
-    /** should get the context that it's not array type check. */
-    if (this->get_module()->is_declaration_) {
-        /** First to print declaration */
-        type_ir += "%$union." + this->name_ + " = type { ";
-        type_ir += fmt::format("i{}", this->length_);
-        type_ir += " }\n";
-    } else {
-        /** Second to print type */
-        type_ir += "%$union." + this->name_;
-    }
-    return type_ir;
-}
-
-VectorType::VectorType(Value *contained, unsigned num_elements)
-    : Type(Type::type::VECTOR, contained->get_type()->get_module()),
-      contained_(contained),
-      num_elements_(num_elements) {}
-
-VectorType::VectorType(Value *contained)
-    : Type(Type::type::VECTOR, contained->get_type()->get_module()),
-      contained_(contained),
-      num_elements_(0) {}
-
-VectorType *VectorType::get(Value *contained, unsigned num_elements) {
-    return new VectorType(contained, num_elements);
-}
-
-VectorType *VectorType::get(ConstantArray *contained) {
-    return new VectorType(contained);
-}
-
-string VectorType::print() {
-    if (dynamic_cast<ConstantArray *>(this->contained_))
-        return fmt::format(
-            "<{} x {}>",
-            std::to_string(
-                dynamic_cast<ArrayType *>(this->contained_->get_type())
-                    ->get_num_of_elements()),
-            dynamic_cast<ArrayType *>(this->contained_->get_type())
-                ->get_element_type()
-                ->print());
-    else
-        return fmt::format("<{} x {}>", std::to_string(this->num_elements_),
-                           this->contained_->get_type()->print());
-}
-
-string VectorType::print_as_op() {
-    return fmt::format(
-        "<{} x {}>* bitcast ({} to <{} x {}>*)",
-        std::to_string(dynamic_cast<ArrayType *>(this->contained_->get_type())
-                           ->get_num_of_elements()),
-        dynamic_cast<ArrayType *>(this->contained_->get_type())
-            ->get_element_type()
-            ->print(),
-        dynamic_cast<ArrayType *>(this->contained_->get_type())->print(),
-        std::to_string(dynamic_cast<ArrayType *>(this->contained_->get_type())
-                           ->get_num_of_elements()),
-        dynamic_cast<ArrayType *>(this->contained_->get_type())
-            ->get_element_type()
-            ->print());
-}
-
-StringType *StringType::get(string str_, Module *m) {
-    return new StringType(std::move(str_), m);
-}
-StringType::StringType(string str_, Module *m)
-    : Type(Type::type::STRING, m), str_(std::move(str_)) {}
-string StringType::get_string() const { return str_; }
 
 LabelType *LabelType::get(string str_, Class *stored_, Module *m) {
     return new LabelType(std::move(str_), stored_, m);

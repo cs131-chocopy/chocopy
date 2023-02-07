@@ -56,33 +56,16 @@ Class::Class(Module *m, const string &name_, bool anon_)
 
 /** First print out the type name */
 string Class::print_class() {
-    /** Test case for the print
-        class A(object):
-            a:int = 42
-
-            def foo(self:"A", ignore:object) -> int:
-                return self.a
-
-        class B(A):
-            b:bool = True
-
-            def __init__(self:"B"):
-                print("B")
-
-            def bar(self:"B") -> int:
-                a:A = None
-                return a.foo(self.b)
-     */
-
     string const_ir;
 
+    // simple struct
     if (anon_) {
         /** %class.anon = type { i32* } */
         const_ir += fmt::format("%$class.anon_{} = type", class_name_) + " {";
         for (auto &&attr : *this->attributes_) {
-            const_ir += fmt::format("{} ", attr->print());
+            const_ir += fmt::format("  {}", attr->print());
             if (attr != this->attributes_->at(this->attributes_->size() - 1)) {
-                const_ir += ",\n  ";
+                const_ir += ",\n";
             } else {
                 const_ir += "\n";
             }
@@ -92,161 +75,59 @@ string Class::print_class() {
         return const_ir;
     }
 
-    /**
-     * From here, we print out the prototype of the class.
-     * In Cgen:
-     * .globl $A$prototype
-     * $A$prototype:
-     *   .word 4                                  # Type tag for class: A
-     *   .word 4                                  # Object size
-     *   .word $A$dispatchTable                   # Pointer to dispatch table
-     *   .word 42                                 # Initial value of attribute:
-     * a .align 2 .globl $B$prototype $B$prototype: .word 5 # Type tag for
-     * class: B .word 5                                  # Object size .word
-     * $B$dispatchTable                   # Pointer to dispatch table .word 42
-     * # Initial value of attribute: a .word 1 # Initial value of attribute: b
-     *   .align 2
-     * In LLVM:
-     * %$A$prototype_type = type { i32, i32, i32(%$A$dispatchTable_type*)*, i32
-     * }
-     * @$A$prototype = global %$A$prototype_type {
-     *    i32 4,
-     *        i32 4,
-     *        i32(%A*)* @$A$dispatchTable,
-     *        i32 4
-     *    }
-     */
+    // print the type of the prototype
+    const_ir += fmt::format(
+        "%{}_type = type {{\n"
+        "  i32,\n"
+        "  i32,\n"
+        "  ptr",
+        this->prototype_label_);
+    for (auto &attr : *this->attributes_)
+        const_ir += fmt::format(",\n  {}", attr->print());
+    const_ir += "\n}\n";
 
-    const_ir += "%" + this->prototype_label_ + "_type  = type  {\n  ";
-    const_ir += fmt::format("i32,\n  ");
-    const_ir += fmt::format("i32,\n  ");
-
-    if (!dispatch_table_label_.empty()) {
-        if (this->attributes_->empty()) {
-            const_ir += fmt::format("%{}_type*\n", this->dispatch_table_label_);
-        } else {
+    // print the prototype
+    const_ir += fmt::format(
+        "@{} = global %{}_type {{\n"
+        "  i32 {},\n"
+        "  i32 {},\n"
+        "  ptr @{}",
+        prototype_label_, prototype_label_, type_tag_, 3 + attributes_->size(),
+        dispatch_table_label_);
+    for (auto &attr : *attributes_) {
+        if (attr->get_type()->is_integer_type() ||
+            attr->get_type()->is_bool_type()) {
+            assert(attr->init_obj == 0);
             const_ir +=
-                fmt::format("%{}_type*,\n  ", this->dispatch_table_label_);
-        }
-    }
-
-    for (auto &&attr : *this->attributes_) {
-        const_ir += fmt::format("{} ", attr->print());
-        if (attr != this->attributes_->at(this->attributes_->size() - 1)) {
-            const_ir += ",\n  ";
-        } else {
-            const_ir += "\n";
-        }
-    }
-    const_ir += "}\n";
-
-    const_ir += "@" + this->prototype_label_ + "  = global %" +
-                this->prototype_label_ + "_type{\n  ";
-    const_ir += fmt::format("i32 {},\n  ", this->type_tag_);
-    if (!dispatch_table_label_.empty()) {
-        const_ir += fmt::format("i32 {},\n  ", 3 + this->attributes_->size());
-        if (this->attributes_->empty()) {
-            const_ir +=
-                fmt::format("%{}_type* @{}\n", this->dispatch_table_label_,
-                            this->dispatch_table_label_);
-        } else {
-            const_ir +=
-                fmt::format("%{}_type* @{},\n  ", this->dispatch_table_label_,
-                            this->dispatch_table_label_);
-        }
-    } else
-        const_ir += fmt::format("i32 {},\n  ", 2 + this->attributes_->size());
-
-    for (auto &&attr : *this->attributes_) {
-        if (attr->init_obj == nullptr && (attr->get_type()->is_integer_type() ||
-                                          attr->get_type()->is_bool_type())) {
-            const_ir += fmt::format("{} {}", attr->print(), attr->init_val);
+                fmt::format(",\n  {} {}", attr->print(), attr->init_val);
         } else if (attr->init_obj == nullptr) {
-            const_ir += fmt::format("{} {}", attr->print(),
-                                    fmt::format("inttoptr (i32 0 to {})",
-                                                attr->get_type()->print()));
+            const_ir += fmt::format(",\n  {} null", attr->print());
         } else if (dynamic_cast<GlobalVariable *>(attr->init_obj)) {
-            const_ir += fmt::format("{} @{}", attr->print(),
+            const_ir += fmt::format(",\n  {} @{}", attr->print(),
                                     attr->init_obj->get_name());
-        } else if (dynamic_cast<Union *>(attr->init_obj)) {
-            const_ir += attr->print() + " {";
-            const_ir += fmt::format("i{}", ((Union *)attr->init_obj)->length_);
-            const_ir += " 0 }";
         } else {
-            const_ir += attr->print() + " {" +
-                        attr->init_obj->get_type()->print() + " undef}";
-        }
-
-        if (attr != this->attributes_->at(this->attributes_->size() - 1)) {
-            const_ir += ",\n  ";
-        } else {
-            const_ir += "\n";
+            assert(0);
         }
     }
+    const_ir += "\n}\n";
 
-    const_ir += "}\n";
+    // print the type of the dispatch table
+    assert(methods_->size() > 0);
+    const_ir += fmt::format(
+        "%{}_type = type {{\n"
+        "{}"
+        "\n}}\n",
+        dispatch_table_label_,
+        fmt::join(vector<string>(methods_->size(), "  ptr"s), ",\n"));
 
-    /**
-     * From here, we print out the dispatch table of the class.
-     * In Cgen:
-     *     .globl $A$dispatchTable
-     *     $A$dispatchTable:
-     *       .word $object.__init__                   # Implementation for
-     * method: A.__init__ .word $A.foo                             #
-     * Implementation for method: A.foo .globl $B$dispatchTable
-     *     $B$dispatchTable:
-     *       .word $B.__init__                        # Implementation for
-     * method: B.__init__ .word $A.foo                             #
-     * Implementation for method: B.foo .word $B.bar # Implementation for
-     * method: B.bar In LLVM:
-     *  %$A$dispatchTable_type = type {
-     *     object(%A*)*
-     *     i32(%A*)*
-     *  }
-     *  @$A$dispatchTable = global %$A$dispatchTable_type {
-     *     $A$prototype (%A*)* @object.__init__
-     *     i32(%A*)* @A.foo
-     *  }
-     *  %$B$dispatchTable_type = type {
-     *     object(%B*)*
-     *     i32(%B*)*
-     *  }
-     *  @$B$dispatchTable = global %$B$dispatchTable_type {
-     *      $B$prototype (%B*)* @B.__init__
-     *      i32(%B*)* @A.foo
-     *      i32(%B*)* @B.bar
-     *  }
-     */
-    if (!this->dispatch_table_label_.empty()) {
-        const_ir += "%" + this->dispatch_table_label_ + "_type = type {\n  ";
-        for (auto &&method : *this->methods_) {
-            const_ir +=
-                fmt::format("{}({})*", method->get_return_type()->print(),
-                            method->print_args());
-            if (method != this->methods_->at(this->methods_->size() - 1)) {
-                const_ir += ",\n  ";
-            } else {
-                const_ir += "\n";
-            }
-        }
-        const_ir += "}\n";
-
-        const_ir += "@" + this->dispatch_table_label_ + " = global %" +
-                    this->dispatch_table_label_ + "_type {\n  ";
-
-        for (auto &&method : *this->methods_) {
-            // FIXME: Use dispatch_table_vec to print.
-            const_ir +=
-                fmt::format("{}({})* @{}", method->get_return_type()->print(),
-                            method->print_args(), method->get_name());
-            if (method != this->methods_->at(this->methods_->size() - 1)) {
-                const_ir += ",\n  ";
-            } else {
-                const_ir += "\n";
-            }
-        }
-        const_ir += "}\n";
-    }
+    // print the dispatch table
+    const_ir += fmt::format(
+        "@{0} = global %{0}_type {{\n"
+        "  ptr @{1}",
+        dispatch_table_label_, methods_->front()->get_name());
+    for (size_t i = 1; i < methods_->size(); i++)
+        const_ir += fmt::format(",\n  ptr @{}", methods_->at(i)->get_name());
+    const_ir += "\n}\n";
     return const_ir;
 }
 
@@ -262,10 +143,7 @@ int Class::get_method_offset(string method) const {
 
 string AttrInfo::print() {
     string const_ir;
-    if (dynamic_cast<Union *>(this->init_obj))
-        const_ir += this->init_obj->print();
-    else
-        const_ir += this->get_type()->print();
+    const_ir += this->get_type()->print();
     return const_ir;
 }
 

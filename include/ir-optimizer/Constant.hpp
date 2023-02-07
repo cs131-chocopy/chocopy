@@ -12,7 +12,7 @@ using std::vector;
 namespace lightir {
 class Class;
 class Module;
-class ArrayType;
+class PtrType;
 class Constant : public User {
    public:
     explicit Constant(Type *ty, const string &name = "", unsigned num_ops = 0)
@@ -97,27 +97,6 @@ class ConstantNull : public Constant {
     static ConstantNull *get(Type *ty) { return new ConstantNull(ty); };
 
     string print() override;
-};
-
-class ConstantArray : public Constant {
-   private:
-    ConstantArray(ArrayType *ty, const vector<Constant *> &val);
-
-   public:
-    ~ConstantArray() = default;
-
-    Constant *get_element_value(int index);
-
-    unsigned get_size_of_array() const { return const_array.size(); }
-
-    void set_const_array(const vector<Constant *> &new_array);
-
-    static ConstantArray *get(ArrayType *ty, const vector<Constant *> &val) {
-        return new ConstantArray(ty, val);
-    };
-
-    string print() override;
-    vector<Constant *> const_array;
 };
 
 class ConstantZero : public Constant {
