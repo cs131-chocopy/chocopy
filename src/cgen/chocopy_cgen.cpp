@@ -1107,9 +1107,7 @@ string CodeGen::generateInstructionCode(Instruction *inst) {
         case lightir::Instruction::VExt:
         case lightir::Instruction::Shl:
         case lightir::Instruction::AShr:
-        case lightir::Instruction::LShr:
-        case lightir::Instruction::ACCSTART:
-        case lightir::Instruction::ACCEND: {
+        case lightir::Instruction::LShr: {
             assert(0);
             break;
         }

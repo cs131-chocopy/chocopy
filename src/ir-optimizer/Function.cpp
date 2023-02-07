@@ -91,13 +91,6 @@ void Function::set_instr_name() {
 
 std::string Function::print() {
     std::string func_ir;
-    if (this->is_ctor) {
-        func_ir +=
-            "@llvm.global_ctors = appending global [1 x { i32, void ()*, i8* "
-            "}] [{ i32, void ()*, i8* } { i32 "
-            "65535, void ()* @" +
-            this->get_name() + ", i8* null }]\n";
-    }
     if (this->is_declaration()) {
         func_ir += "declare ";
     } else {

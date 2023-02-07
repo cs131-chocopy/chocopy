@@ -2,6 +2,8 @@
 
 #include <cassert>
 #include <fstream>
+#include <ranges>
+#include <regex>
 #include <string>
 #include <utility>
 
@@ -17,8 +19,6 @@
 #include "Value.hpp"
 #include "chocopy_parse.hpp"
 #include "chocopy_semant.hpp"
-#include <ranges>
-#include <regex>
 
 namespace semantic {
 class SemanticError;
@@ -33,13 +33,8 @@ Type *INT_T;
 Type *ARR_T;
 Type *STR_T;
 auto OBJ_T = new vector<Type *>();
-const std::regex to_replace("\\$(.+?)+\\.");
-const std::regex to_replace_prev(".+?\\.");
-const std::regex to_replace_post("\\..+?$");
 #define CONST(num) ConstantInt::get(num, &*module)
-vector<BasicBlock *> base_layer;
 /** Function that is being built */
-Function *curr_func = nullptr;
 
 bool enable_str_for;
 
@@ -185,18 +180,6 @@ LightWalker::LightWalker(parser::Program &program)
     auto TyPtrList = new ArrayType(TyListClass);
 
     /** Predefined functions. */
-    std::vector<Type *> heap_init_params;
-    auto heap_init_type = FunctionType::get(TyVoid, heap_init_params);
-    heap_init_fun = Function::create(heap_init_type, "heap.init", module.get());
-
-    std::vector<Type *> noconv_params;
-    auto noconv_type = FunctionType::get(TyPtrInt, noconv_params);
-    noconv_fun = Function::create(noconv_type, "noconv", module.get());
-
-    std::vector<Type *> nonlist_params;
-    auto nonlist_type = FunctionType::get(TyPtrList, nonlist_params);
-    nonlist_fun = Function::create(nonlist_type, "nonlist", module.get());
-
     std::vector<Type *> error_oob_params;
     auto error_oob_type = FunctionType::get(TyVoid, error_oob_params);
     auto error_oob_fun =
@@ -292,8 +275,9 @@ void LightWalker::visit(parser::Program &node) {
     conslist_params.emplace_back(union_conslist);
     auto concat_type = FunctionType::get(TyPtrList, concat_params);
     auto conslist_type = FunctionType::get(TyPtrList, conslist_params, true);
-    concat_fun = Function::create(concat_type, "concat", module.get());
-    conslist_fun = Function::create(conslist_type, "conslist", module.get());
+    concat_fun = Function::create(concat_type, "concat_list", module.get());
+    conslist_fun =
+        Function::create(conslist_type, "construct_list", module.get());
 
     std::vector<Type *> len_params;
     len_params.emplace_back(ArrayType::get(union_len));
@@ -322,7 +306,7 @@ void LightWalker::visit(parser::Program &node) {
     auto input_fun = Function::create(input_type, "$input", module.get());
 
     auto alloc_type = FunctionType::get(TyPtrObj, {TyPtrObj});
-    alloc_fun = Function::create(alloc_type, "alloc", module.get());
+    alloc_fun = Function::create(alloc_type, "alloc_object", module.get());
 
     std::vector<Type *> strcat_params;
     std::vector<Type *> str_params;
@@ -334,9 +318,10 @@ void LightWalker::visit(parser::Program &node) {
     vstr_params.emplace_back(ptr_vstr_type);
     auto str_type = FunctionType::get(BOOL_T, vstr_params);
     auto strcat_type = FunctionType::get(ptr_vstr_type, vstr_params);
-    streql_fun = Function::create(str_type, "streql", module.get());
-    strneql_fun = Function::create(str_type, "strneql", module.get());
-    strcat_fun = Function::create(strcat_type, "strcat", module.get());
+    streql_fun = Function::create(str_type, "str_object_eq", module.get());
+    strneql_fun = Function::create(str_type, "str_object_neq", module.get());
+    strcat_fun =
+        Function::create(strcat_type, "str_object_concat", module.get());
 
     scope.push_in_global("$input", input_fun);
     scope.push_in_global("$len", len_fun);
@@ -345,47 +330,10 @@ void LightWalker::visit(parser::Program &node) {
     module->add_union(union_put);
     module->add_union(union_conslist);
 
-    /** Global variable in the stdlib */
-    GlobalVariable *const_;
-    auto const_vect = {0, 1};
-    for (auto &&num : const_vect) {
-        const_ =
-            GlobalVariable::create(fmt::format("const_{}", num), &*this->module,
-                                   OBJ_T->at(2), false, nullptr);
-        scope.push_in_global(fmt::format("const_{}", num), const_);
-    }
-    auto const_vect_1 = {2, 3, 4, 5, 6, 7};
-    for (auto &&num : const_vect_1) {
-        const_ =
-            GlobalVariable::create(fmt::format("const_{}", num), &*this->module,
-                                   OBJ_T->at(3), false, nullptr);
-        scope.push_in_global(fmt::format("const_{}", num), const_);
-    }
-
     /** First set the function to before_main. */
     std::vector<Type *> param_types;
     auto func_type = FunctionType::get(VOID_T, param_types);
 
-    curr_func = Function::create(true, func_type, "before_main", module.get());
-    auto beforeBB = BasicBlock::create(&*module, "before_main", curr_func);
-    builder->set_insert_point(beforeBB);
-#ifdef RV64
-    builder->create_asm("lui a0, 8192\\0A\tadd s11, zero, a0");
-    vector<Value *> arg_params;
-    builder->create_call(heap_init_fun, arg_params);
-    builder->create_asm(
-        "mv s10, gp\\0A\tadd s11, s11, s10\\0A\tmv fp, zero\\0A\tlw ra, "
-        "8(sp)\\0A\taddi "
-        "sp, sp, 16\\0A\tret");
-#else
-    builder->create_asm("lui a0, 8192\\0A\tadd s11, zero, a0");
-    vector<Value *> arg_params;
-    builder->create_call(heap_init_fun, arg_params);
-    builder->create_asm(
-        "mv s10, gp\\0A\tadd s11, s11, s10\\0A\tmv fp, zero\\0A\tlw ra, "
-        "12(sp)\\0A\taddi "
-        "sp, sp, 16\\0A\tret");
-#endif
     /** Proceed in phases:
      * 1. Analyze all global variable declarations.
      *    Do this first so that global variables are in the symbol
@@ -394,11 +342,10 @@ void LightWalker::visit(parser::Program &node) {
      *    are in the symbol table.
      */
 
-    curr_func = Function::create(func_type, "main", module.get());
-    auto baseBB = BasicBlock::create(&*module, "", curr_func);
-    base_layer.emplace_back(baseBB);
+    auto main_func = Function::create(func_type, "main", module.get());
+    auto baseBB = BasicBlock::create(&*module, "", main_func);
     builder->set_insert_point(baseBB);
-    scope.push_in_global("$main", curr_func);
+    scope.push_in_global("$main", main_func);
 
     auto ptr_list_type = ArrayType::get(list_class);
 
@@ -409,7 +356,7 @@ void LightWalker::visit(parser::Program &node) {
     Instruction *temp_conslist = builder->create_alloca(union_conslist);
     scope.push("$temp_conslist", temp_conslist);
 
-    null = builder->create_call(noconv_fun, vector<Value *>());
+    null = ConstantNull::get(TyPtrObj);
 
     for (const auto &decl : node.declarations) {
         if (auto node = dynamic_cast<parser::ClassDef *>(decl.get()); node) {
@@ -867,7 +814,6 @@ void LightWalker::visit(parser::ForStmt &node) {
     node.iterable->accept(*this);
     auto list = visitor_return_value;
 
-    auto null = builder->create_call(noconv_fun, vector<Value *>());
     auto cond_null = builder->create_icmp_eq(list, null);
     auto b_before_null = builder->get_insert_block();
     auto b_null_true =
@@ -1227,7 +1173,6 @@ void LightWalker::visit(parser::ListExpr &node) {
     Instruction *list = builder->create_call(conslist_fun, para);
     list = builder->create_bitcast(list,
                                    ArrayType::get(ArrayType::get(list_class)));
-    list = builder->create_load(list);
     visitor_return_value = list;
 }
 void LightWalker::visit(parser::ListType &node) {
@@ -1333,8 +1278,7 @@ void LightWalker::visit(parser::MethodCallExpr &node) {
         builder->create_call(func, func_type, std::move(args));
 }
 void LightWalker::visit(parser::NoneLiteral &node) {
-    auto t1 = builder->create_call(noconv_fun, vector<Value *>());
-    visitor_return_value = t1;
+    visitor_return_value = null;
 }
 void LightWalker::visit(parser::NonlocalDecl &) {}
 void LightWalker::visit(parser::ReturnStmt &node) {
@@ -1529,7 +1473,6 @@ void LightWalker::visit(parser::IndexExpr &node) {
     node.index->accept(*this);
     auto idx = visitor_return_value;
 
-    auto null = builder->create_call(noconv_fun, vector<Value *>());
     auto cond_null = builder->create_icmp_eq(list, null);
     auto b_before_null = builder->get_insert_block();
     auto b_null_true =

@@ -230,9 +230,7 @@ string CallInst::print() {
     instr_ir += "(";
     for (int i = 1; i < this->get_num_operand(); i++) {
         if (i > 1) instr_ir += ", ";
-        if (print_as_op(this->get_operand(0), false) == "@initchars") {
-            instr_ir += "i8 ";
-        } else if (this->get_operand(i)->get_type()->is_string_type()) {
+        if (this->get_operand(i)->get_type()->is_string_type()) {
             instr_ir += "%$str$prototype_type* ";
         } else if (!dynamic_cast<Constant *>(this->get_operand(i)) ||
                    this->get_operand(i)->get_type()->is_integer_type() ||
@@ -1127,32 +1125,6 @@ string VExtInst::print() {
         instr_ir += ", ";
         instr_ir += print_as_op(this->get_operand(1), true);
     }
-    return instr_ir;
-}
-
-Accstart::Accstart(Module *m)
-    : Instruction(Type::get_int32_type(m), Instruction::ACCSTART, 0) {}
-
-Accstart *Accstart::create_accstart(Module *m) { return new Accstart(m); }
-
-string Accstart::print() {
-    string instr_ir;
-    instr_ir += R"(tail call void asm sideeffect "{}", ""())";
-    return instr_ir;
-}
-
-Accend::Accend(Module *m, Accstart *start)
-    : Instruction(Type::get_void_type(m), Instruction::ACCEND, 1) {
-    set_operand(0, start);
-}
-
-Accend *Accend::create_accend(Module *m, Accstart *start) {
-    return new Accend(m, start);
-}
-
-string Accend::print() {
-    string instr_ir;
-    instr_ir += R"(tail call void  "{}", ""())";
     return instr_ir;
 }
 
