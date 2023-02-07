@@ -14,26 +14,20 @@
 
 using ::parser::Location;
 
-/** external functions from lex */
+/* external functions from lex */
 extern void yyrestart(FILE*);
 extern int yylex();
 extern int yyparse();
 extern FILE* yyin;
+
+/* the program */
 std::unique_ptr<::parser::Program> ROOT = std::make_unique<::parser::Program>(Location());
 
-/** Error reporting */
+/* error reporting */
 void yyerror(const char *s);
 
-
-/** Return a mutable list initially containing the single value ITEM. */
-template<typename T>
-std::vector<T *>* single(T *item) {
-    std::vector<T *> *list=new std::vector<T *>();
-    list->push_back(item);
-    return list;
-}
-
-/* Aappend item to the end of LIST. Then returns LIST. */
+/* append item to the end of LIST. Then returns LIST. */
+/* this is a handy helper function. */
 template<typename T, typename X>
 T* combine(T* list, X *item) {
     list->emplace_back(item);
@@ -41,7 +35,8 @@ T* combine(T* list, X *item) {
 }
 %}
 
-
+/* all possible types of semantic value */
+/* check https://www.gnu.org/software/bison/manual/html_node/Union-Decl.html */
 %union {
   char *raw_str;
   int raw_int;
@@ -85,7 +80,8 @@ T* combine(T* list, X *item) {
 }
 
 
-/* declare tokens */
+/* declare tokens and their type */
+/* check https://www.gnu.org/software/bison/manual/html_node/Token-Decl.html */
 %token <raw_int> TOKEN_INTEGER
 %token <raw_str> TOKEN_IDENTIFIER
 %token <raw_str> TOKEN_STRING
@@ -154,10 +150,15 @@ T* combine(T* list, X *item) {
 %type <PtrNonlocalDecl> nonlocal_decl
 %type <PtrAssignStmt> assign_stmt
 
+/* the destructor is called when error happends */
+/* you don't need to modify the code */
+/* check https://www.gnu.org/software/bison/manual/html_node/Destructor-Decl.html */
 %destructor { } <raw_int>
 %destructor { free($$); } <raw_str>
 %destructor { delete $$; } <*>
 
+/* you may define associativity and precedence here */
+/* check https://www.gnu.org/software/bison/manual/html_node/Precedence-Decl.html */
 %left TOKEN_OR
 %left TOKEN_AND
 %left TOKEN_NOT
@@ -170,7 +171,7 @@ T* combine(T* list, X *item) {
 %start program
 
 %%
-/* The grammar rules Your Code Here */
+/* write grammar rule here! */
 
 program :
     top_level_decl stmt_list {
@@ -346,11 +347,11 @@ identifier : TOKEN_IDENTIFIER {
 
 /** The error reporting function. */
 void yyerror(const char *s) {
-    /** TO STUDENTS: This is just an example.
+    /* This is just an example.
      * You can customize it as you like. */
-    string info("Parser error near token");
-    auto test = std::make_unique<::parser::CompilerErr>(Location(), info, true);
-    ROOT->errors->compiler_errors.emplace_back(std::move(test));
+    string info("Parsing error");
+    auto error = std::make_unique<::parser::CompilerErr>(Location(), info, true);
+    ROOT->errors->compiler_errors.emplace_back(std::move(error));
 }
 
 std::unique_ptr<::parser::Program> parse(const char* input_path) {
@@ -362,7 +363,7 @@ std::unique_ptr<::parser::Program> parse(const char* input_path) {
     } else {
         yyin = stdin;
     }
-    /** Uncomment to see the middle process of bison*/
+    /* uncomment to see the middle process of Bison */
     /* yydebug = 1; */
     yyrestart(yyin);
     yyparse();
