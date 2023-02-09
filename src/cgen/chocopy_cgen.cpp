@@ -1402,9 +1402,6 @@ int main(int argc, char *argv[]) {
         tree->accept(*LightWalker);
         m = LightWalker->get_module();
         m->source_file_name_ = input_path;
-        lightir::PassManager PM(m.get());
-        for (auto &&pass : passes) PM.add_pass(pass);
-        PM.run();
 
         IR = m->print();
         std::ofstream output_stream;
