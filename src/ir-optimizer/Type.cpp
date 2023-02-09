@@ -15,10 +15,6 @@ Type *Type::get_void_type(Module *m) { return m->get_void_type(); }
 
 Type *Type::get_label_type(Module *m) { return m->get_label_type(); }
 
-Type *Type::get_class_type(Module *m, int id_) {
-    return m->get_class_type(id_);
-}
-
 IntegerType *Type::get_int1_type(Module *m) { return m->get_int1_type(); }
 
 IntegerType *Type::get_int32_type(Module *m) { return m->get_int32_type(); }
@@ -111,8 +107,7 @@ PtrType::PtrType(Type *contained)
 }
 
 PtrType *PtrType::get(Type *contained) {
-    auto res = contained->get_module()->get_ptr_type(contained);
-    return res;
+    return new PtrType(contained);
 }
 
 string PtrType::print() {

@@ -15,7 +15,6 @@
 #include "Type.hpp"
 #include "User.hpp"
 
-using std::map;
 using std::string;
 using std::vector;
 
@@ -36,7 +35,6 @@ class AttrInfo : public Value {
 };
 /** Class info, derived from both @Type and @Value,
  *  Tag indicating type of value:
- *     -2: void
  *     -1: [T] T can be class, int, bool, str, list.
  *      0: object
  *      1: int

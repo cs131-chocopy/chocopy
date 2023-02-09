@@ -464,10 +464,8 @@ class Module {
 
     Type *get_void_type();
     Type *get_label_type();
-    Type *get_class_type(int id_);
     IntegerType *get_int1_type();
     IntegerType *get_int32_type();
-    PtrType *get_ptr_type(Type *contained);
 
     void add_function(Function *f);
     list<Function *> get_functions();
@@ -479,7 +477,6 @@ class Module {
         return instr_id2string_[instr];
     }
     void set_print_name();
-    void add_class_type(Type *);
     virtual string print();
     string module_name_;      /* Human-readable identifier for the module */
     string source_file_name_; /* Original source file name for module, for test
@@ -498,8 +495,6 @@ class Module {
     IntegerType *int1_ty_;
     IntegerType *int32_ty_;
     Type *label_ty_;
-    map<int, Type *> obj_ty_;
     Type *void_ty_;
-    map<pair<Type *, int>, PtrType *> ptr_map_;
 };
 }  // namespace lightir

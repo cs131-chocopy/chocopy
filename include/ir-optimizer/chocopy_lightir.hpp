@@ -191,31 +191,46 @@ class LightWalker : public ast::Visitor {
     semantic::SymbolTable *sym;
     ScopeAnalyzer scope;
     unique_ptr<Module> module;
-    int next_type_id = 5;
-    int next_const_id = 9;
+
+    int next_const_id = 1;
     int get_next_type_id();
+
+    // 1 for int, 2 for bool, 3 for str, >= 4 for user-defined classes
+    // check "ChocoPy RISC-V Implementation Guide" 4.1 Object layout
+    int next_type_id = 4;
     int get_const_type_id();
-    string get_nested_func_name(semantic::FunctionDefType const *const, bool);
+
+    // assign a unique name to each function
+    // the unique name is used in the LLVM IR
+    // you can design your own naming scheme
+    string get_fully_qualified_name(semantic::FunctionDefType *, bool);
+
     GlobalVariable *generate_init_object(parser::Literal *literal);
     Type *semantic_type_to_llvm_type(semantic::SymbolType *type);
-    bool func_found = false;
-    vector<parser::ClassDef *> *class_stack = new vector<parser::ClassDef *>();
-    vector<parser::FuncDef *> *func_stack = new vector<parser::FuncDef *>();
-    vector<parser::ClassDef *> *class_finished =
-        new vector<parser::ClassDef *>();
-    vector<tuple<string, parser::ReturnStmt *>> *return_stack =
-        new vector<tuple<string, parser::ReturnStmt *>>();
 
+    // you can use this to implement the visitor pattern
+    // or you can delete it if you don't need it
+    // https://stackoverflow.com/questions/65238651/how-can-i-implement-the-visitor-patter-with-return-type-in-c
     Value *visitor_return_value = nullptr;
     Value *visitor_return_object = nullptr;
     Type *visitor_return_type = nullptr;
     bool get_lvalue = false;  // mark if the visitor is in lvalue context
 
+    // predefined functions
+    // check src/cgen/stdlib/stdlib.c to see the implementations
     Function *strcat_fun, *concat_fun, *streql_fun, *strneql_fun, *makebool_fun,
         *makeint_fun, *makestr_fun, *alloc_fun, *construct_list_fun, *input_fun,
         *len_fun, *print_fun;
+    // error functions
+    // once called, will print the error message and terminate the program
     Function *error_oob_fun, *error_none_fun, *error_div_fun;
-    Type *i32_type, *i1_type, *str_type, *ptr_str_type, *ptr_obj, *ptr_ptr_obj;
+
+    // it is handy to have these predefined types
+    // or you can delete them if you don't need them
+    Type *i32_type, *i1_type, *i8_type, *void_type;
+    Type *ptr_i8_type;
+    Type *ptr_obj_type, *ptr_ptr_obj_type, *ptr_list_type;
+    Type *ptr_int_type, *ptr_bool_type, *ptr_str_type;
     Value *null;
 };
 

@@ -71,8 +71,6 @@ class Type {
 
     static Type *get_label_type(Module *m);
 
-    static Type *get_class_type(Module *m, int id_);
-
     static IntegerType *get_int1_type(Module *m);
 
     static IntegerType *get_int32_type(Module *m);

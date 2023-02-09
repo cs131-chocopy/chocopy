@@ -53,15 +53,6 @@ IntegerType *Module::get_int32_type() { return int32_ty_; }
 
 Type *Module::get_label_type() { return label_ty_; }
 
-Type *Module::get_class_type(int id_) { return obj_ty_[id_]; }
-
-PtrType *Module::get_ptr_type(Type *contained) {
-    if (ptr_map_.find({contained, -1}) == ptr_map_.end()) {
-        ptr_map_[{contained, -1}] = new PtrType(contained);
-    }
-    return ptr_map_[{contained, -1}];
-}
-
 void Module::add_function(Function *f) { function_list_.push_back(f); }
 list<Function *> Module::get_functions() { return function_list_; }
 void Module::add_global_variable(GlobalVariable *g) {
@@ -76,7 +67,6 @@ void Module::set_print_name() {
         func->set_instr_name();
     }
 }
-void Module::add_class_type(Type *ty_) { obj_ty_[ty_->get_type_id()] = ty_; }
 
 string Module::print() {
     string module_ir;

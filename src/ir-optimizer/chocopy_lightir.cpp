@@ -20,26 +20,15 @@
 #include "chocopy_parse.hpp"
 #include "chocopy_semant.hpp"
 
-namespace semantic {
-class SemanticError;
-class SymbolTable;
-class DeclarationAnalyzer;
-class TypeChecker;
-}  // namespace semantic
 namespace lightir {
 #define CONST(num) ConstantInt::get(num, &*module)
-/** Function that is being built */
-
-bool enable_str_for;
 
 /** Use the symbol table to generate the type id */
 int LightWalker::get_next_type_id() { return next_type_id++; }
-
 int LightWalker::get_const_type_id() { return next_const_id++; }
 
-string LightWalker::get_nested_func_name(
-    semantic::FunctionDefType const *const func,
-    bool with_start_dollar = true) {
+string LightWalker::get_fully_qualified_name(semantic::FunctionDefType *func,
+                                             bool with_start_dollar = true) {
     const auto parent_sym = func->current_scope.parent;
     const auto grand_parent_sym = parent_sym->parent;
     if (grand_parent_sym) {
@@ -50,9 +39,10 @@ string LightWalker::get_nested_func_name(
                 if (&parent_func->current_scope == parent_sym) {
                     return with_start_dollar
                                ? "$" +
-                                     get_nested_func_name(parent_func, false) +
+                                     get_fully_qualified_name(parent_func,
+                                                              false) +
                                      "." + func->get_name()
-                               : get_nested_func_name(parent_func, false) +
+                               : get_fully_qualified_name(parent_func, false) +
                                      "." + func->get_name();
                 }
             }
@@ -76,14 +66,13 @@ Type *LightWalker::semantic_type_to_llvm_type(semantic::SymbolType *type) {
         return PtrType::get(list_class);
     } else if (dynamic_cast<semantic::ClassValueType *>(type)) {
         if (type->get_name() == "int") {
-            return IntegerType::get(32, module.get());
+            return i32_type;
         } else if (type->get_name() == "bool") {
-            return IntegerType::get(1, module.get());
+            return i1_type;
         } else if (type->get_name() == "str") {
             return ptr_str_type;
         } else if (type->get_name() == "<None>") {
-            // ! FIXME: actually I don't know what I should do here.
-            return PtrType::get(object_class);
+            return ptr_obj_type;
         } else {
             const auto class_ =
                 dynamic_cast<Class *>(scope.find_in_global(type->get_name()));
@@ -111,155 +100,109 @@ LightWalker::LightWalker(parser::Program &program)
     module = std::make_unique<Module>("ChocoPy code");
     builder = new IRBuilder(nullptr, module.get());
 
-    auto TyVoid = Type::get_void_type(&*module);
-    auto TyI32 = Type::get_int32_type(&*module);
-    auto TyI1 = Type::get_int1_type(&*module);
-    auto TyI8 = new IntegerType(8, &*module);
-    auto TyString = PtrType::get(TyI8);
+    void_type = Type::get_void_type(&*module);
+    i32_type = Type::get_int32_type(&*module);
+    i1_type = Type::get_int1_type(&*module);
+    i8_type = IntegerType::get(8, &*module);
+    ptr_i8_type = PtrType::get(i8_type);
 
     /** Get the class ready. */
-    std::vector<Type *> object_params;
-
     object_class = new Class(&*module, "object", 0, nullptr, true, true);
-    auto TyObject = object_class->get_type();
-    auto TyPtrObject = PtrType::get(object_class);
-    object_params.emplace_back(TyPtrObject);
+    ptr_obj_type = PtrType::get(object_class->get_type());
+
     auto object_init =
-        Function::create(FunctionType::get(TyPtrObject, object_params),
+        Function::create(FunctionType::get(ptr_obj_type, {ptr_obj_type}),
                          "$object.__init__", &*module);
     object_class->add_method(object_init);
+    ptr_ptr_obj_type = PtrType::get(ptr_obj_type);
 
     int_class = new Class(&*module, "int", 1, nullptr, true, true);
-    auto TyIntClass = int_class->get_type();
+    ptr_int_type = PtrType::get(int_class->get_type());
     int_class->add_method(object_init);
-    int_class->add_attribute(new AttrInfo(TyI32, "__int__"));
+    int_class->add_attribute(new AttrInfo(i32_type, "__int__"));
 
     bool_class = new Class(&*module, "bool", 2, nullptr, true, true);
-    auto TyBoolClass = bool_class->get_type();
+    ptr_bool_type = PtrType::get(bool_class->get_type());
     bool_class->add_method(object_init);
-    bool_class->add_attribute(new AttrInfo(TyI1, "__bool__"));
+    bool_class->add_attribute(new AttrInfo(i1_type, "__bool__"));
 
     Class *str_class = new Class(module.get(), "str", 3, object_class, true);
+    str_class->add_attribute(new AttrInfo(i32_type, "__len__", 0));
+    str_class->add_attribute(new AttrInfo(ptr_i8_type, "__str__"));
     str_class->add_method(object_init);
-    str_class->add_attribute(new AttrInfo(TyI32, "__len__", 0));
-    str_class->add_attribute(new AttrInfo(TyString, "__str__"));
+    ptr_str_type = PtrType::get(str_class->get_type());
 
     list_class = new Class(&*module, ".list", -1, nullptr, true);
     list_class->add_method(object_init);
-    list_class->add_attribute(new AttrInfo(TyI32, "__len__", 0));
-    list_class->add_attribute(
-        new AttrInfo(PtrType::get(TyPtrObject), "__list__", 0));
+    list_class->add_attribute(new AttrInfo(i32_type, "__len__", 0));
+    list_class->add_attribute(new AttrInfo(ptr_ptr_obj_type, "__list__", 0));
 
     auto TyListClass = list_class->get_type();
-    auto TyPtrList = PtrType::get(TyListClass);
+    ptr_list_type = PtrType::get(TyListClass);
 
     /** Predefined functions. */
     // print Out Of Bound error and exit
-    auto error_oob_type = FunctionType::get(TyVoid, {});
+    auto error_oob_type = FunctionType::get(void_type, {});
     error_oob_fun = Function::create(error_oob_type, "error.OOB", module.get());
 
     // print None error and exit
-    auto error_none_type = FunctionType::get(TyVoid, {});
+    auto error_none_type = FunctionType::get(void_type, {});
     error_none_fun =
         Function::create(error_none_type, "error.None", module.get());
 
     // print Div Zero error and exit
-    auto error_div_type = FunctionType::get(TyVoid, {});
+    auto error_div_type = FunctionType::get(void_type, {});
     error_div_fun =
         Function::create(error_none_type, "error.Div", module.get());
 
-    scope.enter();
-    scope.push_in_global("object.__init__", object_init);
-
-    scope.push_in_global("object", object_class);
-    scope.push_in_global("int", int_class);
-    scope.push_in_global("bool", bool_class);
-    scope.push_in_global("str", str_class);
-    scope.push_in_global(".list", list_class);
-
-    str_type = str_class;
-    i32_type = IntegerType::get(32, module.get());
-    i1_type = IntegerType::get(1, module.get());
-    ptr_str_type = PtrType::get(str_type);
-    ptr_ptr_obj = PtrType::get(TyPtrObject);
-}
-
-/**
- * Analyze PROGRAM, creating Info objects for all symbols.
- * Populate the global symbol table.
- */
-void LightWalker::visit(parser::Program &node) {
-    auto VOID_T = Type::get_void_type(module.get());
-    auto BOOL_T = Type::get_int1_type(module.get());
-    auto INT_T = Type::get_int32_type(module.get());
-
-    for (const auto &obj_type : node.hierachy_tree.class_id) {
-        if (obj_type.first == "list")
-            module->add_class_type(
-                new Class(&*module, ".list", obj_type.second, nullptr));
-        else if (obj_type.first == "str" || obj_type.first == "int" ||
-                 obj_type.first == "bool")
-            module->add_class_type(
-                new Class(&*module, obj_type.first, obj_type.second, nullptr));
-    }
-
-    /** Some function that requires the OBJ_T to define */
-    auto TyPtrList = PtrType::get(list_class->get_type());
-    auto TyPtrObj = PtrType::get(module->get_class().front());
-    auto TyPtrInt = PtrType::get(Type::get_class_type(module.get(), 1));
-    auto TyPtrBool = PtrType::get(Type::get_class_type(module.get(), 2));
-    auto TyPtrStr = PtrType::get(Type::get_class_type(module.get(), 3));
-
-    /** Predefined functions. */
     // param: number of elements, element, element, ...
     // return: pointer to a list
-    auto conslist_type = FunctionType::get(TyPtrList, {INT_T, INT_T}, true);
+    auto conslist_type =
+        FunctionType::get(ptr_list_type, {i32_type, i32_type}, true);
     construct_list_fun =
         Function::create(conslist_type, "construct_list", module.get());
 
     // param: pointer to a list, pointer to a list
     // return: pointer to a new list
-    auto concat_type = FunctionType::get(TyPtrList, {TyPtrList, TyPtrList});
+    auto concat_type =
+        FunctionType::get(ptr_list_type, {ptr_list_type, ptr_list_type});
     concat_fun = Function::create(concat_type, "concat_list", module.get());
 
+    // param: char
+    // return: pointer to a str object
+    auto makestr_type = FunctionType::get(ptr_str_type, {i8_type});
+    makestr_fun = Function::create(makestr_type, "makestr", module.get());
+
     // param: pointer to an object
-    auto len_type = FunctionType::get(INT_T, {TyPtrObj});
+    auto len_type = FunctionType::get(i32_type, {ptr_obj_type});
     len_fun = Function::create(len_type, "$len", module.get());
 
     // param: pointer to an object
-    auto print_type = FunctionType::get(VOID_T, {TyPtrObj});
+    auto print_type = FunctionType::get(void_type, {ptr_obj_type});
     print_fun = Function::create(print_type, "print", module.get());
 
-    // param: char*
-    // return: pointer to a str object
-    std::vector<Type *> makestr_params;
-    makestr_params.emplace_back(IntegerType::get(8, module.get()));
-    auto makestr_type = FunctionType::get(ptr_str_type, makestr_params);
+    // param: pointer to object
+    // return: pointer to a new object with the same type
+    auto alloc_type = FunctionType::get(ptr_obj_type, {ptr_obj_type});
+    alloc_fun = Function::create(alloc_type, "alloc_object", module.get());
 
     // param: bool value
     // return: pointer to a bool object
-    auto makebool_type = FunctionType::get(TyPtrBool, {BOOL_T});
+    auto makebool_type = FunctionType::get(ptr_bool_type, {i1_type});
     makebool_fun = Function::create(makebool_type, "makebool", module.get());
 
     // param: int value
     // return: pointer to a int object
-    auto makeint_type = FunctionType::get(TyPtrInt, {INT_T});
+    auto makeint_type = FunctionType::get(ptr_int_type, {i32_type});
     makeint_fun = Function::create(makeint_type, "makeint", module.get());
-
-    makestr_fun = Function::create(makestr_type, "makestr", module.get());
 
     auto input_type = FunctionType::get(ptr_str_type, {});
     input_fun = Function::create(input_type, "$input", module.get());
 
-    // param: pointer to object
-    // return: pointer to a new object with the same type
-    auto alloc_type = FunctionType::get(TyPtrObj, {TyPtrObj});
-    alloc_fun = Function::create(alloc_type, "alloc_object", module.get());
-
     // param: pointer to str object, pointer to str object
     // return: bool
     auto str_compare_type =
-        FunctionType::get(BOOL_T, {ptr_str_type, ptr_str_type});
+        FunctionType::get(i1_type, {ptr_str_type, ptr_str_type});
     streql_fun =
         Function::create(str_compare_type, "str_object_eq", module.get());
     strneql_fun =
@@ -272,15 +215,26 @@ void LightWalker::visit(parser::Program &node) {
     strcat_fun =
         Function::create(strcat_type, "str_object_concat", module.get());
 
-    /** First set the function to before_main. */
-    std::vector<Type *> param_types;
-    auto main_func_type = FunctionType::get(VOID_T, {});
+    scope.enter();
+    scope.push_in_global("object", object_class);
+    scope.push_in_global("int", int_class);
+    scope.push_in_global("bool", bool_class);
+    scope.push_in_global("str", str_class);
+    scope.push_in_global(".list", list_class);
+}
+
+/**
+ * Analyze PROGRAM, creating Info objects for all symbols.
+ * Populate the global symbol table.
+ */
+void LightWalker::visit(parser::Program &node) {
+    auto main_func_type = FunctionType::get(void_type, {});
     auto main_func = Function::create(main_func_type, "main", module.get());
     auto baseBB = BasicBlock::create(&*module, "", main_func);
     builder->set_insert_point(baseBB);
     scope.push_in_global("$main", main_func);
 
-    null = ConstantNull::get(TyPtrObj);
+    null = ConstantNull::get(ptr_obj_type);
 
     for (const auto &decl : node.declarations) {
         if (auto node = dynamic_cast<parser::ClassDef *>(decl.get()); node) {
@@ -306,7 +260,7 @@ void LightWalker::visit(parser::Program &node) {
             auto func_def_type =
                 sym->declares<semantic::FunctionDefType>(func_name);
             assert(func_def_type);
-            auto unique_func_name = get_nested_func_name(func_def_type);
+            auto unique_func_name = get_fully_qualified_name(func_def_type);
 
             auto func_type = dynamic_cast<FunctionType *>(
                 semantic_type_to_llvm_type(func_def_type));
@@ -676,7 +630,7 @@ void LightWalker::visit(parser::ClassDef &node) {
             auto func_def_type =
                 sym->declares<semantic::FunctionDefType>(func_name);
             assert(func_def_type);
-            auto unique_func_name = get_nested_func_name(func_def_type);
+            auto unique_func_name = get_fully_qualified_name(func_def_type);
 
             auto func_type = dynamic_cast<FunctionType *>(
                 semantic_type_to_llvm_type(func_def_type));
@@ -753,8 +707,8 @@ void LightWalker::visit(parser::ForStmt &node) {
     builder->set_insert_point(b_body);
     if (node.iterable->inferredType->get_name() == "str") {
         auto p_str = builder->create_gep(list, CONST(4));
+        p_str->set_type(PtrType::get(ptr_i8_type));
         auto str = builder->create_load(p_str);
-        str->set_type(PtrType::get(IntegerType::get(8, module.get())));
         auto p_char = builder->create_gep(str, i);
         auto i_char = builder->create_load(p_char);
         vector<Value *> makestr_para;
@@ -772,7 +726,7 @@ void LightWalker::visit(parser::ForStmt &node) {
         if (list_type != nullptr) {
             auto element_type = list_type->element_type;
             auto p_actual_list = builder->create_gep(list, CONST(4));
-            p_actual_list->set_type(PtrType::get(ptr_ptr_obj));
+            p_actual_list->set_type(PtrType::get(ptr_ptr_obj_type));
             auto actual_list = builder->create_load(p_actual_list);
             auto p_element = builder->create_gep(actual_list, i);
             Type *type = nullptr;
@@ -781,7 +735,7 @@ void LightWalker::visit(parser::ForStmt &node) {
             } else if (element_type->get_name() == "bool") {
                 type = i1_type;
             } else if (element_type->get_name() == "str") {
-                type = PtrType::get(str_type);
+                type = ptr_str_type;
             } else {
                 if (element_type->is_list_type()) {
                     type = PtrType::get(list_class);
@@ -810,7 +764,7 @@ void LightWalker::visit(parser::FuncDef &node) {
     auto &func_name = node.get_id()->name;
     auto func_def_type = sym->declares<semantic::FunctionDefType>(func_name);
     assert(func_def_type);
-    auto unique_func_name = get_nested_func_name(func_def_type);
+    auto unique_func_name = get_fully_qualified_name(func_def_type);
     // std::cerr << "enter " << unique_func_name << std::endl;
 
     Function *func;
@@ -843,7 +797,7 @@ void LightWalker::visit(parser::FuncDef &node) {
             auto func_def_type =
                 sym->declares<semantic::FunctionDefType>(func_name);
             assert(func_def_type);
-            auto unique_func_name = get_nested_func_name(func_def_type);
+            auto unique_func_name = get_fully_qualified_name(func_def_type);
 
             auto func_type = dynamic_cast<FunctionType *>(
                 semantic_type_to_llvm_type(func_def_type));
@@ -1043,8 +997,8 @@ void LightWalker::visit(parser::ListExpr &node) {
         }
     }
     Instruction *list = builder->create_call(construct_list_fun, para);
-    list = builder->create_bitcast(list,
-                                   PtrType::get(PtrType::get(list_class)));
+    list =
+        builder->create_bitcast(list, PtrType::get(PtrType::get(list_class)));
     visitor_return_value = list;
 }
 void LightWalker::visit(parser::ListType &node) {
@@ -1369,8 +1323,8 @@ void LightWalker::visit(parser::IndexExpr &node) {
     if (node.list->inferredType->get_name() == "str") {
         assert(!is_get_lvalue);
         auto p_str = builder->create_gep(list, CONST(4));
+        p_str->set_type(PtrType::get(ptr_i8_type));
         auto str = builder->create_load(p_str);
-        str->set_type(PtrType::get(IntegerType::get(8, module.get())));
         auto p_char = builder->create_gep(str, idx);
         auto i_char = builder->create_load(p_char);
         vector<Value *> makestr_para;
@@ -1381,7 +1335,7 @@ void LightWalker::visit(parser::IndexExpr &node) {
         Instruction *res = nullptr;
         if (node.inferredType->get_name() == "int") {
             auto t2 = builder->create_gep(list, CONST(4));
-            t2->set_type(PtrType::get(ptr_ptr_obj));
+            t2->set_type(PtrType::get(ptr_ptr_obj_type));
             auto t3 = builder->create_load(t2);
             auto t5 = builder->create_gep(t3, idx);
             auto t6 = builder->create_bitcast(
@@ -1389,7 +1343,7 @@ void LightWalker::visit(parser::IndexExpr &node) {
             res = t6;
         } else if (node.inferredType->get_name() == "bool") {
             auto t2 = builder->create_gep(list, CONST(4));
-            t2->set_type(PtrType::get(ptr_ptr_obj));
+            t2->set_type(PtrType::get(ptr_ptr_obj_type));
             auto t3 = builder->create_load(t2);
             auto t5 = builder->create_gep(t3, idx);
             auto t6 = builder->create_bitcast(
@@ -1397,7 +1351,7 @@ void LightWalker::visit(parser::IndexExpr &node) {
             res = t6;
         } else {
             auto t2 = builder->create_gep(list, CONST(4));
-            t2->set_type(PtrType::get(ptr_ptr_obj));
+            t2->set_type(PtrType::get(ptr_ptr_obj_type));
             auto t3 = builder->create_load(t2);
             auto t5 = builder->create_gep(t3, idx);
             auto type_name = node.inferredType->get_name();
@@ -1407,8 +1361,8 @@ void LightWalker::visit(parser::IndexExpr &node) {
             } else {
                 type = dynamic_cast<Class *>(scope.find_in_global(type_name));
             }
-            auto t6 = builder->create_bitcast(
-                t5, PtrType::get(PtrType::get(type)));
+            auto t6 =
+                builder->create_bitcast(t5, PtrType::get(PtrType::get(type)));
             res = t6;
         }
         if (!is_get_lvalue) {
@@ -1469,10 +1423,13 @@ int main(int argc, char *argv[]) {
     }
 
     std::unique_ptr<parser::Program> tree(parse(input_path.c_str()));
-    if (tree->errors->compiler_errors.size() == 0) {
-        auto symboltableGenerator = semantic::SymbolTableGenerator(*tree);
-        tree->accept(symboltableGenerator);
+    if (tree->errors->compiler_errors.size() != 0) {
+        cout << "Syntax Error" << endl;
+        return 0;
     }
+    auto symboltableGenerator = semantic::SymbolTableGenerator(*tree);
+    tree->accept(symboltableGenerator);
+
     if (tree->errors->compiler_errors.size() == 0) {
         auto declarationAnalyzer = semantic::DeclarationAnalyzer(*tree);
         tree->accept(declarationAnalyzer);
@@ -1482,53 +1439,54 @@ int main(int argc, char *argv[]) {
         tree->accept(typeChecker);
     }
 
-    if (tree->errors->compiler_errors.size() == 0) {
-        std::shared_ptr<lightir::Module> m;
+    if (tree->errors->compiler_errors.size() != 0) {
+        cout << "Type Error" << endl;
+        return 0;
+    }
 
-        auto LightWalker = lightir::LightWalker(*tree);
-        tree->accept(LightWalker);
-        m = LightWalker.get_module();
-        m->source_file_name_ = input_path;
+    std::shared_ptr<lightir::Module> m;
+    auto LightWalker = lightir::LightWalker(*tree);
+    tree->accept(LightWalker);
+    m = LightWalker.get_module();
+    m->source_file_name_ = input_path;
 
-        IR = m->print();
+    IR = m->print();
 
-        std::ofstream output_stream;
-        auto output_file = target_path + ".ll";
-        output_stream.open(output_file, std::ios::out);
-        output_stream << fmt::format("; ModuleID = '{}'\n", m->module_name_);
-        output_stream << "source_filename = \"" + m->source_file_name_ +
-                             "\"\n\n";
-        output_stream << IR;
-        output_stream.close();
+    std::ofstream output_stream;
+    auto output_file = target_path + ".ll";
+    output_stream.open(output_file, std::ios::out);
+    output_stream << fmt::format("; ModuleID = '{}'\n", m->module_name_);
+    output_stream << "source_filename = \"" + m->source_file_name_ + "\"\n\n";
+    output_stream << IR;
+    output_stream.close();
 
-        if (emit) {
-            cout << "\nLLVM IR:\n; ModuleID = 'chocopy'\nsource_filename = \"\""
-                 << input_path << "\"\"\n\n"
-                 << IR;
-        }
+    if (emit) {
+        cout << "\nLLVM IR:\n; ModuleID = 'chocopy'\nsource_filename = \"\""
+             << input_path << "\"\"\n\n"
+             << IR;
+    }
 
-        if (assem || run) {
-            auto generate_assem = fmt::format(
-                "llc -opaque-pointers -O0 -verify-machineinstrs "
-                "-mtriple=riscv32-unknown-elf "
-                "-o {}.s {}.ll "
-                R"(&& /usr/bin/sed -i 's/.*addrsig.*//g' )"
-                "{}.s",
-                target_path, target_path, target_path);
-            int re_code = std::system(generate_assem.c_str());
-        }
+    if (assem || run) {
+        auto generate_assem = fmt::format(
+            "llc -opaque-pointers -O0 -verify-machineinstrs "
+            "-mtriple=riscv32-unknown-elf "
+            "-o {}.s {}.ll "
+            R"(&& /usr/bin/sed -i 's/.*addrsig.*//g' )"
+            "{}.s",
+            target_path, target_path, target_path);
+        int re_code = std::system(generate_assem.c_str());
+    }
 
-        if (run) {
-            auto generate_exec = fmt::format(
-                "riscv64-unknown-elf-gcc -mabi=ilp32 -march=rv32imac -g "
-                "-o {} {}.s "
-                "-L./ -L./build -L../build -lchocopy_stdlib",
-                target_path, target_path);
-            int re_code_0 = std::system(generate_exec.c_str());
+    if (run) {
+        auto generate_exec = fmt::format(
+            "riscv64-unknown-elf-gcc -mabi=ilp32 -march=rv32imac -g "
+            "-o {} {}.s "
+            "-L./ -L./build -L../build -lchocopy_stdlib",
+            target_path, target_path);
+        int re_code_0 = std::system(generate_exec.c_str());
 
-            auto qemu_run = fmt::format("qemu-riscv32 {}", target_path);
-            int re_code_1 = std::system(qemu_run.c_str());
-        }
+        auto qemu_run = fmt::format("qemu-riscv32 {}", target_path);
+        int re_code_1 = std::system(qemu_run.c_str());
     }
 
     return 0;

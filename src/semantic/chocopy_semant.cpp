@@ -104,6 +104,7 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
                                       "must be of the enclosing class: " +
                                           name));
             }
+            func->is_method = true;
             if (name != "__init__" && super_scope.declares(name)) {
                 auto super_func =
                     super_class_def->current_scope.get<FunctionDefType>(name);
@@ -415,7 +416,10 @@ void TypeChecker::visit(parser::BoolLiteral &node) {
     node.inferredType = bool_value_type;
 }
 void TypeChecker::visit(parser::CallExpr &node) {
-    const auto func = sym->get_shared<FunctionDefType>(node.function->name);
+    auto func = sym->get_shared<FunctionDefType>(node.function->name);
+    if (func && func->is_method) {
+        func = global->get_shared<FunctionDefType>(node.function->name);
+    }
     const auto class_ = global->get<ClassDefType>(node.function->name);
     if (func == nullptr && class_ == nullptr) {
         typeError(&node, "Not a function or class: " + node.function->name);
