@@ -98,7 +98,7 @@ Type *LightWalker::semantic_type_to_llvm_type(semantic::SymbolType *type) {
 LightWalker::LightWalker(parser::Program &program)
     : sym(&program.symbol_table) {
     module = std::make_unique<Module>("ChocoPy code");
-    builder = new IRBuilder(nullptr, module.get());
+    builder = std::make_unique<IRBuilder>(nullptr, module.get());
 
     void_type = Type::get_void_type(&*module);
     i32_type = Type::get_int32_type(&*module);
@@ -109,6 +109,7 @@ LightWalker::LightWalker(parser::Program &program)
     /** Get the class ready. */
     object_class = new Class(&*module, "object", 0, nullptr, true, true);
     ptr_obj_type = PtrType::get(object_class->get_type());
+    null = ConstantNull::get(ptr_obj_type);
 
     auto object_init =
         Function::create(FunctionType::get(ptr_obj_type, {ptr_obj_type}),
@@ -142,62 +143,61 @@ LightWalker::LightWalker(parser::Program &program)
 
     /** Predefined functions. */
     // print Out Of Bound error and exit
-    auto error_oob_type = FunctionType::get(void_type, {});
-    error_oob_fun = Function::create(error_oob_type, "error.OOB", module.get());
+    error_oob_fun = Function::create(FunctionType::get(void_type, {}),
+                                     "error.OOB", module.get());
 
     // print None error and exit
-    auto error_none_type = FunctionType::get(void_type, {});
-    error_none_fun =
-        Function::create(error_none_type, "error.None", module.get());
+    error_none_fun = Function::create(FunctionType::get(void_type, {}),
+                                      "error.None", module.get());
 
     // print Div Zero error and exit
-    auto error_div_type = FunctionType::get(void_type, {});
-    error_div_fun =
-        Function::create(error_none_type, "error.Div", module.get());
+    error_div_fun = Function::create(FunctionType::get(void_type, {}),
+                                     "error.Div", module.get());
 
-    // param: number of elements, element, element, ...
+    // param: number of elements, element, element, ... (variable args)
     // return: pointer to a list
-    auto conslist_type =
-        FunctionType::get(ptr_list_type, {i32_type, i32_type}, true);
-    construct_list_fun =
-        Function::create(conslist_type, "construct_list", module.get());
+    construct_list_fun = Function::create(
+        FunctionType::get(ptr_list_type, {i32_type, i32_type}, true),
+        "construct_list", module.get());
 
     // param: pointer to a list, pointer to a list
     // return: pointer to a new list
-    auto concat_type =
-        FunctionType::get(ptr_list_type, {ptr_list_type, ptr_list_type});
-    concat_fun = Function::create(concat_type, "concat_list", module.get());
+    concat_fun = Function::create(
+        FunctionType::get(ptr_list_type, {ptr_list_type, ptr_list_type}),
+        "concat_list", module.get());
 
     // param: char
     // return: pointer to a str object
-    auto makestr_type = FunctionType::get(ptr_str_type, {i8_type});
-    makestr_fun = Function::create(makestr_type, "makestr", module.get());
+    makestr_fun = Function::create(FunctionType::get(ptr_str_type, {i8_type}),
+                                   "makestr", module.get());
 
     // param: pointer to an object
-    auto len_type = FunctionType::get(i32_type, {ptr_obj_type});
-    len_fun = Function::create(len_type, "$len", module.get());
+    len_fun = Function::create(FunctionType::get(i32_type, {ptr_obj_type}),
+                               "$len", module.get());
 
     // param: pointer to an object
-    auto print_type = FunctionType::get(void_type, {ptr_obj_type});
-    print_fun = Function::create(print_type, "print", module.get());
+    print_fun = Function::create(FunctionType::get(void_type, {ptr_obj_type}),
+                                 "print", module.get());
 
     // param: pointer to object
     // return: pointer to a new object with the same type
-    auto alloc_type = FunctionType::get(ptr_obj_type, {ptr_obj_type});
-    alloc_fun = Function::create(alloc_type, "alloc_object", module.get());
+    alloc_fun =
+        Function::create(FunctionType::get(ptr_obj_type, {ptr_obj_type}),
+                         "alloc_object", module.get());
 
     // param: bool value
     // return: pointer to a bool object
-    auto makebool_type = FunctionType::get(ptr_bool_type, {i1_type});
-    makebool_fun = Function::create(makebool_type, "makebool", module.get());
+    makebool_fun = Function::create(FunctionType::get(ptr_bool_type, {i1_type}),
+                                    "makebool", module.get());
 
     // param: int value
     // return: pointer to a int object
-    auto makeint_type = FunctionType::get(ptr_int_type, {i32_type});
-    makeint_fun = Function::create(makeint_type, "makeint", module.get());
+    makeint_fun = Function::create(FunctionType::get(ptr_int_type, {i32_type}),
+                                   "makeint", module.get());
 
-    auto input_type = FunctionType::get(ptr_str_type, {});
-    input_fun = Function::create(input_type, "$input", module.get());
+    // return: pointer to a str object
+    input_fun = Function::create(FunctionType::get(ptr_str_type, {}), "$input",
+                                 module.get());
 
     // param: pointer to str object, pointer to str object
     // return: bool
@@ -210,10 +210,9 @@ LightWalker::LightWalker(parser::Program &program)
 
     // param: pointer to str object, pointer to str object
     // return: pointer to a new str object
-    auto strcat_type =
-        FunctionType::get(ptr_str_type, {ptr_str_type, ptr_str_type});
-    strcat_fun =
-        Function::create(strcat_type, "str_object_concat", module.get());
+    strcat_fun = Function::create(
+        FunctionType::get(ptr_str_type, {ptr_str_type, ptr_str_type}),
+        "str_object_concat", module.get());
 
     scope.enter();
     scope.push_in_global("object", object_class);
@@ -223,6 +222,15 @@ LightWalker::LightWalker(parser::Program &program)
     scope.push_in_global(".list", list_class);
 }
 
+// Useless visitors
+void LightWalker::visit(parser::Errors &) { assert(0); };
+void LightWalker::visit(parser::Node &) { assert(0); };
+void LightWalker::visit(parser::TypeAnnotation &) { assert(0); }
+void LightWalker::visit(parser::TypedVar &) { assert(0); }
+void LightWalker::visit(parser::PassStmt &) {}
+void LightWalker::visit(parser::GlobalDecl &) {}
+void LightWalker::visit(parser::NonlocalDecl &) {}
+
 /**
  * Analyze PROGRAM, creating Info objects for all symbols.
  * Populate the global symbol table.
@@ -230,11 +238,9 @@ LightWalker::LightWalker(parser::Program &program)
 void LightWalker::visit(parser::Program &node) {
     auto main_func_type = FunctionType::get(void_type, {});
     auto main_func = Function::create(main_func_type, "main", module.get());
-    auto baseBB = BasicBlock::create(&*module, "", main_func);
-    builder->set_insert_point(baseBB);
+    auto main_bb = BasicBlock::create(&*module, "", main_func);
+    builder->set_insert_point(main_bb);
     scope.push_in_global("$main", main_func);
-
-    null = ConstantNull::get(ptr_obj_type);
 
     for (const auto &decl : node.declarations) {
         if (auto node = dynamic_cast<parser::ClassDef *>(decl.get()); node) {
@@ -332,7 +338,6 @@ void LightWalker::visit(parser::AssignStmt &node) {
         }
     }
 }
-void LightWalker::visit(parser::PassStmt &) {}
 void LightWalker::visit(parser::BinaryExpr &node) {
     node.left->accept(*this);
     auto v1 = this->visitor_return_value;
@@ -894,7 +899,6 @@ void LightWalker::visit(parser::FuncDef &node) {
     scope.exit();
     sym = saved_sym;
 }
-void LightWalker::visit(parser::GlobalDecl &) {}
 void LightWalker::visit(parser::Ident &node) {
     // TODO: LightWalker for Ident
     // NOTE: List Or Class is not implemented.
@@ -1106,7 +1110,6 @@ void LightWalker::visit(parser::MethodCallExpr &node) {
 void LightWalker::visit(parser::NoneLiteral &node) {
     visitor_return_value = null;
 }
-void LightWalker::visit(parser::NonlocalDecl &) {}
 void LightWalker::visit(parser::ReturnStmt &node) {
     if (node.value == nullptr) {
         builder->create_ret(new ConstantNull(
@@ -1134,8 +1137,6 @@ void LightWalker::visit(parser::StringLiteral &node) {
 
     visitor_return_value = p2;
 }
-void LightWalker::visit(parser::TypeAnnotation &) {}
-void LightWalker::visit(parser::TypedVar &) {}
 void LightWalker::visit(parser::UnaryExpr &node) {
     node.operand->accept(*this);
     auto v = visitor_return_value;
@@ -1285,8 +1286,6 @@ void LightWalker::visit(parser::WhileStmt &node) {
     builder->create_br(b_cond);
     builder->set_insert_point(b_end);
 }
-void LightWalker::visit(parser::Errors &){};
-void LightWalker::visit(parser::Node &){};
 void LightWalker::visit(parser::IndexExpr &node) {
     bool is_get_lvalue = get_lvalue;
     get_lvalue = false;
@@ -1386,7 +1385,6 @@ void print_help(const string_view &exe_name) {
 int main(int argc, char *argv[]) {
     string target_path;
     string input_path;
-    string IR;
 
     bool emit = false;
     bool run = false;
@@ -1427,9 +1425,9 @@ int main(int argc, char *argv[]) {
         cout << "Syntax Error" << endl;
         return 0;
     }
+
     auto symboltableGenerator = semantic::SymbolTableGenerator(*tree);
     tree->accept(symboltableGenerator);
-
     if (tree->errors->compiler_errors.size() == 0) {
         auto declarationAnalyzer = semantic::DeclarationAnalyzer(*tree);
         tree->accept(declarationAnalyzer);
@@ -1450,20 +1448,17 @@ int main(int argc, char *argv[]) {
     m = LightWalker.get_module();
     m->source_file_name_ = input_path;
 
-    IR = m->print();
+    string IR = fmt::format(
+        "; ModuleID = \"{}\"\n"
+        "source_filename = \"{}\"\n"
+        "{}",
+        m->module_name_, m->source_file_name_, m->print());
 
-    std::ofstream output_stream;
-    auto output_file = target_path + ".ll";
-    output_stream.open(output_file, std::ios::out);
-    output_stream << fmt::format("; ModuleID = '{}'\n", m->module_name_);
-    output_stream << "source_filename = \"" + m->source_file_name_ + "\"\n\n";
+    std::ofstream output_stream(target_path + ".ll");
     output_stream << IR;
-    output_stream.close();
 
     if (emit) {
-        cout << "\nLLVM IR:\n; ModuleID = 'chocopy'\nsource_filename = \"\""
-             << input_path << "\"\"\n\n"
-             << IR;
+        cout << IR;
     }
 
     if (assem || run) {

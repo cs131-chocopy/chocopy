@@ -187,10 +187,10 @@ class LightWalker : public ast::Visitor {
     void visit(parser::Node &) override final;
     void visit(parser::IndexExpr &) override final;
 
-    IRBuilder *builder;
     semantic::SymbolTable *sym;
     ScopeAnalyzer scope;
     unique_ptr<Module> module;
+    unique_ptr<IRBuilder> builder;
 
     int next_const_id = 1;
     int get_next_type_id();
