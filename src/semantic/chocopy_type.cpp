@@ -6,6 +6,17 @@
 #include "ValueType.hpp"
 
 namespace semantic {
+    ListValueType::ListValueType(parser::ListType *typeAnnotation)
+    : element_type(
+          ValueType::annotate_to_val(typeAnnotation->elementType.get())) {}
+
+ClassValueType::ClassValueType(parser::ClassType *classTypeAnnotation)
+    : class_name(classTypeAnnotation->className) {}
+
+const string ValueType::get_name() const {
+    return ((ClassValueType *)this)->class_name;
+}
+
 bool SymbolType::eq(const SymbolType *Value) const {
     if (this->is_list_type()) {
         if (dynamic_cast<ListValueType const *>(Value))

@@ -140,16 +140,12 @@ class TypeChecker : public ast::ASTAnalyzer {
     void visit(parser::Program &node) override;
     void visit(parser::AssignStmt &node) override;
 
-    /** type checker attributes and their chocopy typing judgement analogues:
-     * O : symbolTable
-     * M : classes
-     * C : currentClass
-     * R : expReturnType */
     TypeChecker(parser::Program &program)
         : errors(&program.errors->compiler_errors),
           global(&program.symbol_table),
           sym(&program.symbol_table),
           hierachy_tree(&program.hierachy_tree) {}
+
     /** Inserts an error message in NODE if there isn"t one already.
      *  The message is constructed with MESSAGE and ARGS as for
      *  String.format. */
@@ -172,7 +168,8 @@ class TypeChecker : public ast::ASTAnalyzer {
     /** Collector for errors. */
     vector<std::unique_ptr<parser::CompilerErr>> *errors;
 
-    // The function can check both ClassType and ListType
+    /** Should work on ClassType, ListType, <None>, ...
+     * hierachy_tree->common_ancestor() only works on Class */
     shared_ptr<SymbolType> get_common_type(shared_ptr<SymbolType>,
                                            shared_ptr<SymbolType>);
     bool is_subtype(SymbolType const *, SymbolType const *);

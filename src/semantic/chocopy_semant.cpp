@@ -941,17 +941,6 @@ shared_ptr<ValueType> ValueType::annotate_to_val(
     }
     return nullptr;
 }
-
-ListValueType::ListValueType(parser::ListType *typeAnnotation)
-    : element_type(
-          ValueType::annotate_to_val(typeAnnotation->elementType.get())) {}
-
-ClassValueType::ClassValueType(parser::ClassType *classTypeAnnotation)
-    : class_name(classTypeAnnotation->className) {}
-
-const string ValueType::get_name() const {
-    return ((ClassValueType *)this)->class_name;
-}
 }  // namespace semantic
 
 #ifdef PA2
