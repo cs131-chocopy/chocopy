@@ -1,3 +1,2 @@
 grammarinator
-pyfunctional
 termcolor

@@ -2,11 +2,12 @@
 import os
 import argparse
 from natsort import natsorted
-from functional import seq
 import subprocess
 from termcolor import colored, cprint
 import json
-from multiprocessing import Pool, Lock
+from multiprocessing import Pool, Lock, cpu_count
+
+THREADS = cpu_count()  # set to 1 for debugging
 
 TESTDATA_DIR = os.path.abspath(os.path.dirname(__file__))
 PROJECT_DIR = os.path.dirname(TESTDATA_DIR)
@@ -196,11 +197,9 @@ def check_testcases_in_directory(directory: str, pa: int) -> tuple[int, int]:
         print(f'[{directory} does not exist]')
         return 0, 0
     print(f'[checking {directory}]')
-    testcases: list[str] = seq(natsorted(os.listdir(directory)))\
-        .filter(lambda x: x.endswith('.py'))\
-        .map(lambda x: x[:-3])\
-        .to_list()
-    with Pool() as p:
+    testcases: list[str] = natsorted([x[:-3]
+                                      for x in os.listdir(directory) if x.endswith('.py')])
+    with Pool(THREADS) as p:
         results = p.starmap(check_testcase, [
             (directory, testcase, pa)
             for testcase in testcases
