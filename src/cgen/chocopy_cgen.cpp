@@ -1435,7 +1435,7 @@ int main(int argc, char *argv[]) {
 
     if (run) {
         auto command_string_0 =
-            "riscv64-unknown-elf-gcc -mabi=ilp32 -march=rv32imac -g -o " +
+            "riscv64-elf-gcc -mabi=ilp32 -march=rv32imac -g -o " +
             target_path + " " + target_path +
             ".s -L./ -L./build -L../build -lchocopy_stdlib";
         int re_code_0 = std::system(command_string_0.c_str());
@@ -1554,7 +1554,7 @@ int main(int argc, char *argv[]) {
         }
     }
     auto command_string_0 =
-        "riscv64-unknown-elf-gcc -mabi=ilp32 -march=rv32imac -g -o " +
+        "riscv64-elf-gcc -mabi=ilp32 -march=rv32imac -g -o " +
         target_path + " " + target_path +
         ".s -L./ -L/Users/yiweiyang/project/bak/cmake-build-debug-kali-gcc "
         "-lchocopy_stdlib";

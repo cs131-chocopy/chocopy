@@ -1474,7 +1474,7 @@ int main(int argc, char *argv[]) {
 
     if (run) {
         auto generate_exec = fmt::format(
-            "riscv64-unknown-elf-gcc -mabi=ilp32 -march=rv32imac -g "
+            "riscv64-elf-gcc -mabi=ilp32 -march=rv32imac -g "
             "-o {} {}.s "
             "-L./ -L./build -L../build -lchocopy_stdlib",
             target_path, target_path);
