@@ -35,7 +35,7 @@ int yylex(void) {
 }
 
 void yyerror(const char *s) {
-    fprintf(stderr, "syntax error");
+    fprintf(stderr, "syntax error\n");
 }
 
 int main(void) {

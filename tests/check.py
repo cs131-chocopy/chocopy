@@ -26,6 +26,8 @@ print_lock = Lock()
 def compare_ast_node(student_ast_node: dict, reference_ast_node: dict, verbose: bool = False) -> bool:
     assert isinstance(student_ast_node, dict)
     assert isinstance(reference_ast_node, dict)
+    student_ast_node.pop("location", None)
+    reference_ast_node.pop("location", None)
     if student_ast_node.keys() != reference_ast_node.keys():
         if verbose:
             cprint(f'Expected {len(reference_ast_node.keys())} keys, but {len(student_ast_node.keys())} keys are found',

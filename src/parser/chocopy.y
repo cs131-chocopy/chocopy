@@ -20,7 +20,10 @@ extern int yylex();
 extern int yyparse();
 extern FILE* yyin;
 
-/* the program */
+/* the program, the root of AST
+* all information is stored in ROOT
+* The AST (a tree) structure is held by (smart) pointers. 
+*/
 std::unique_ptr<::parser::Program> ROOT = std::make_unique<::parser::Program>(Location());
 
 /* error reporting */
@@ -82,6 +85,11 @@ T* combine(T* list, X *item) {
 
 /* declare tokens and their type */
 /* check https://www.gnu.org/software/bison/manual/html_node/Token-Decl.html */
+
+/*
+* You can delete, add, and modify the below at your convenience.
+*/
+
 %token <raw_int> TOKEN_INTEGER
 %token <raw_str> TOKEN_IDENTIFIER
 %token <raw_str> TOKEN_STRING
@@ -139,7 +147,7 @@ T* combine(T* list, X *item) {
 %type <PtrGlobalDecl> global_decl
 %type <PtrTypedVar> typed_var
 %type <PtrTypeAnnotation> type func_return_type
-%type <PtrExpr> expr expr_no_if cexpr target
+%type <PtrExpr> expr cexpr target
 %type <PtrExprList> expr_list
 %type <PtrIndexExpr> index_expr
 %type <PtrMemberExpr> member_expr
@@ -173,176 +181,35 @@ T* combine(T* list, X *item) {
 %%
 /* write grammar rule here! */
 
-program :
-    top_level_decl stmt_list {
-        @$ = {$1->size() ? $1->front()->location : $2->front()->location, $2->back()->location};
-        ROOT = std::move(std::make_unique<::parser::Program>(@$, $1, $2));
+/* The start symbol of your grammar */
+/* The rule is not complete(nor sound). You can rewrite and add some rules. */
+/* 喜报：我们不再对 JSON 中 "Locaton" 项计分，因此你可以选择不计算每个 symbol 的 Location。程序也不会输出关于 Location 的信息。
+ * 你可以添加 __PARSER_PRINT_LOCATION 的宏定义以恢复 Location 的输出。
+ * 你只需用 Location() 新建一个空 Location 传入构造函数。 
+ */
+program : top_level_decl stmt_list {
+        ROOT = std::move(std::make_unique<::parser::Program>(Location(), $1, $2));
     }
-    | top_level_decl {
-        if ($1->size() > 0) {
-            @$ = {$1->front()->location, $1->back()->location};
-        }
-        ROOT = std::move(std::make_unique<::parser::Program>(@$, $1));
-    }
-top_level_decl : { $$ = new std::vector<std::unique_ptr<::parser::Decl>>(); }
-    | top_level_decl var_def { $$ = combine($1, $2); }
-    | top_level_decl func_def { $$ = combine($1, $2); }
-    | top_level_decl class_def { $$ = combine($1, $2); }
 
-stmt_list :
-    stmt {
+/* Entry point to declerations */
+top_level_decl : { $$ = new std::vector<std::unique_ptr<::parser::Decl>>(); }
+
+stmt_list : stmt {
         $$ = new std::vector<std::unique_ptr<::parser::Stmt>>();
         $$->emplace_back($1);
-        @$ = @1;
-    }
-    | stmt_list stmt { $$ = combine($1, $2); @$ = {@1, @2}; }
-
-class_def :
-    TOKEN_CLASS identifier TOKEN_l_paren identifier TOKEN_r_paren TOKEN_colon TOKEN_NEWLINE TOKEN_INDENT class_body TOKEN_DEDENT {
-        $$ = new parser::ClassDef(@$ = {@1, @9}, $2, $4, $9);
-    }
-    | TOKEN_CLASS identifier TOKEN_l_paren identifier TOKEN_r_paren TOKEN_colon TOKEN_NEWLINE TOKEN_INDENT TOKEN_PASS TOKEN_NEWLINE TOKEN_DEDENT {
-        $$ = new parser::ClassDef(@$ = {@1, @9}, $2, $4, new std::vector<std::unique_ptr<::parser::Decl>>());
-    }
-class_body :
-    var_def {
-        $$ = new std::vector<std::unique_ptr<::parser::Decl>>();
-        $$->emplace_back($1);
-        @$ = @1;
-    }
-    | func_def {
-        $$ = new std::vector<std::unique_ptr<::parser::Decl>>();
-        $$->emplace_back($1);
-        @$ = @1;
-    }
-    | class_body var_def { $$ = combine($1, (parser::Decl *)$2); @$ = {@1, @2}; }
-    | class_body func_def { $$ = combine($1, (parser::Decl *)$2); @$ = {@1, @2}; }
-
-func_def : TOKEN_DEF identifier TOKEN_l_paren typed_var_list TOKEN_r_paren func_return_type TOKEN_colon TOKEN_NEWLINE TOKEN_INDENT func_decls stmt_list TOKEN_DEDENT {
-    $$ = new parser::FuncDef(@$ = {@1, @11}, $2, $4, $6, $10, $11);
-}
-typed_var_list:  { $$ = new std::vector<std::unique_ptr<::parser::TypedVar>>(); }
-    | typed_var {
-        $$ = new std::vector<std::unique_ptr<::parser::TypedVar>>();
-        $$->emplace_back($1);
-    }
-    | typed_var_list TOKEN_comma typed_var { $$ = combine($1, $3); }
-func_return_type: { $$ = new parser::ClassType(@$ = yylloc, "<None>"); }
-    | TOKEN_rarrow type { $$ = $2; @$ = {@1, @2}; }
-func_decls: { $$ = new std::vector<std::unique_ptr<::parser::Decl>>(); }
-    | func_decls global_decl { $$ = combine($1, $2); }
-    | func_decls nonlocal_decl { $$ = combine($1, $2); }
-    | func_decls var_def { $$ = combine($1, $2); }
-    | func_decls func_def { $$ = combine($1, $2); }
-
-typed_var : identifier TOKEN_colon type { $$ = new parser::TypedVar(@$ = {@1, @3}, $1, $3); }
-type :
-    TOKEN_IDENTIFIER { $$ = new parser::ClassType(@$ = yylloc, string($1)); free($1); }
-    | TOKEN_STRING { $$ = new parser::ClassType(@$ = yylloc, string($1)); delete[] $1; }
-    | TOKEN_l_square type TOKEN_r_square { $$ = new parser::ListType(@$ = {@1, @3}, $2); }
-
-global_decl : TOKEN_GLOBAL identifier TOKEN_NEWLINE { $$ = new parser::GlobalDecl(@$ = {@1, @2}, $2); }
-nonlocal_decl : TOKEN_NONLOCAL identifier TOKEN_NEWLINE { $$ = new parser::NonlocalDecl(@$ = {@1, @2}, $2); }
-var_def : typed_var TOKEN_equal literal TOKEN_NEWLINE { $$ = new parser::VarDef(@$ = {@1, @3}, $1, $3); }
-
-stmt :
-    simple_stmt TOKEN_NEWLINE { $$ = $1; @$ = @1; }
-    | TOKEN_WHILE expr TOKEN_colon block {
-        $$ = new parser::WhileStmt(@$ = {@1, @4}, $2, $4);
-    }
-    | TOKEN_FOR identifier TOKEN_IN expr TOKEN_colon block { $$ = new parser::ForStmt(@$ = {@1, @6}, $2, $4, $6); }
-    | TOKEN_IF expr TOKEN_colon block { $$ = new parser::IfStmt(@$ = {@1, @4}, $2, $4); }
-    | TOKEN_IF expr TOKEN_colon block elif_list { $$ = new parser::IfStmt(@$ = {@1, @5}, $2, $4, $5); }
-    | TOKEN_IF expr TOKEN_colon block TOKEN_ELSE TOKEN_colon block { $$ = new parser::IfStmt(@$ = {@1, @7}, $2, $4, $7); }
-    | assign_stmt { std::reverse($1->targets.begin(), $1->targets.end()); $$ = $1; @$ = @1; }
-elif_list :
-    TOKEN_ELIF expr TOKEN_colon block elif_list { $$ = new parser::IfStmt(@$ = {@1, @5}, $2, $4, $5); }
-    | TOKEN_ELIF expr TOKEN_colon block TOKEN_ELSE TOKEN_colon block { $$ = new parser::IfStmt(@$ = {@1, @7}, $2, $4, $7); }
-    | TOKEN_ELIF expr TOKEN_colon block { $$ = new parser::IfStmt(@$ = {@1, @4}, $2, $4); }
-
-simple_stmt :
-    TOKEN_PASS { $$ = new parser::PassStmt(@$ = yylloc); }
-    | expr { $$ = new parser::ExprStmt(@$ = @1, $1); }
-    | TOKEN_RETURN { $$ = new parser::ReturnStmt(@$ = yylloc); }
-    | TOKEN_RETURN expr { $$ = new parser::ReturnStmt(@1 /* TODO: fix */, $2); }
-
-block : TOKEN_NEWLINE TOKEN_INDENT stmt_list TOKEN_DEDENT  { $$ = $3; @$ = @3; }
-
-literal :
-    TOKEN_INTEGER { $$ = new parser::IntegerLiteral(@$ = yylloc, $1); }
-    | TOKEN_TRUE { $$ = new parser::BoolLiteral(@$ = yylloc, true); }
-    | TOKEN_FALSE { $$ = new parser::BoolLiteral(@$ = yylloc, false); }
-    | TOKEN_NONE { $$ = new parser::NoneLiteral(@$ = yylloc); }
-    | TOKEN_STRING { $$ = new parser::StringLiteral(@$ = yylloc, string($1)); delete[] $1; }
-
-expr :
-    expr_no_if { $$ = $1; @$ = @1; }
-    | expr_no_if TOKEN_IF expr TOKEN_ELSE expr {
-        $$ = new parser::IfExpr(@$ = {@1, @5}, $3, $1, $5);
     }
 
-expr_no_if :
-    cexpr { $$ = $1; @$ = @1; }
-    | TOKEN_NOT expr_no_if { $$ = new parser::UnaryExpr(@$ = {@1, @2}, std::string("not"), $2); }
-    | expr_no_if TOKEN_AND expr_no_if { $$ = new parser::BinaryExpr(@$ = {@1, @3}, $1, string("and"), $3); }
-    | expr_no_if TOKEN_OR expr_no_if { $$ = new parser::BinaryExpr(@$ = {@1, @3}, $1, string("or"), $3); }
+stmt : simple_stmt TOKEN_NEWLINE { $$ = $1; }
 
-expr_list : { $$ = new std::vector<std::unique_ptr<::parser::Expr>>(); }
-    | expr {
-        $$ = new std::vector<std::unique_ptr<::parser::Expr>>();
-        $$->emplace_back($1);
-    }
-    | expr_list TOKEN_comma expr {
-        $$ = combine($1, $3);
-    }
+simple_stmt : expr { $$ = new parser::ExprStmt(Location(), $1); } 
+
+expr: cexpr { $$ = $1; }
+
+literal : TOKEN_INTEGER { $$ = new parser::IntegerLiteral(Location(), $1); }
 
 cexpr :
-    identifier { $$ = $1; @$ = @1; }
-    | literal { $$ = $1; @$ = @1; }
-    | TOKEN_l_square expr_list TOKEN_r_square { $$ = new parser::ListExpr(@$ = {@1, @3}, $2); }
-    | TOKEN_l_paren expr TOKEN_r_paren { $$ = $2; $$->location = @$ = @1; }
-    | member_expr { $$ = $1; @$ = @1; }
-    | index_expr { $$ = $1; @$ = @1; }
-    | member_expr TOKEN_l_paren expr_list TOKEN_r_paren { $$ = new parser::MethodCallExpr(@$ = {@1, @4}, $1, $3); }
-    | identifier TOKEN_l_paren expr_list TOKEN_r_paren { $$ = new parser::CallExpr(@$ = {@1, @4}, $1, $3); }
-    | TOKEN_minus cexpr %prec UMINUS { $$ = new parser::UnaryExpr(@$ = {@1, @2}, string("-"), $2); }
-    | cexpr TOKEN_plus cexpr { $$ = new parser::BinaryExpr(@$ = {@1, @3}, $1, string("+"), $3); }
-    | cexpr TOKEN_minus cexpr { $$ = new parser::BinaryExpr(@$ = {@1, @3}, $1, string("-"), $3); }
-    | cexpr TOKEN_star cexpr { $$ = new parser::BinaryExpr(@$ = {@1, @3}, $1, string("*"), $3); }
-    | cexpr TOKEN_slash cexpr { $$ = new parser::BinaryExpr(@$ = {@1, @3}, $1, string("//"), $3); }
-    | cexpr TOKEN_percent cexpr { $$ = new parser::BinaryExpr(@$ = {@1, @3}, $1, string("%"), $3); }
-    | cexpr TOKEN_equalequal cexpr { $$ = new parser::BinaryExpr(@$ = {@1, @3}, $1, string("=="), $3); }
-    | cexpr TOKEN_exclaimequal cexpr { $$ = new parser::BinaryExpr(@$ = {@1, @3}, $1, string("!="), $3); }
-    | cexpr TOKEN_lessequal cexpr { $$ = new parser::BinaryExpr(@$ = {@1, @3}, $1, string("<="), $3); }
-    | cexpr TOKEN_greaterequal cexpr { $$ = new parser::BinaryExpr(@$ = {@1, @3}, $1, string(">="), $3); }
-    | cexpr TOKEN_greater cexpr { $$ = new parser::BinaryExpr(@$ = {@1, @3}, $1, string(">"), $3); }
-    | cexpr TOKEN_less cexpr { $$ = new parser::BinaryExpr(@$ = {@1, @3}, $1, string("<"), $3); }
-    | cexpr TOKEN_IS cexpr { $$ = new parser::BinaryExpr(@$ = {@1, @3}, $1, string("is"), $3); }
-
-member_expr : cexpr TOKEN_period identifier {
-    $$ = new parser::MemberExpr(@$ = {@1, @3}, $1, $3);
-}
-index_expr : cexpr TOKEN_l_square expr TOKEN_r_square {
-    $$ = new parser::IndexExpr(@$ = {@1, @4}, $1, $3);
-}
-target :
-    identifier { $$ = $1; @$ = @1; }
-    | member_expr { $$ = $1; @$ = @1; }
-    | index_expr { $$ = $1; @$ = @1; }
-assign_stmt :
-    target TOKEN_equal expr TOKEN_NEWLINE {
-        $$ = new parser::AssignStmt(@$ = {@1, @3}, $1, $3);
-    }
-    | target TOKEN_equal assign_stmt {
-        $$ = $3;
-        $$->location = @$ = {@1, @3};
-        $3->targets.emplace_back($1);
-    }
-
-identifier : TOKEN_IDENTIFIER {
-    $$ = new parser::Ident(@$ = yylloc, string($1));
-    free($1);
-}
+    | literal { $$ = $1; }
+    | cexpr TOKEN_plus cexpr { $$ = new parser::BinaryExpr(Location(), $1, string("+"), $3); }
 %%
 
 /** The error reporting function. */
