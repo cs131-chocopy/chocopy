@@ -1,22 +1,37 @@
 # Programing Assignment I 文档
 
+## Develop Environment
+
+我们准备了一个基于 Archlinux 的 Docker [image](https://hub.docker.com/r/syrriinge/cs131-sp23), 它包含了所有的依赖，并且预装了 clangd, clang-format, fish, neovim.
+你可以从 Docker Hub 上拉取这个 image, 或者从 [Dockerfile](../docker/Dockerfile) 构建。
+
+如果你使用的是 Archlinux
+
+```bash
+pacman -S python python-termcolor python-natsort \
+    gcc clang cmake make ninja fmt \
+    flex bison \
+    llvm riscv64-elf-binutils riscv64-elf-gcc riscv64-elf-newlib riscv64-elf-gdb \
+    qemu-user
+```
+
 ## 基础知识
 
 在本次实验中我们将用到 flex, Bison 和以 Python3.6 为基础改编的 ChocoPy 语言。
 
 ### ChocoPy 语法和词法
 
-请参考[ChocoPy Language Reference](../chocopy_language_reference.pdf)。
+请仔细阅读 [ChocoPy Language Reference](../chocopy_language_reference.pdf) Chapter 1~4.
 
 ### flex
 
 flex 是一个生成词法分析器的工具。利用 flex，我们只需提供词法的正则表达式，就可自动生成对应的C代码。整个流程如下图：
 
-![](http://alumni.cs.ucr.edu/~lgao/teaching/Img/flex.jpg)
+![flex](./flex.jpg)
 
 1. flex 从输入文件读取词法扫描器的规则，生成 C 代码源文件`lex.yy.c`。
 2. 编译 `lex.yy.c` 并与 `-lfl` 库链接，以生成可执行的 `a.out`。
-3. `a.out` 分析其输入流，将其转换为一系列token。
+3. `a.out` 分析其输入流，将其转换为一系列 token。
 
 我们以一个简单的单词数量统计的程序 wc.l 为例:
 
@@ -48,7 +63,7 @@ int main(int argc, char **argv){
 }
 ```
 
-使用 flex 生成 lex.yy.c
+使用 flex 生成 lex.yy.c *注: 在以 stdin 为输入时，需要按下 Ctrl-D 以退出*
 
 ```bash
 $ flex wc.l 
@@ -58,8 +73,6 @@ hello world
 ^D
 look, I find 2 words of 10 chars
 ```
-
-*注: 在以 stdin 为输入时，需要按下 ctrl+D 以退出*
 
 至此，你已经成功使用 flex 完成了一个简单的词法分析器！
 
@@ -110,7 +123,7 @@ int yylex(void) {
 }
 
 void yyerror(const char *s) {
-    fprintf(stderr, "syntax error");
+    fprintf(stderr, "syntax error\n");
 }
 
 int main(void) {
@@ -128,8 +141,9 @@ int main(void) {
 4. Bison 需要你提供一个 `yylex` 来获取下一个 token。
 5. Bison 需要你提供一个 `yyerror` 来提供合适的报错机制。
 6. Bison 如果提供全局变量 `yydebug` 可以给出接收过程输出。
+7. Bison 会自动解析你的 CFG ，如果有歧义它可以生成 counterexample.
 
-顺便提一嘴，上面这个 `.y` 是可以工作的——尽管它只能接受两个字符串。把上面这段代码保存为 `reimu.y`，执行如下命令来构建这个程序：
+顺便提一嘴，上面这个 `.y` 是可以工作的——尽管它只能接受两个字符串($\epsilon$ 和 `R`)。把上面这段代码保存为 `reimu.y`, 执行如下命令来构建这个程序：
 
 ```shell
 $ bison reimu.y
@@ -146,13 +160,16 @@ blablabla <-- 回车或者 Ctrl-D
 syntax error <-- 发现了错误
 ```
 
-于是我们验证了上述代码的确识别了该文法定义的语言 `{ "", "R" }`。
+于是我们验证了上述代码的确识别了该文法定义的语言 $\{\epsilon,\textsf{R}\}$
 
 ### Bison 和 flex 的关系
 
 聪明的你应该发现了，我们这里手写了一个 `yylex` 函数作为词法分析器。
+
 而之前我们正好使用 flex 自动生成了一个词法分析器。如何让这两者协同工作呢？
+
 特别是，我们需要在这两者之间共享 token 定义和一些数据，难道要手动维护吗？当然不用！
+
 下面我们用一个四则运算计算器来简单介绍如何让 Bison 和 flex 协同工作——重点是如何维护解析器状态、`YYSTYPE` 和头文件的生成。
 
 首先，我们必须明白，整个工作流程中，Bison 是占据主导地位的，
@@ -197,7 +214,7 @@ term : factor { $$ = $1; }
     | term MULOP factor {
         switch ($2) {
             case '*': $$ = $1 * $3; break;
-            case '/': $$ = $1 / $3; break; // 这里会出什么问题？
+            case '/': $$ = $1 / $3; break;
         }
     }
 
@@ -317,40 +334,61 @@ $ ./calc
 * `yylval`：这时候我们可以打开 `.h` 文件，看看里面有什么。除了 token 定义，最末尾还有一个 `extern YYSTYPE yylval;` 。这个变量我们上面已经使用了，通过这个变量，我们就可以在 lexer 设置某个 token 的值。
 
 呼……说了这么多，现在回头看看上面的代码，应该可以完全看懂了吧！
+
 这时候你可能才意识到为什么 flex 生成的分析器入口是 `yylex`，
 因为这个函数就是 Bison 专门让程序员自己填的，作为一种扩展机制。
-另外，Bison 生成的变量和函数名通常都带有 `yy` 前缀。
 
-最后还得提一下，尽管上面所讲已经足够应付很大一部分解析需求了，
-但是 Bison 还有一些高级功能，比如自动处理运算符的优先级和结合性（于是我们就不需要手动把 `expr` 拆成 `factor`, `term` 了）。
-这部分功能，就留给同学们自己去探索吧！
+另外，Bison 生成的变量和函数名通常都带有 `yy` 前缀。
 
 ## 实验要求
 
 本实验的输出类似 Language Server Protocol，
 如你们在 web 上测试的情况可知，这种 JSON 的传输协议很适合作为前后端现实的交互接口，
-VSCode等IDE也使用 LSP 进行前端高亮。
+VSCode 等 IDE 也使用 LSP 进行前端高亮。
 
-本次实验需要各位同学根据 ChocoPy 的词法和语法补全 [chocopy.l](./src/parser/chocopy.l) 以及 [chocopy.y](./src/parser/chocopy.l) 文件，
+本次实验需要各位同学根据 ChocoPy 的词法和语法补全 [chocopy.l](../../src/parser/chocopy.l) 以及 [chocopy.y](../../src/parser/chocopy.y) 文件，
 完成完整的语法分析器。不用担心，我们已经为你写好了用 AST 生成 JSON 的部分。你只需要使用 flex 和 Bison 生成 AST 即可。
 
 ### 主要工作
 
-1. 了解 Bison 基础知识和理解 ChocoPy 语法（重在了解如何将文法产生式转换为 Bison 语句）
-2. 阅读 `./src/parser/chocopy_parse.cpp`，对应头文件 `./include/parser/chocopy_parse.hpp`（重在理解分析树如何生成）
-3. 了解 Bison 与 flex 之间是如何协同工作的
-4. 补全 `src/parser/chocopy.y` 文件和 `chocopy.l` 文件
+1. 了解 Bison 基础知识和理解 [ChocoPy 语法](../chocopy_language_reference.pdf)（重在了解如何将文法产生式转换为 Bison 语句）
+2. 阅读 `chocopy/src/parser/chocopy_parse.cpp`，对应头文件 `chocopy/include/parser/chocopy_parse.hpp`（重在理解分析树如何生成）
+3. 补全 `chocopy/src/parser/chocopy.{y,l}` 文件
+
+现有的 `chocopy.{y,l}` 可以接收形如 `1+1+4+5+1+4` 的输入，循着这条轨迹可以帮助你产生 flex & Bison 设计的思路。仅供参考。
 
 ### 提示
 
-文本输入：
+#### flex 提示
+
+参考 [flex](./The%20Flex%20Manual%20Page.html)
+
+列出一些可能有用的函数和概念
+
+* `yyless(n)` 能够退回已经吃掉的字符  
+* START CONDITIONS. flex provides a mechanism for conditionally activating rules. This can help you solve indentation problem.
+
+#### Bison 提示
+
+Bison 可以帮助我们指定结合律，
+在声明 symbol 的时候可以用 `%nonassoc,%left,%right` 给予他们零结合律，左结合律和右结合律。
+在代码中声明不同 symbol 结合律的顺序同时会指定他们之间的优先级，同一行的 symbol 优先级相同。
+[ref](https://www.gnu.org/software/bison/manual/html_node/Precedence-Decl.html)
+
+#### 最终目标
+
+你的最终目标是完成输入为 ChocoPy 源代码，输出为 JSON 形式的 AST 的程序。这是在实现编译器中 lexer 和 syntax parser 的部分。
+
+样例输入：
 
 ```py
 a: int = 1
 print(a)
 ```
 
-则输出结果应为：
+样例输出：
+
+(`location` 项不计入评测)
 
 ```json
 {
@@ -416,22 +454,28 @@ print(a)
 
 评测程序不会检查错误信息与个数，找到一个不可接收的程序直接报错返回。
 
-**具体的需识别token参考[chocopy.y](./src/parser/chocopy.y)，需要实现的抽象语法树参考[chocopy_parse.hpp](./include/parser/chocopy_parse.hpp)**
+**具体的需识别token参考 [chocopy.y](./src/parser/chocopy.y)，需要实现的抽象语法树参考 [chocopy_parse.hpp](./include/parser/chocopy_parse.hpp)**
 
 ### 编译、运行和验证
 
 * 编译
 
-  若编译成功，则将在 `./[build_dir]/` 下生成 `parser`。
+  ```bash
+  cd chocopy # 项目根文件夹
+  cmake -S . -B build -G Ninja
+  cmake --build build
+  ```
+
+  若编译成功，则将在 `./build/` 下生成 `parser`。
 
 * 运行
 
   ```shell
-  $ cd chocopy
-  $ ./build/parser               # 交互式使用（不进行输入重定向）
-  <在这里输入 ChocoPy代码，如果遇到了错误，将程序将报错并退出。>
-  <输入完成后按 ^D 结束输入，此时程序将输出解析json。>
-  $ ./build/parser test.py  # 不使用重定向，直接从 test.py 中读入
+  cd chocopy
+  ./build/parser               # 交互式使用（不进行输入重定向）
+  # <在这里输入 ChocoPy 代码，如果遇到了错误，将程序将报错并退出。>
+  # <输入完成后按 Ctrl - D 结束输入，此时程序将输出解析 json。>
+  ./build/parser test.py  # 不使用重定向，直接从 test.py 中读入
   ```
 
 * 验证
@@ -439,30 +483,29 @@ print(a)
   本次试验测试案例较多，为此我们将这些测试分为两类：
 
     1. sample: 这部分测试均比较简单且单纯，适合开发时调试。
-    2. fuzz: 由fuzzer生成的正确的python文件，此项不予开源。
+    2. fuzz: 由 fuzzer 生成的正确的 Python 文件，此项不予开源。
     3. student: 这部分由同学提供。
 
   我们使用 `check.py` 进行评分。`check.py` 会将 `parser` 的生成结果和助教提供的 `*.py.ast` 进行比较。
 
   ```shell
-  $ ./check.py --pa 1
+  cd chocopy/tests
+  ./check.py --pa 1
   ```
 
-  **请注意助教提供的`testcase`并不能涵盖全部的测试情况，完成此部分仅能拿到基础分，请自行设计自己的`testcase`进行测试。**
+  **请注意助教提供的 `testcase` 并不能涵盖全部的测试情况，完成此部分仅能拿到基础分，请自行设计自己的 `testcase` 进行测试。**
 
 ### 提供可用的测试用例
 
 对于每个学生，你需要在资源库的根目录下创建一个名为 `tests/pa1/student/` 的文件夹，
-并放置 10 个有意义的 `*.py` 测试案例，
-其中 5 个将通过所有的编译，
-另外 5 个将不通过编译，来测试你代码的错误报告。
+并放置 4~10 个有意义的 `*.py` 测试案例，不能通过编译的部分要以 `bad_` 开头。
 
-你的测试案例将被用来评估其他人的代码。
+你的测试案例将被用来评估其他人的代码，~~你可以降低别人的分数。~~
 
 ### 评分
 
-1. 基本测试样例[70pts]
-2. Fuzzer 测试[5pts]
+1. 基本测试样例[60pts]
+2. Fuzzer 测试[10pts]
 3. Student 测试[5pts]
-4. 提供 TestCase[5pts]
-5. Code interview[15pts]
+4. 提供 Test Case[5pts]
+5. Code interview[20pts]
