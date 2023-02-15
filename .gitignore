@@ -3,3 +3,4 @@ chocopy_test
 build*
 .VSCode
 .cache
+.vscode
