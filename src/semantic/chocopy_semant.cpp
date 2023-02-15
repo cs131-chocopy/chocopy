@@ -927,20 +927,6 @@ bool TypeChecker::is_subtype(SymbolType const *sub, SymbolType const *super) {
     if (sub->is_list_type() || super->is_list_type()) return false;
     return hierachy_tree->is_superclass(sub->get_name(), super->get_name());
 }
-shared_ptr<ValueType> ValueType::annotate_to_val(
-    parser::TypeAnnotation *annotation) {
-    if (dynamic_cast<parser::ClassType *>(annotation)) {
-        return std::make_shared<ClassValueType>(
-            (parser::ClassType *)annotation);
-    } else {
-        if (annotation != nullptr && annotation->kind == "<None>")
-            return std::make_shared<ClassValueType>("<None>");
-        if (dynamic_cast<parser::ListType *>(annotation))
-            return std::make_shared<ListValueType>(
-                (parser::ListType *)annotation);
-    }
-    return nullptr;
-}
 }  // namespace semantic
 
 #ifdef PA2

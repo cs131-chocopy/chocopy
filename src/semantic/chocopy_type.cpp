@@ -6,7 +6,21 @@
 #include "ValueType.hpp"
 
 namespace semantic {
-    ListValueType::ListValueType(parser::ListType *typeAnnotation)
+shared_ptr<ValueType> ValueType::annotate_to_val(
+    parser::TypeAnnotation *annotation) {
+    if (dynamic_cast<parser::ClassType *>(annotation)) {
+        return std::make_shared<ClassValueType>(
+            (parser::ClassType *)annotation);
+    } else {
+        if (annotation != nullptr && annotation->kind == "<None>")
+            return std::make_shared<ClassValueType>("<None>");
+        if (dynamic_cast<parser::ListType *>(annotation))
+            return std::make_shared<ListValueType>(
+                (parser::ListType *)annotation);
+    }
+    return nullptr;
+}
+ListValueType::ListValueType(parser::ListType *typeAnnotation)
     : element_type(
           ValueType::annotate_to_val(typeAnnotation->elementType.get())) {}
 
