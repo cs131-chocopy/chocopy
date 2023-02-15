@@ -13,7 +13,7 @@ target_include_directories(parser-lib PRIVATE ${PROJECT_BINARY_DIR}/src/parser/)
 target_include_directories(parser-lib PRIVATE ${PROJECT_SOURCE_DIR}/src/)
 target_link_libraries(parser-lib fmt::fmt nlohmann_json)
 
-add_executable(parser ${SOURCE_FILES} chocopy_ast.cpp chocopy_logging.cpp ../semantic/chocopy_semant.cpp ../semantic/chocopy_type.cpp)
+add_executable(parser ${SOURCE_FILES} chocopy_ast.cpp chocopy_logging.cpp ../semantic/chocopy_type.cpp)
 target_include_directories(parser PRIVATE ${PROJECT_SOURCE_DIR}/include/semantic/)
 target_include_directories(parser PRIVATE ${PROJECT_SOURCE_DIR}/include/parser/)
 target_include_directories(parser PRIVATE ${PROJECT_BINARY_DIR}/src/parser/)
