@@ -154,26 +154,13 @@ class TypeChecker : public ast::ASTAnalyzer {
     /** The current symbol table (changes depending on the function
      *  being analyzed). */
     SymbolTable *sym;
-    stack<SymbolTable *> saved;
     SymbolTable *const global;
     HierachyTree *const hierachy_tree;
-
-    /** For the nested function declaration */
-    FunctionDefType *cur_func{};
-    std::vector<std::string> *cur_lambda_params;
-    stack<FunctionDefType *> saved_func{};
-
-    bool is_lvalue{false};
 
     /** Collector for errors. */
     vector<std::unique_ptr<parser::CompilerErr>> *errors;
 
-    /** Should work on ClassType, ListType, <None>, ...
-     * hierachy_tree->common_ancestor() only works on Class */
-    shared_ptr<SymbolType> get_common_type(shared_ptr<SymbolType>,
-                                           shared_ptr<SymbolType>);
-    bool is_subtype(SymbolType const *, SymbolType const *);
-
+    /** Some handy types */
     std::shared_ptr<ClassValueType>
         object_value_type = std::make_shared<ClassValueType>("object"),
         int_value_type = std::make_shared<ClassValueType>("int"),
@@ -256,51 +243,4 @@ class SymbolTableGenerator : public ast::ASTAnalyzer {
     HierachyTree *const hierachy_tree;
     vector<std::unique_ptr<parser::CompilerErr>> *const errors;
 };
-
-/**
- * Analyzes declarations to create a top-level symbol table
- */
-class DeclarationAnalyzer : public ast::ASTAnalyzer {
-   public:
-    void visit(parser::ClassDef &node) override;
-    void visit(parser::FuncDef &node) override;
-    void visit(parser::GlobalDecl &node) override;
-    void visit(parser::NonlocalDecl &node) override;
-    void visit(parser::VarDef &varDef) override;
-    void visit(parser::Program &program) override;
-
-    explicit DeclarationAnalyzer(parser::Program &program)
-        : errors(&program.errors->compiler_errors),
-          globals(&program.symbol_table),
-          sym(&program.symbol_table) {}
-
-    /** Collector for errors. */
-    vector<std::unique_ptr<parser::CompilerErr>> *errors;
-
-   private:
-    ClassDefType *current_class;
-    SymbolTable *const globals;
-    SymbolTable *sym;
-    ClassDefType *getClass(const string &name) {
-        return globals->declares<ClassDefType>(name);
-    }
-    void checkValueType(
-        ValueType *type,
-        const std::unique_ptr<parser::TypeAnnotation> &annoation) {
-        while (type->is_list_type()) {
-            type = static_cast<ListValueType *>(type)->element_type.get();
-        }
-        assert(dynamic_cast<ClassValueType *>(type));
-        const auto &class_name =
-            static_cast<ClassValueType *>(type)->class_name;
-
-        if (getClass(class_name) == nullptr) {
-            errors->emplace_back(new SemanticError(
-                annoation->location,
-                "Invalid type annotation; there is no class named: " +
-                    class_name));
-        }
-    }
-};
-
 }  // namespace semantic

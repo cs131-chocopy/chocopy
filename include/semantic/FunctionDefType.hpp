@@ -18,9 +18,7 @@ class FunctionDefType : public SymbolType {
     shared_ptr<ValueType> return_type;
     std::vector<shared_ptr<SymbolType>> params;
     SymbolTable current_scope;
-    bool is_method;
 
-    bool operator==(const FunctionDefType &f2) const;
     bool is_func_type() const final { return true; }
     const string get_name() const final { return func_name; }
     json toJSON() const override;

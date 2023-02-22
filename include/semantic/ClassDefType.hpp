@@ -14,7 +14,6 @@ class ClassDefType : public SymbolType {
 
     const string get_name() const override { return class_name; }
     virtual json toJSON() const override { abort(); }
-    std::vector<string> inherit_members;
     string super_class;
     string class_name;
     SymbolTable current_scope;

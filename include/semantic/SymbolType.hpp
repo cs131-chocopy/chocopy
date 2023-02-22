@@ -19,8 +19,5 @@ class SymbolType {
 
     virtual const string get_name() const = 0;
     virtual json toJSON() const = 0;
-
-    bool eq(const SymbolType *_Value) const;
-    bool neq(const SymbolType *_Value) const;
 };
 }  // namespace semantic

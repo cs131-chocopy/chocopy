@@ -23,28 +23,6 @@ class ClassValueType;
 class ListValueType;
 
 /**
- * @brief A tempelate class for nonlocal and global. Will be replaced after
- * DeclarationAnalyzer.
- */
-class RefType : public SymbolType {
-   public:
-    RefType(const string &name) : name(name) {}
-
-    const string get_name() const override { return name; }
-    virtual json toJSON() const final { abort(); }
-
-    string name;
-};
-class NonlocalRefType : public RefType {
-   public:
-    NonlocalRefType(const string &name) : RefType(name) {}
-};
-class GlobalRefType : public RefType {
-   public:
-    GlobalRefType(const string &name) : RefType(name) {}
-};
-
-/**
  * A ValueType references types that are assigned to variables and
  * expressions.
  *
