@@ -1,19 +1,22 @@
-### 1.1 了解Visitor Pattern
+### 了解 Visitor Pattern
 
-Visitor Pattern(访问者模式)是一种在LLVM项目源码中被广泛使用的设计模式。在遍历某个数据结构（比如树）时，如果我们需要对每个节点做一些额外的特定操作，Visitor Pattern就是个不错的思路。  
-Visitor Pattern是为了解决**稳定的数据结构**和**易变的操作耦合问题**
-而产生的一种设计模式。解决方法就是在被访问的类里面加一个对外提供接待访问者的接口，其关键在于在数据基础类里面有一个方法接受访问者，将自身引用传入访问者。这里举一个应用实例来帮助理解访问者模式:
+Visitor Pattern (访问者模式)是一种在 LLVM 项目源码中被广泛使用的设计模式。
+在遍历某个数据结构（比如树）时，如果我们需要对每个节点做一些额外的特定操作，Visitor Pattern 就是个不错的思路。
+
+Visitor Pattern 是为了解决**稳定的数据结构**和**易变的操作耦合问题**而产生的一种设计模式。
+解决方法就是在被访问的类里面加一个对外提供接待访问者的接口，其关键在于在数据基础类里面有一个方法接受访问者，将自身引用传入访问者。
+这里举一个应用实例来帮助理解访问者模式:
 您在朋友家做客，您是访问者；朋友接受您的访问，您通过朋友的描述，然后对朋友的描述做出一个判断，这就是访问者模式。  
-有关 Visitor Pattern 的含义、模式和特点，有梯子的同学可参考[维基百科](https://en.wikipedia.org/wiki/Visitor_pattern#C++_example) 。  
-下面的例子可以清晰地展示Visitor Pattern的运作方式。这是助教编写的计算表达式 `4 * 2 - 2 / 4 + 5` 结果的C++程序。  
-其中较为重要的一点原则在于，C++中对函数重载特性的支持。在代码`treeVisitor.visit(node)`中，根据`node`对象具体类型的不同，编译器会在`visit(AddSubNode& node)`
-、`visit(NumberNode& node)`、`visit(MulDivNode& node)`
-三者中，选择对应的实现进行调用。你需要理解下面这个例子中tree是如何被遍历的。请在[report.md](./Reports/lab3/report.md)中**回答问题2**。
+有关 Visitor Pattern 的含义、模式和特点，可参考[维基百科](https://en.wikipedia.org/wiki/Visitor_pattern#C++_example)。
 
-<details>
-  <summary>例子:简单的表达式计算 - visitor.cpp</summary>
+下面的例子可以清晰地展示 Visitor Pattern 的运作方式。这是助教编写的计算表达式 `4 * 2 - 2 / 4 + 5` 结果的C++程序。  
+其中较为重要的一点原则在于，C++ 中对函数重载特性的支持。
+在代码 `treeVisitor.visit(node)` 中，根据 `node` 对象具体类型的不同，
+编译器会在 `visit(AddSubNode& node)`, `visit(NumberNode& node)`, `visit(MulDivNode& node)` 三者中，
+选择对应的实现进行调用。
+你需要理解下面这个例子中tree是如何被遍历的。
 
-``` c++
+```cpp
 #include <iostream>
 #include <vector>
 
