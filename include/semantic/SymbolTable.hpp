@@ -16,8 +16,7 @@ namespace semantic {
  *  about them of type T in a given declarative region. */
 class SymbolTable {
    public:
-    /** A table representing a region nested in that represented by
-     *  PARENT0. */
+    /** A table representing a region nested in that represented by parent. */
     explicit SymbolTable(SymbolTable *parent) : parent(parent) {}
     SymbolTable() : parent(nullptr) {}
     map<string, shared_ptr<SymbolType>> tab;
@@ -53,6 +52,7 @@ class SymbolTable {
             return nullptr;
     }
 
+    /** Return the mapping in this scope only. */
     template <typename T = SymbolType>
     T *declares(const string &name) const {
         if (tab.count(name) > 0) return dynamic_cast<T *>(tab.at(name).get());
