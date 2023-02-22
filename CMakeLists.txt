@@ -26,8 +26,5 @@ endif()
 
 # Add block directories
 add_subdirectory(libs)
-add_subdirectory(src/cgen/stdlib)
 add_subdirectory(src/parser)
 add_subdirectory(src/semantic)
-add_subdirectory(src/cgen)
-add_subdirectory(src/ir-optimizer)
