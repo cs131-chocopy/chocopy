@@ -11,7 +11,7 @@ Declaration analysis 的结果以 symbol table 的形式传给 type checker继�
 
 ### Declaration 检查
 
-`DeclarationAnalyzer` 检查是一个声明作用域环境的检查，在 Python 中的变量有四个作用域
+在 Python 中的变量有四个作用域
 
 | 作用域                  | 英文解释                  | 英文简写 |
 | ----------------------- | ------------------------- | -------- |
@@ -260,8 +260,6 @@ $$
 
 ## 实验要求
 
-本实验的输出可以实现对语义检查的要求，建立在语法没有错误的基础上，同样可以输出高亮在IDE中。
-
 本次实验需要各位同学根据 ChocoPy 的语义补全 [chocopy_semant.cpp](./src/semantic/chocopy_semant.cpp) 文件，完成完整的语法分析器，能够输出识别出错误。
 
 ### 主要工作
@@ -319,7 +317,15 @@ a: int = 1
 
 ### 实现指南
 
-添加了新的对象类型 `ValueType`, `ClassValueType`, `ListValueType`.
+我们在 [chocopy_semant.cpp](../../src/semantic/chocopy_semant.cpp) 留下了一些示例代码，能够检查
+
+```python
+a: int = 1
+a + 1 # 这行没问题
+"114" + 514 # 这行会报错
+```
+
+[ValueType.hpp](../../src/include/../../include/semantic/ValueType.hpp) 添加了新的对象类型 `ValueType`, `ClassValueType`, `ListValueType`.
 这些将被用来存储类型检查后推断出的程序表达式的类型信息。
 注意，这些类型几乎与 `TypeAnnotation` 和它的两个子类型完全相似。
    
@@ -365,13 +371,10 @@ class SymbolType {
     virtual constexpr bool is_func_type() const { return false; }
     virtual const string get_name() const = 0;
     virtual json toJSON() const = 0;
-    bool eq(const SymbolType *_Value) const;
-    bool neq(const SymbolType *_Value) const;
 };
 ```
 
-`SymbolType` 是一个纯虚类，表示了所有在 `SymbolTable` 内的类型，
-实现了 `eq` 和 `neq`（可以根据自己需要修改）。
+`SymbolType` 是一个纯虚类，表示了所有在 `SymbolTable` 内的类型。
 `ValueType`, `ClassDefType` `FunctionDefType` 都继承自 `SymbolType`。
 
 ```cpp
@@ -469,4 +472,4 @@ class ClassDefType : public SymbolType {
 2. Fuzzer 测试[5pts]
 3. Student 测试[10pts]
 4. 提供 Test Case[5pts]
-5. Code interview[20pts]
+5. Code interview (memory safety check)[20pts]
