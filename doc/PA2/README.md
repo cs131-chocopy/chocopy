@@ -1,15 +1,14 @@
 # Programing Assignment II 文档
 
 本次实验是组队实验，请仔细阅读组队要求，并合理进行分工合作。
-本实验中需要使用 Visitor Pattern 完成对程序的 declaration analysis 和 type checking analysis.
-Declaration analysis 的结果以 symbol table 的形式传给 type checker继续检查。
+本实验中需要使用 visitor pattern 完成对程序的类型检查。
 
 注意：组队实验意味着合作，但是小组间的交流是受限的，且严格**禁止**代码的共享。
 除此之外，如果小组和其它组进行了交流，必须在根目录 `README.md` 中记录下来交流的小组和你们之间交流内容。
 
 ## 基础知识
 
-### Declaration 检查
+### 声明检查
 
 在 Python 中的变量有四个作用域
 
