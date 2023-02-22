@@ -27,8 +27,10 @@ json Node::toJSON() const {
     json d;
 
     d["kind"] = kind;
+#ifdef __PARSER_PRINT_LOCATION
     d["location"] = {location.first.line, location.first.column,
                      location.last.line, location.last.column};
+#endif
 
     if (this->has_type_err()) d["errorMsg"] = typeError;
     return d;
@@ -144,7 +146,9 @@ json FuncDef::toJSON() const {
     else {
         d["returnType"] = {
             {"kind", "ClassType"},
+#ifdef __PARSER_PRINT_LOCATION
             {"location", {0, 0, 0, 0}},
+#endif
             {"className", "<None>"},
         };
     }
@@ -322,6 +326,10 @@ string TypeAnnotation::get_name() {
 
 #ifdef PA1
 int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        std::cerr << "Usage: " << argv[0] << " <filename>" << std::endl;
+        return 1;
+    }
     auto tree = parse(argv[1]);
 
     auto j = tree->toJSON();
