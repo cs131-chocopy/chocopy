@@ -31,39 +31,6 @@ const string ValueType::get_name() const {
     return ((ClassValueType *)this)->class_name;
 }
 
-bool SymbolType::eq(const SymbolType *Value) const {
-    if (this->is_list_type()) {
-        if (dynamic_cast<ListValueType const *>(Value))
-            return ((ListValueType const *)this)
-                ->element_type->eq(
-                    ((ListValueType const *)Value)->element_type.get());
-        else
-            return false;
-    } else if (this->is_value_type()) {
-        if (dynamic_cast<ClassValueType const *>(Value))
-            return ((ClassValueType const *)this)->get_name() ==
-                   ((ClassValueType const *)Value)->get_name();
-        else
-            return false;
-    }
-    return false;
-}
-bool SymbolType::neq(const SymbolType *Value) const { return !eq(Value); }
-
-bool FunctionDefType::operator==(const FunctionDefType &f2) const {
-    auto &a = this->params;
-    auto &b = f2.params;
-    if (a.size() == b.size()) {
-        for (size_t i = 1; i < a.size(); i++) {
-            if (a.at(i)->get_name() != b.at(i)->get_name()) return false;
-        }
-        if (this->return_type->get_name() != f2.return_type->get_name())
-            return false;
-        return true;
-    } else
-        return false;
-}
-
 json FunctionDefType::toJSON() const {
     json d;
     d["kind"] = "FuncType";
