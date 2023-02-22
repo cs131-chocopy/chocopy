@@ -128,7 +128,7 @@ void SymbolTableGenerator::visit(parser::ClassDef &class_def) {
         }
     }
 
-    for (const auto [name, type] : super_scope.tab) {
+    for (const auto &[name, type] : super_scope.tab) {
         if (sym->declares(name)) continue;
         sym->put(name, type);
         class_->inherit_members.emplace_back(name);
@@ -249,7 +249,7 @@ void DeclarationAnalyzer::visit(parser::FuncDef &func_def) {
     assert(func_type);
     sym = &func_type->current_scope;
 
-    for (int i = 0; i < func_type->params.size(); i++) {
+    for (size_t i = 0; i < func_type->params.size(); i++) {
         const auto &annoation = func_def.params.at(i)->type;
         const auto value_type =
             dynamic_cast<ValueType *>(func_type->params.at(i).get());
@@ -455,7 +455,7 @@ void TypeChecker::visit(parser::CallExpr &node) {
         param++;
     }
 
-    for (int i = 0; i < node.args.size(); i++) {
+    for (size_t i = 0; i < node.args.size(); i++) {
         const auto &arg = node.args.at(i);
         arg->accept(*this);
         const auto arg_type = arg->inferredType;
@@ -755,7 +755,7 @@ void TypeChecker::visit(parser::MethodCallExpr &node) {
         return;
     }
 
-    for (int i = 0; i < node.args.size(); i++) {
+    for (size_t i = 0; i < node.args.size(); i++) {
         const auto &arg = node.args.at(i);
         arg->accept(*this);
         const auto arg_type = arg->inferredType;
@@ -931,6 +931,10 @@ bool TypeChecker::is_subtype(SymbolType const *sub, SymbolType const *super) {
 
 #ifdef PA2
 int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        std::cerr << "Usage: " << argv[0] << " <filename>" << std::endl;
+        return 1;
+    }
     std::unique_ptr<parser::Program> tree(parse(argv[1]));
     if (tree->errors->compiler_errors.size() == 0) {
         auto symboltableGenerator = semantic::SymbolTableGenerator(*tree);

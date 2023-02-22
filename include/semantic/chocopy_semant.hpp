@@ -66,38 +66,38 @@ namespace ast {
 class Visitor;
 class ASTAnalyzer : public Visitor {
    public:
-    virtual void visit(parser::BinaryExpr &node){};
-    virtual void visit(parser::Node &node){};
-    virtual void visit(parser::Errors &node){};
-    virtual void visit(parser::PassStmt &node){};
-    virtual void visit(parser::BoolLiteral &node){};
-    virtual void visit(parser::CallExpr &node){};
-    virtual void visit(parser::ClassDef &node){};
-    virtual void visit(parser::ClassType &node){};
-    virtual void visit(parser::ExprStmt &node){};
-    virtual void visit(parser::ForStmt &node){};
-    virtual void visit(parser::FuncDef &node){};
-    virtual void visit(parser::GlobalDecl &node){};
-    virtual void visit(parser::Ident &node){};
-    virtual void visit(parser::IfExpr &node){};
-    virtual void visit(parser::IfStmt &node){};
-    virtual void visit(parser::IndexExpr &node){};
-    virtual void visit(parser::IntegerLiteral &node){};
-    virtual void visit(parser::ListExpr &node){};
-    virtual void visit(parser::ListType &node){};
-    virtual void visit(parser::MemberExpr &node){};
-    virtual void visit(parser::MethodCallExpr &node){};
-    virtual void visit(parser::NoneLiteral &node){};
-    virtual void visit(parser::NonlocalDecl &node){};
-    virtual void visit(parser::ReturnStmt &node){};
-    virtual void visit(parser::StringLiteral &node){};
-    virtual void visit(parser::TypedVar &node){};
-    virtual void visit(parser::UnaryExpr &node){};
-    virtual void visit(parser::VarDef &node){};
-    virtual void visit(parser::WhileStmt &node){};
+    virtual void visit(parser::BinaryExpr &node __attribute__((unused))){};
+    virtual void visit(parser::Node &node __attribute__((unused))){};
+    virtual void visit(parser::Errors &node __attribute__((unused))){};
+    virtual void visit(parser::PassStmt &node __attribute__((unused))){};
+    virtual void visit(parser::BoolLiteral &node __attribute__((unused))){};
+    virtual void visit(parser::CallExpr &node __attribute__((unused))){};
+    virtual void visit(parser::ClassDef &node __attribute__((unused))){};
+    virtual void visit(parser::ClassType &node __attribute__((unused))){};
+    virtual void visit(parser::ExprStmt &node __attribute__((unused))){};
+    virtual void visit(parser::ForStmt &node __attribute__((unused))){};
+    virtual void visit(parser::FuncDef &node __attribute__((unused))){};
+    virtual void visit(parser::GlobalDecl &node __attribute__((unused))){};
+    virtual void visit(parser::Ident &node __attribute__((unused))){};
+    virtual void visit(parser::IfExpr &node __attribute__((unused))){};
+    virtual void visit(parser::IfStmt &node __attribute__((unused))){};
+    virtual void visit(parser::IndexExpr &node __attribute__((unused))){};
+    virtual void visit(parser::IntegerLiteral &node __attribute__((unused))){};
+    virtual void visit(parser::ListExpr &node __attribute__((unused))){};
+    virtual void visit(parser::ListType &node __attribute__((unused))){};
+    virtual void visit(parser::MemberExpr &node __attribute__((unused))){};
+    virtual void visit(parser::MethodCallExpr &node __attribute__((unused))){};
+    virtual void visit(parser::NoneLiteral &node __attribute__((unused))){};
+    virtual void visit(parser::NonlocalDecl &node __attribute__((unused))){};
+    virtual void visit(parser::ReturnStmt &node __attribute__((unused))){};
+    virtual void visit(parser::StringLiteral &node __attribute__((unused))){};
+    virtual void visit(parser::TypedVar &node __attribute__((unused))){};
+    virtual void visit(parser::UnaryExpr &node __attribute__((unused))){};
+    virtual void visit(parser::VarDef &node __attribute__((unused))){};
+    virtual void visit(parser::WhileStmt &node __attribute__((unused))){};
     virtual void visit(parser::TypeAnnotation &){};
-    virtual void visit(parser::AssignStmt &node){};
-    virtual void visit(parser::Program &node){};
+    virtual void visit(parser::AssignStmt &node __attribute__((unused))){};
+    virtual void visit(parser::Program &node __attribute__((unused))){};
 };
 
 }  // namespace ast
@@ -141,10 +141,10 @@ class TypeChecker : public ast::ASTAnalyzer {
     void visit(parser::AssignStmt &node) override;
 
     TypeChecker(parser::Program &program)
-        : errors(&program.errors->compiler_errors),
+        : sym(&program.symbol_table),
           global(&program.symbol_table),
-          sym(&program.symbol_table),
-          hierachy_tree(&program.hierachy_tree) {}
+          hierachy_tree(&program.hierachy_tree),
+          errors(&program.errors->compiler_errors) {}
 
     /** Inserts an error message in NODE if there isn"t one already.
      *  The message is constructed with MESSAGE and ARGS as for
@@ -185,10 +185,10 @@ class TypeChecker : public ast::ASTAnalyzer {
 class SymbolTableGenerator : public ast::ASTAnalyzer {
    public:
     SymbolTableGenerator(parser::Program &program)
-        : errors(&program.errors->compiler_errors),
-          global_sym(&program.symbol_table),
+        : global_sym(&program.symbol_table),
           sym(&program.symbol_table),
-          hierachy_tree(&program.hierachy_tree) {
+          hierachy_tree(&program.hierachy_tree),
+          errors(&program.errors->compiler_errors) {
         auto object_value_type = std::make_shared<ClassValueType>("object");
         auto none_value_type = std::make_shared<ClassValueType>("<None>");
 
