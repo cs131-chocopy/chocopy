@@ -8,7 +8,6 @@
 #include "chocopy_parse.hpp"
 
 using std::string;
-using std::vector;
 namespace lightir {
 class Class;
 class Module;
@@ -36,7 +35,7 @@ class ConstantStr : public Constant {
     static ConstantStr *get(const string &val, int id, Module *m);
     string print() override;
     ConstantStr(Type *ty, string val, int id)
-        : Constant(ty, "", 0), id_(id), value_(std::move(val)) {}
+        : Constant(ty, "", 0), value_(std::move(val)), id_(id) {}
 };
 
 class ConstantInt : public Constant {
@@ -55,8 +54,8 @@ class ConstantInt : public Constant {
 
 class ConstantBoxInt : public Constant {
    private:
-    int value_;
     int id_;
+    int value_;
     bool header_print_ = true;
 
    public:
@@ -74,8 +73,8 @@ class ConstantBoxInt : public Constant {
 
 class ConstantBoxBool : public Constant {
    private:
-    bool value_;
     int id_;
+    bool value_;
     bool header_print_ = true;
 
    public:

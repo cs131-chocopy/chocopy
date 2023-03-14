@@ -212,7 +212,7 @@ string CallInst::print() {
     instr_ir += this->get_function_type()->get_return_type()->print();
     if (this->get_function_type()->is_variable_args) {
         instr_ir += " (";
-        for (int i = 0;
+        for (unsigned int i = 0;
              i < dynamic_cast<FunctionType *>(this->get_function_type())
                      ->get_num_of_args();
              i++) {
@@ -226,7 +226,7 @@ string CallInst::print() {
     instr_ir += " ";
     instr_ir += print_as_op(this->get_operand(0), false);
     instr_ir += "(";
-    for (int i = 1; i < this->get_num_operand(); i++) {
+    for (unsigned int i = 1; i < this->get_num_operand(); i++) {
         if (i > 1) instr_ir += ", ";
         instr_ir += print_as_op(this->get_operand(i), true, "");
     }
@@ -513,10 +513,10 @@ string BitCastInst::print() {
                 dynamic_cast<Class *>(this->get_operand(0))->prototype_label_),
             this->get_dest_type()->print());
     } else if (dynamic_cast<ConstantStr *>(this->get_operand(0)) ||
-               dynamic_cast<GlobalVariable *>(this->get_operand(0)) &&
-                   dynamic_cast<ConstantStr *>(
-                       dynamic_cast<GlobalVariable *>(this->get_operand(0))
-                           ->get_init()))
+               (dynamic_cast<GlobalVariable *>(this->get_operand(0)) &&
+                dynamic_cast<ConstantStr *>(
+                    dynamic_cast<GlobalVariable *>(this->get_operand(0))
+                        ->get_init())))
         return fmt::format(
             "%{} = {} %$str$prototype_type* {} to {}", this->get_name(),
             this->get_module()->get_instr_op_name(this->get_instr_type()),
@@ -569,8 +569,8 @@ string TruncInst::print() {
 }
 
 GetElementPtrInst::GetElementPtrInst(Value *ptr, Value *idx, BasicBlock *bb)
-    : Instruction(PtrType::get(get_element_type(ptr, idx)), Instruction::GEP,
-                  2, bb),
+    : Instruction(PtrType::get(get_element_type(ptr, idx)), Instruction::GEP, 2,
+                  bb),
       idx(idx) {
     set_operand(0, ptr);
     set_operand(1, idx);
@@ -663,7 +663,7 @@ Value *GetElementPtrInst::get_idx() const { return idx; }
 PhiInst::PhiInst(std::vector<Value *> vals, std::vector<BasicBlock *> val_bbs,
                  Type *ty, BasicBlock *bb)
     : Instruction(ty, OpID::PHI, 2 * vals.size()) {
-    for (int i = 0; i < vals.size(); i++) {
+    for (size_t i = 0; i < vals.size(); i++) {
         set_operand(2 * i, vals[i]);
         set_operand(2 * i + 1, val_bbs[i]);
     }
@@ -685,7 +685,7 @@ string PhiInst::print() {
     instr_ir += " ";
     instr_ir += get_lval()->get_type()->print();
     instr_ir += " ";
-    for (int i = 0; i < this->get_num_operand() / 2; i++) {
+    for (unsigned int i = 0; i < this->get_num_operand() / 2; i++) {
         if (i > 0) instr_ir += ", ";
         instr_ir += "[ ";
         instr_ir += print_as_op(this->get_operand(2 * i), false);
@@ -695,8 +695,8 @@ string PhiInst::print() {
     }
     if (this->get_num_operand() / 2 <
         this->get_parent()->get_pre_basic_blocks().size()) {
-        for (int i = 0; i < this->get_parent()->get_pre_basic_blocks().size();
-             i++) {
+        for (size_t i = 0;
+             i < this->get_parent()->get_pre_basic_blocks().size(); i++) {
             auto tmp = this->get_parent()->get_pre_basic_blocks().begin();
             std::advance(tmp, i);
             auto pre_bb = *tmp;
@@ -715,8 +715,8 @@ string PhiInst::print() {
 }
 
 AsmInst::AsmInst(Module *m, string asm_str, BasicBlock *bb)
-    : asm_str_(std::move(asm_str)),
-      Instruction(Type::get_void_type(m), Instruction::ASM, 1, bb) {
+    : Instruction(Type::get_void_type(m), Instruction::ASM, 1, bb),
+      asm_str_(std::move(asm_str)) {
     set_operand(0, bb);
 };
 

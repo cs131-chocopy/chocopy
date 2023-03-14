@@ -43,6 +43,10 @@ class AttrInfo : public Value {
  *     >3: User-defined types.
  */
 class Class : public Type, public Value {
+   private:
+    string class_name_;
+    Class *class_{};
+
    public:
     vector<AttrInfo *> *attributes_ = new vector<AttrInfo *>();
     vector<Function *> *methods_ = new vector<Function *>();
@@ -107,10 +111,6 @@ class Class : public Type, public Value {
     string print_class();
     Class *super_class_info_;
     bool print_dispatch_table_{};
-
-   private:
-    string class_name_;
-    Class *class_{};
 };
 
 /** For use of duck typing in function passing and list dispatch table,

@@ -5,7 +5,6 @@
 #include "User.hpp"
 
 using std::string;
-using std::vector;
 
 namespace lightir {
 /** Code-generation related information about a global variable. */
