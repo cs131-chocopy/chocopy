@@ -38,7 +38,7 @@ string ConstantNull::print() {
     return fmt::format("{} null", this->get_type()->print());
 }
 
-ConstantZero *ConstantZero::get(Type *ty, Module *m) {
+ConstantZero *ConstantZero::get(Type *ty, [[maybe_unused]] Module *m) {
     return new ConstantZero(ty);
 }
 
@@ -49,15 +49,14 @@ ConstantStr *ConstantStr::get(const string &val, int id, Module *m) {
 string ConstantStr::print() {
     string const_ir;
     if (header_print_) {
-        const_ir +=
-            "@const_" + std::to_string(id_) +
-            " = global %$str$prototype_type {\n" +
-            fmt::format(
-                "  i32 3,\n  i32 5,\n  %$str$dispatchTable_type* "
-                "@$str$dispatchTable,\n  i32 {},\n  "
-                "i8* @str.const_{}",
-                value_.size(), id_) +
-            "\n}";
+        const_ir += "@const_" + std::to_string(id_) +
+                    " = global %$str$prototype_type {\n" +
+                    fmt::format(
+                        "  i32 3,\n  i32 5,\n  %$str$dispatchTable_type* "
+                        "@$str$dispatchTable,\n  i32 {},\n  "
+                        "i8* @str.const_{}",
+                        value_.size(), id_) +
+                    "\n}";
         string s;
         for (char c : value_) {
             int a = c / 16, b = c % 16;

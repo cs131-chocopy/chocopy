@@ -26,8 +26,8 @@ Class::Class(Module *m, const string &name_, int type_tag,
     : Type(static_cast<type>(type_tag), m),
       Value(this, name_),
       class_name_(name_),
-      super_class_info_(super_class_info),
       type_tag_(type_tag),
+      super_class_info_(super_class_info),
       print_dispatch_table_(is_dispatch_table_) {
     prototype_label_ = fmt::format("${}${}", name_, "prototype");
     if (with_dispatch_table_) {
@@ -47,8 +47,8 @@ Class::Class(Module *m, const string &name_, bool anon_)
     : Type(static_cast<type>(-7), m),
       Value(this, name_),
       class_name_(name_),
-      super_class_info_(nullptr),
-      anon_(anon_) {
+      anon_(anon_),
+      super_class_info_(nullptr) {
     attributes_ = new vector<AttrInfo *>();
     methods_ = new vector<Function *>();
     m->add_class(this);

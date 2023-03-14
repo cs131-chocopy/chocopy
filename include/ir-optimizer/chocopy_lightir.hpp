@@ -139,8 +139,6 @@ class ScopeAnalyzer {
         }
     }
 
-    string cat_nest_func(const string &name) { return ""; }
-
    private:
     vector<map<std::string, Value *>> inner;
 };

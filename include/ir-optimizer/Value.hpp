@@ -24,7 +24,7 @@ class Value {
     Value(Type *ty) : Value(ty, ""){};
     ~Value() = default;
 
-    Type *const get_type() const { return type_; }
+    Type *get_type() const { return type_; }
 
     void set_type(Type *type) { type_ = type; }
 

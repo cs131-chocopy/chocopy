@@ -37,7 +37,7 @@ class Type {
 
     explicit Type(type tid, Module *m);
     explicit Type(type tid) : Type(tid, nullptr){};
-    ~Type() = default;
+    virtual ~Type() = default;
 
     constexpr int get_type_id() const { return get_underlying<type>(tid_); }
 

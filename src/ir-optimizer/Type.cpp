@@ -88,7 +88,7 @@ string FunctionType::print() {
     string type_ir;
     type_ir += dynamic_cast<FunctionType *>(this)->get_return_type()->print();
     type_ir += " (";
-    for (int i = 0; i < dynamic_cast<FunctionType *>(this)->get_num_of_args();
+    for (unsigned int i = 0; i < dynamic_cast<FunctionType *>(this)->get_num_of_args();
          i++) {
         if (i) type_ir += ", ";
         type_ir +=

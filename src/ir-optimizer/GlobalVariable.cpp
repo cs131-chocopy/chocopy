@@ -8,7 +8,7 @@ namespace lightir {
 
 GlobalVariable::GlobalVariable(const string &name, Module *m, Type *ty,
                                bool is_const, Constant *init)
-    : User(ty, name, init != nullptr), init_val_(init), is_const_(is_const) {
+    : User(ty, name, init != nullptr), is_const_(is_const), init_val_(init) {
     m->add_global_variable(this);
     if (init) {
         this->set_operand(0, init);
