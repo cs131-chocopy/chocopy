@@ -38,11 +38,6 @@ string ConstantNull::print() {
     return fmt::format("{} null", this->get_type()->print());
 }
 
-ConstantZero *ConstantZero::get(Type *ty, [[maybe_unused]] Module *m) {
-    return new ConstantZero(ty);
-}
-
-std::string ConstantZero::print() { return "zeroinitializer"; }
 ConstantStr *ConstantStr::get(const string &val, int id, Module *m) {
     return new ConstantStr(PtrType::get(IntegerType::get(8, m)), val, id);
 }
