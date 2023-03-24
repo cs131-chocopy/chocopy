@@ -98,12 +98,4 @@ class ConstantNull : public Constant {
     string print() override;
 };
 
-class ConstantZero : public Constant {
-   private:
-    explicit ConstantZero(Type *ty) : Constant(ty, "", 0) {}
-
-   public:
-    static ConstantZero *get(Type *ty, Module *m);
-    string print() override;
-};
 }  // namespace lightir
