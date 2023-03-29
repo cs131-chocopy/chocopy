@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "name": "test",
+      "setup": "",
+      "run": "./tests/check.py --pa 3",
+      "input": "",
+      "output": "",
+      "comparison": "score",
+      "timeout": 1,
+      "points": 75
+    }
+  ]
+}

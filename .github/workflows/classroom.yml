@@ -1,0 +1,35 @@
+name: GitHub Classroom Workflow
+
+on: [push]
+
+permissions:
+  checks: write
+  actions: read
+  contents: read
+
+jobs:
+  build:
+    name: Autograding
+    runs-on: ubuntu-latest
+    container: syrriinge/cs131-sp23:latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Disable workflow commands
+        run: |
+          stopMarker=$(uuidgen)
+          echo "::stop-commands::$stopMarker"
+      - name: Build
+        run: |
+          cmake -DCMAKE_BUILD_TYPE=Release -S . -B build -G Ninja && cmake --build build
+      - name: Cleanup
+        run: |
+          rm -rf tests
+      - uses: actions/checkout@v2
+        with:
+          repository: cs131-chocopy/sp23-testcases
+          path: tests
+          fetch-depth: 0
+      - uses: cs131-chocopy/autograding@ab613e677ae56ee692336bfe9a5209312d875510
