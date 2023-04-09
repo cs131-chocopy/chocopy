@@ -5,8 +5,20 @@
 
 注意：组队实验意味着合作，但是小组间的交流是受限的，且严格**禁止**代码的共享。
 除此之外，如果小组和其它组进行了交流，必须在根目录 `README.md` 中记录下来交流的小组和你们之间交流内容。
+## 学习LLVM IR
+
+只有在你对 LLVM IR 相对熟悉后你才能顺利完成这个 Project
+
+- Top-Down Learning: https://github.com/Evian-Zhang/llvm-ir-tutorial
+
+- Bottom-up Learning: https://godbolt.org/z/PKbh9zcEx
 
 ## 基础知识
+
+**务必确保你对 LLVM IR 有一定了解后再继续以下内容。**Light IR 是由 [Yiwei Yang](https://github.com/victoryang00) 开发的一套简化 LLVM IR 生成框架。我们不会 judge 你生成的 LLVM IR，我们会将 LLVM IR 其编译成可执行文件，通过比较执行结果来评测你的编译器是否正确。
+
+完成了这一部分，你的 ChocoPy 编译器将具备了从 source code 编译到 LLVM IR (如其名，一种中间表示形式) 的能力。而 LLVM Project 可以将你的 LLVM IR 编译到其所支持的平台上的可执行文件的能力。因此，得益于 LLVM Project 的能力，你的 ChocoPy 编译器在这一阶段后将成为一款具备跨平台的、易扩展的、高效率的编译器！祝你好运。
+
 
 ### 怎么插入一条指令
 
@@ -163,14 +175,16 @@ bool in_global();
 
 ### 主要工作
 
-修改 [chocopy_lightir.cpp](../../src/ir-optimizer/chocopy_lightir.cpp) 来实现生成 IR 的算法，使得它能正确编译任何合法的 ChocoPy 程序
+修改 [chocopy_lightir.cpp](../../src/ir-optimizer/chocopy_lightir.cpp) 来实现生成 IR 的算法，使得它能正确编译任何合法的 ChocoPy 程序。
 
 #### 几点说明
 
 1. IR 生成部分没有做内存管理，我们也不会检查内存泄漏，只要程序正确得到 LLVM IR 即可。
-2. 生成出来的 IR 也不用做内存管理，也就是说 ChocoPy 没有任何内存回收机制，不要求实现
+2. 生成出来的 IR 也不用做内存管理，也就是说 ChocoPy 没有任何内存回收机制，不要求实现。
 3. 提供的可能有 bug，虽然我们已经尽力去修了
    1. 代码框架中 IR 类型自动推导经常出错，可以使用 `Value::set_type` 来手动指定类型
+   2. 如果你成功地修复或者部分修复了框架中的 bug，请及时联系我们。帮助我们持续改进这个项目。这将在 Code interview 部分中为你加分。
+
 
 ### 1.4 编译、运行和验证
 
