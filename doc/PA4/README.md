@@ -1,6 +1,6 @@
 # Programing Assignment IV 文档
 
-在 CodeGen 中，我们需要从 Light IR 生成后端代码，LLVM IR 仅需要简单的转换指令、函数调用指定和寄存器分配就可以了。这也是为什么LLVM IR这么风靡的原因，很简单的对任意体系结构的代码生成。LLVM自己的实现可以参考[源码这里](https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/IR/IntrinsicsRISCV.td).
+在 CodeGen 中，我们需要从 Light IR 生成后端代码，LLVM IR 仅需要简单的转换指令、函数调用指定和寄存器分配就可以了。这也是为什么 LLVM IR 这么风靡的原因，很简单的对任意体系结构的代码生成。LLVM 自己的实现可以参考[源码这里](https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/IR/IntrinsicsRISCV.td).
 
 ## 基础知识
 
@@ -10,7 +10,7 @@
 
 ### RISC-V Spec
 
-定义详见 [RISCV Spec](https://riscv.org/technical/specifications/)， [RVV](https://github.com/riscv/riscv-v-spec).
+定义详见 [RISCV Spec](https://riscv.org/technical/specifications/)， [RVV](https://github.com/riscv/riscv-v-spec) [riscvbooks(chinese)](http://riscvbook.com/chinese/RISC-V-Reader-Chinese-v2p1.pdf).
 
 也可以使用 godbolt 观察编译 C 语言得到的汇编指令来了解 RISC-V 指令
 
