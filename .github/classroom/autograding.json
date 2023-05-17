@@ -3,7 +3,7 @@
     {
       "name": "test",
       "setup": "",
-      "run": "./tests/check.py --pa 3",
+      "run": "./tests/check.py --pa 4",
       "input": "",
       "output": "",
       "comparison": "score",
