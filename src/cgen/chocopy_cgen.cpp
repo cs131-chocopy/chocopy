@@ -51,68 +51,6 @@ string InstGen::set_value(const Reg &target, const Constant &source) {
     /** switch different instruction to load a word constant */
     return asm_code;
 };
-string InstGen::instConst(string (*inst)(const Reg &, const Reg &,
-                                         const Value &, string),
-                          const InstGen::Reg &target, const InstGen::Reg &op1,
-                          const InstGen::Constant &op2) {
-    string asm_code;
-    int val = op2.getValue();
-    if (target == op1 && op2.getValue() == 0 &&
-        (inst == RiscVBackEnd::emit_add || inst == RiscVBackEnd::emit_sub)) {
-        return asm_code;
-    } else if (0 <= val && val <= imm_8_max) {
-        asm_code += inst(target, op1, op2, "");
-    } else {
-        asm_code += set_value(InstGen::Reg(5), op2);
-        asm_code += inst(target, op1, InstGen::Reg(5), "");
-    }
-    return asm_code;
-}
-string InstGen::instConst(string (*inst)(const Reg &, const Reg &, const Reg &,
-                                         string),
-                          const InstGen::Reg &target, const InstGen::Reg &op1,
-                          const InstGen::Constant &op2) {
-    string asm_code;
-    int val = op2.getValue();
-    if (target == op1 && op2.getValue() == 0 &&
-        (inst == RiscVBackEnd::emit_sll || inst == RiscVBackEnd::emit_srl ||
-         inst == RiscVBackEnd::emit_or)) {
-        return asm_code;
-    } else {
-        asm_code += set_value(InstGen::Reg(5), op2);
-        asm_code += inst(target, op1, InstGen::Reg(5), "");
-    }
-    return asm_code;
-}
-
-string InstGen::instConst(string (*inst)(const Reg &, const Reg &, int, string),
-                          const InstGen::Reg &target, const InstGen::Reg &op1,
-                          const InstGen::Constant &op2) {
-    string asm_code;
-    int val = op2.getValue();
-    if (target == op1 && op2.getValue() == 0 &&
-        (inst == RiscVBackEnd::emit_slli || inst == RiscVBackEnd::emit_srli ||
-         inst == RiscVBackEnd::emit_ori)) {
-        return asm_code;
-    } else {  // imm
-        asm_code += inst(target, op1, val, "");
-    }
-    return asm_code;
-}
-
-string InstGen::instConst(string (*inst)(const Reg &, const Value &, string),
-                          const InstGen::Reg &op1,
-                          const InstGen::Constant &op2) {
-    string asm_code;
-    int val = op2.getValue();
-    if (0 <= val && val <= imm_8_max) {
-        asm_code += inst(op1, op2, "");
-    } else {
-        asm_code += set_value(InstGen::Reg(5), op2);
-        asm_code += inst(op1, InstGen::Reg(5), "");
-    }
-    return asm_code;
-}
 
 void Interval::addRange(int l, int r) {
     auto it = ranges.lower_bound({l, 0});
@@ -235,32 +173,6 @@ string CodeGen::generateModuleCode() {
      *   @.__int__: Offset of integer value.
      *   @.__bool__: Offset of boolean (1/0) value.
      */
-
-    /** Define @-constants to be used in assembly code. */
-#ifdef EMIT
-    asm_code += backend->defineSym("sbrk", backend->SBRK_ECALL);
-    asm_code += backend->defineSym("print_string", backend->PRINT_STRING_ECALL);
-    asm_code += backend->defineSym("print_char", backend->PRINT_CHAR_ECALL);
-    asm_code += backend->defineSym("print_int", backend->PRINT_INT_ECALL);
-    asm_code += backend->defineSym("exit2", backend->EXIT2_ECALL);
-    asm_code += backend->defineSym("read_string", backend->READ_STRING_ECALL);
-    asm_code += backend->defineSym("fill_line_buffer",
-                                   backend->FILL_LINE_BUFFER__ECALL);
-
-    asm_code += backend->defineSym(".__obj_size__", 4);
-    asm_code += backend->defineSym(".__len__", 12);
-    asm_code += backend->defineSym(".__int__", 12);
-    asm_code += backend->defineSym(".__bool__", 12);
-    asm_code += backend->defineSym(".__str__", 16);
-    asm_code += backend->defineSym(".__elts__", 16);
-
-    asm_code += backend->defineSym("error_div_zero", backend->ERROR_DIV_ZERO);
-    asm_code += backend->defineSym("error_arg", backend->ERROR_ARG);
-    asm_code += backend->defineSym("error_oob", backend->ERROR_OOB);
-    asm_code += backend->defineSym("error_none", backend->ERROR_NONE);
-    asm_code += backend->defineSym("error_oom", backend->ERROR_OOM);
-    asm_code += backend->defineSym("error_nyi", backend->ERROR_NYI);
-#endif
     asm_code += ".data\n";
     for (auto &classInfo : this->module->get_class()) {
         asm_code += backend->emit_prototype(*classInfo);

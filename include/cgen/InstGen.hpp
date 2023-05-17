@@ -58,64 +58,6 @@ class InstGen {
         }
     };
 
-    class RegShift : public Value {
-       public:
-        enum ShiftType { lsl, lsr, asl, asr };
-
-       private:
-        int id;
-        int shift;
-        ShiftType _t;
-
-       public:
-        explicit RegShift(int id, int shift, ShiftType _t = ShiftType::lsl)
-            : id(id), shift(shift), _t(_t) {
-            if (id < 0 || id > max_reg_id) {
-                std::cerr << "Invalid Reg ID!" << std::endl;
-                abort();
-            }
-            if (shift < 0 || shift > 31) {
-                std::cerr << "Invalid Reg shift!" << std::endl;
-                abort();
-            }
-        }
-        bool is_reg() const override { return true; }
-        bool is_constant() const override { return false; }
-        bool has_shift() const override { return true; }
-        int getID() const { return this->id; }
-        int getShift() const { return this->shift; }
-        string get_name() const override {
-            std::string shift_str;
-            switch (this->_t) {
-                case ShiftType::lsl:
-                    shift_str = "lsl";
-                    break;
-                case ShiftType::asl:
-                    shift_str = "asl";
-                    break;
-                case ShiftType::lsr:
-                    shift_str = "lsr";
-                    break;
-                case ShiftType::asr:
-                    shift_str = "asr";
-                    break;
-                default:
-                    break;
-            }
-            return reg_name[id] + ", " + shift_str + " " + "#" +
-                   std::to_string(this->getShift());
-        }
-        constexpr bool operator<(const RegShift &rhs) const {
-            return this->id < rhs.id;
-        }
-        constexpr bool operator==(const RegShift &rhs) const {
-            return this->id == rhs.id;
-        }
-        constexpr bool operator!=(const RegShift &rhs) const {
-            return this->id != rhs.id;
-        }
-    };
-
     class Addr {
         Reg reg;
         int offset;
@@ -167,23 +109,6 @@ class InstGen {
 
     static const int imm_8_max = 255;
     static const int imm_16_max = 65535;
-
-    /*** Factory methods */
-    static string instConst(string (*inst)(const Reg &target, const Reg &op1,
-                                           const Value &op2, string comment),
-                            const Reg &target, const Reg &op1,
-                            const Constant &op2);
-    static string instConst(string (*inst)(const Reg &target, const Reg &op1,
-                                           const Reg &op2, string comment),
-                            const Reg &target, const Reg &op1,
-                            const Constant &op2);
-    static string instConst(string (*inst)(const Reg &target, const Reg &op1,
-                                           int imm, string comment),
-                            const Reg &target, const Reg &op1,
-                            const Constant &op2);
-    static string instConst(string (*inst)(const Reg &op1, const Value &op2,
-                                           string comment),
-                            const Reg &op1, const Constant &op2);
 };
 
 }  // namespace cgen

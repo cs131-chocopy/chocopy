@@ -53,31 +53,9 @@ class RiscVBackEnd {
         PRINT_CHAR_ECALL = 11, PRINT_INT_ECALL = 1, READ_STRING_ECALL = 8,
         FILL_LINE_BUFFER__ECALL = 18, SBRK_ECALL = 9;
 
-    map<string, int> to_replace = {
-        {"@sbrk", SBRK_ECALL},
-        {"@print_string", PRINT_STRING_ECALL},
-        {"@print_char", PRINT_CHAR_ECALL},
-        {"@print_int", PRINT_INT_ECALL},
-        {"@exit2", EXIT2_ECALL},
-        {"@read_string", READ_STRING_ECALL},
-        {"@fill_line_buffer", FILL_LINE_BUFFER__ECALL},
-        {"@.__obj_size__", 4},
-        {"@.__len__", 12},
-        {"@.__int__", 12},
-        {"@.__bool__", 12},
-        {"@.__str__", 16},
-        {"@.__elts__", 16},
-        {"@error_div_zero", ERROR_DIV_ZERO},
-        {"@error_arg", ERROR_ARG},
-        {"@error_oob", ERROR_OOB},
-        {"@error_none", ERROR_NONE},
-        {"@error_oom", ERROR_OOM},
-        {"@error_nyi", ERROR_NYI}};
-
     RiscVBackEnd(int vlen, int vlmax);
     RiscVBackEnd(int vlen) : RiscVBackEnd(vlen, 128){};
     RiscVBackEnd() : RiscVBackEnd(64, 128){};
-    const std::filesystem::path stdlib = "../src/cgen/stdlib/";
     const int word_size = 4;
     const int vlen = 64;
     const int vlmax;
