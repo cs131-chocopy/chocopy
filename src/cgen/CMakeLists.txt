@@ -1,0 +1,10 @@
+add_executable(cgen chocopy_cgen.cpp)
+target_link_libraries(cgen PUBLIC ir-optimizer-lib parser-lib semantic-lib fmt::fmt)
+target_compile_definitions(cgen PUBLIC _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
+target_compile_definitions(cgen PUBLIC PA4=1)
+add_dependencies(cgen chocopy_stdlib)
+
+include_directories(${CMAKE_SOURCE_DIR}/include/cgen)
+include_directories(${CMAKE_SOURCE_DIR}/include/ir-optimizer)
+include_directories(${CMAKE_SOURCE_DIR}/include/semantic)
+include_directories(${CMAKE_SOURCE_DIR}/include/parser)
