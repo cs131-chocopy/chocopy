@@ -22,7 +22,7 @@
 
 #### 寄存器分配
 
-评测不考察性能，实现 stack machine 即可。
+只需要保证你遵守基本的 RISCV calling convention。因此你可以把所有变量都存到内存中。
 
 ### 内存管理
 
@@ -42,7 +42,54 @@
 
 ### 主要工作
 
-修改 [chocopy_cgen.cpp](../../src/cgen/chocopy_cgen.cpp) 来实现从 IR 到 RISC-V 汇编，使得它能正确编译 ChocoPy 程序。
+修改 [chocopy_cgen.cpp](../../src/cgen/chocopy_cgen.cpp) 来实现从 IR 到 RISC-V 汇编，使得它能正确编译 ChocoPy 程序。我们推荐你实现一个类 Stack Machine (你应该在理论课上学过)。从 LLVM IR 转换到以 RISC-V 实现的类 Stack Machine 是非常容易的，分享一个大概思路：
+
+#### 把 LLVM IR 的变量转换成 RISC-V 类 Stack Machine
+
+在内存中约定一块地方，专门用于存放单赋值变量，使用数据结构(`std::map`)维护内存地址和单赋值变量的关系。
+
+#### 把 LLVM IR 的一般语句转换成 RISC-V 类 Stack Machine
+
+每次需要执行语句时，查询涉及到的单赋值变量的地址，`lw`到寄存器中。计算完成后，`sw`到相应位置。
+
+#### 把 LLVM IR 中的 Phi 函数转换成 RISC-V 类 Stack Machine
+
+使用`CodeGen::generateBasicBlockPostCode`时，会在涉及到的 `BasicBlock` 的某位加上一段指令，将 phi 函数的结果存好。
+
+```c
+int foo(int a, int b) {
+  if (a > b) return a + b + 2;
+  else return a * b * 17;
+}
+```
+
+```llvm
+define dso_local i32 @foo(i32 %0, i32 %1) {
+  %3 = icmp sgt i32 %0, %1
+  br i1 %3, label %4, label %7
+
+4:                                                ; preds = %2
+  %5 = add i32 %0, %1
+  %6 = add i32 %5, 2
+  br label %10
+
+7:                                                ; preds = %2
+  %8 = mul i32 %0, %1
+  %9 = mul i32 %8, 17
+  br label %10
+
+10:                                               ; preds = %7, %4
+  %.0 = phi i32 [ %6, %4 ], [ %9, %7 ]
+  ret i32 %.0
+}
+```
+
+那么`CodeGen::generateBasicBlockPostCode`会在`4`和`7`对应的`BasicBlock`中把所需要的`%6`和`%9`存在你定义的地方。
+
+#### 把 LLVM IR 中的函数调用转换成 RISC-V 类 Stack Machine
+
+Stack Machine 的精髓在于你在内存中约定一个起点，然后拥有一个往下生长(内存减小方向)的栈。函数调用所需的参数根据 calling convention 存到对应的寄存器。注意 caller 和 callee 分别负责需要保存的寄存器。
+
 
 ### 编译、运行和验证
 
