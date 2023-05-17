@@ -1333,9 +1333,6 @@ RiscVBackEnd::RiscVBackEnd(int vlen, int vlmax) : vlen(vlen), vlmax(64) {
 int main(int argc, char *argv[]) {
     string target_path;
     string input_path;
-    string IR;
-    string asm_code;
-    vector<string> passes;
 
     bool emit = false;
     bool run = false;
@@ -1359,9 +1356,6 @@ int main(int argc, char *argv[]) {
             assem = true;
         } else if (argv[i] == "-run"s) {
             run = true;
-        } else if (argv[i] == "-pass"s) {
-            passes.push_back(argv[i + 1]);
-            i += 1;
         } else {
             if (input_path.empty()) {
                 input_path = argv[i];
@@ -1374,14 +1368,14 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    auto error =
-        std::make_unique<vector<std::unique_ptr<parser::CompilerErr>>>();
-
     std::unique_ptr<parser::Program> tree(parse(input_path.c_str()));
-    if (tree->errors->compiler_errors.size() == 0) {
-        auto symboltableGenerator = semantic::SymbolTableGenerator(*tree);
-        tree->accept(symboltableGenerator);
+    if (tree->errors->compiler_errors.size() != 0) {
+        cout << "Syntax Error" << endl;
+        return 0;
     }
+
+    auto symboltableGenerator = semantic::SymbolTableGenerator(*tree);
+    tree->accept(symboltableGenerator);
     if (tree->errors->compiler_errors.size() == 0) {
         auto declarationAnalyzer = semantic::DeclarationAnalyzer(*tree);
         tree->accept(declarationAnalyzer);
@@ -1391,178 +1385,53 @@ int main(int argc, char *argv[]) {
         tree->accept(typeChecker);
     }
 
-    std::shared_ptr<lightir::Module> m;
-    if (!error->empty()) {
-        tree->add_error(error.get());
-    } else {
-        auto j = tree->toJSON();
-        LOG(INFO) << "ChocoPy Language Server:\n" << j.dump(2) << "\n";
-
-        auto *LightWalker = new lightir::LightWalker(*tree);
-        tree->accept(*LightWalker);
-        m = LightWalker->get_module();
-        m->source_file_name_ = input_path;
-
-        IR = m->print();
-        std::ofstream output_stream;
-        auto output_file = target_path + ".ll";
-
-        output_stream.open(output_file, std::ios::out);
-        output_stream << fmt::format("; ModuleID = '{}'\n", m->module_name_);
-        output_stream << "source_filename = \"" + m->source_file_name_ +
-                             "\"\n\n";
-        output_stream << IR;
-        output_stream.close();
-
-        cgen::CodeGen code_generator(m);
-        asm_code = code_generator.generateModuleCode();
-        if (assem) {
-            cout << "RiscV Asm:\n";
-
-            cout << asm_code;
-        }
-        std::ofstream output_stream1;
-        auto output_file1 = target_path + ".s";
-        output_stream1.open(output_file1, std::ios::out);
-        output_stream1 << asm_code;
-        output_stream1.close();
+    if (tree->errors->compiler_errors.size() != 0) {
+        cout << "Type Error" << endl;
+        return 0;
     }
+
+    std::shared_ptr<lightir::Module> m;
+    auto LightWalker = lightir::LightWalker(*tree);
+    tree->accept(LightWalker);
+    m = LightWalker.get_module();
+    m->source_file_name_ = input_path;
+
+    string IR = fmt::format(
+        "; ModuleID = \"{}\"\n"
+        "source_filename = \"{}\"\n"
+        "{}",
+        m->module_name_, m->source_file_name_, m->print());
+
+    std::ofstream output_stream(target_path + ".ll");
+    output_stream << IR;
+    output_stream.flush();
+
     if (emit) {
-        cout << "\nLLVM IR:\n; ModuleID = 'chocopy'\nsource_filename = \"\""
-             << input_path << "\"\"\n\n"
-             << IR;
+        cout << IR;
+    }
+
+    cgen::CodeGen code_generator(m);
+    string asm_code = code_generator.generateModuleCode();
+
+    std::ofstream output_stream1(target_path + ".s");
+    output_stream1 << asm_code;
+    output_stream1.flush();
+
+    if (assem) {
+        cout << asm_code;
     }
 
     if (run) {
-        auto command_string_0 =
-            "riscv64-elf-gcc -mabi=ilp32 -march=rv32imac -g -o " +
-            target_path + " " + target_path +
-            ".s -L./ -L./build -L../build -lchocopy_stdlib";
-        int re_code_0 = std::system(command_string_0.c_str());
-        LOG(INFO) << command_string_0 << re_code_0;
-        auto command_string_1 = "qemu-riscv32 " + target_path;
-        int re_code_1 = std::system(command_string_1.c_str());
-        LOG(INFO) << command_string_1 << re_code_1;
+        auto generate_exec = fmt::format(
+            "riscv64-elf-gcc -mabi=ilp32 -march=rv32imac -g "
+            "-o {} {}.s "
+            "-L./ -L./build -L../build -lchocopy_stdlib",
+            target_path, target_path);
+        int re_code_0 = std::system(generate_exec.c_str());
+
+        auto qemu_run = fmt::format("qemu-riscv32 {}", target_path);
+        int re_code_1 = std::system(qemu_run.c_str());
     }
-    return 0;
-}
-#endif
-
-#ifdef ALL
-int main(int argc, char *argv[]) {
-    string target_path;
-    string input_path;
-    string IR;
-    string asm_code;
-    vector<string> passes;
-
-    bool O0 = false;
-    bool O3 = false;
-    bool assem = false;
-
-    for (int i = 1; i < argc; ++i) {
-        if (argv[i] == "-h"s || argv[i] == "--help"s) {
-            print_help(argv[0]);
-            return 0;
-        } else if (argv[i] == "-o"s) {
-            if (target_path.empty() && i + 1 < argc) {
-                target_path = argv[i + 1];
-                i += 1;
-            } else {
-                print_help(argv[0]);
-                return 0;
-            }
-        } else if (argv[i] == "-assem"s) {
-            assem = true;
-        } else if (argv[i] == "-O3"s) {
-            O3 = true;
-        } else if (argv[i] == "-O0"s) {
-            O0 = true;
-        } else {
-            if (input_path.empty()) {
-                input_path = argv[i];
-                target_path = replace_all(input_path, ".py", "");
-            } else {
-                print_help(argv[0]);
-                return 0;
-            }
-        }
-    }
-
-    auto error =
-        std::make_unique<vector<std::unique_ptr<parser::CompilerErr>>>();
-
-    std::unique_ptr<parser::Program> tree(parse(input_path.c_str()));
-    if (tree->errors->compiler_errors.size() == 0) {
-        auto symboltableGenerator = semantic::SymbolTableGenerator(*tree);
-        tree->accept(symboltableGenerator);
-    }
-    if (tree->errors->compiler_errors.size() == 0) {
-        auto declarationAnalyzer = semantic::DeclarationAnalyzer(*tree);
-        tree->accept(declarationAnalyzer);
-    }
-    if (tree->errors->compiler_errors.size() == 0) {
-        auto typeChecker = semantic::TypeChecker(*tree);
-        tree->accept(typeChecker);
-    }
-
-    std::shared_ptr<lightir::Module> m;
-    if (!error->empty()) {
-        tree->add_error(error.get());
-    } else {
-        json j = tree->toJSON();
-        LOG(INFO) << "ChocoPy Language Server:\n" << j.dump(2) << "\n";
-
-        auto *LightWalker = new lightir::LightWalker(*tree);
-        tree->accept(*LightWalker);
-        m = LightWalker->get_module();
-        m->source_file_name_ = input_path;
-        lightir::PassManager PM(m.get());
-        if (O3 == true) {
-            // PM.add_pass<lightir::Dominators>();
-            // PM.add_pass<lightir::Mem2Reg>();
-            // PM.add_pass<lightir::LoopFind>();
-            // PM.add_pass<lightir::Vectorization>();
-            // PM.add_pass<lightir::Multithread>();
-            // PM.add_pass<lightir::ActiveVars>();
-            // PM.add_pass<lightir::ConstPropagation>();
-        }
-        PM.run();
-
-        IR = m->print();
-        std::ofstream output_stream;
-        auto output_file = target_path + ".ll";
-
-        output_stream.open(output_file, std::ios::out);
-        output_stream << fmt::format("; ModuleID = '{}'\n", m->module_name_);
-        output_stream << "source_filename = \"" + m->source_file_name_ +
-                             "\"\n\n";
-        output_stream << IR;
-        output_stream.close();
-
-        cgen::CodeGen code_generator(m);
-        asm_code = code_generator.generateModuleCode();
-        std::ofstream output_stream1;
-        auto output_file1 = target_path + ".s";
-        output_stream1.open(output_file1, std::ios::out);
-        output_stream1 << asm_code;
-        output_stream1.close();
-        if (assem) {
-            auto command_string = "cat " + target_path + ".s ";
-            int re_code = std::system(command_string.c_str());
-            LOG(INFO) << command_string << re_code;
-        }
-    }
-    auto command_string_0 =
-        "riscv64-elf-gcc -mabi=ilp32 -march=rv32imac -g -o " +
-        target_path + " " + target_path +
-        ".s -L./ -L/Users/yiweiyang/project/bak/cmake-build-debug-kali-gcc "
-        "-lchocopy_stdlib";
-    int re_code_0 = std::system(command_string_0.c_str());
-    LOG(INFO) << command_string_0 << re_code_0;
-    auto command_string_1 = "qemu-riscv32 " + target_path;
-    int re_code_1 = std::system(command_string_1.c_str());
-    LOG(INFO) << command_string_1 << re_code_1;
     return 0;
 }
 #endif
