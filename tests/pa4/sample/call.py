@@ -4,6 +4,7 @@ def f() -> int:
     print("end f")
     return 42
 
+    
 def g() -> object:
     print("start g")
     h()
