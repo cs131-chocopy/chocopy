@@ -28,40 +28,13 @@ namespace cgen {
 class InstGen;
 class RiscVBackEnd;
 
-class Interval {
-   public:
-    std::set<std::pair<int, int>> ranges;
-    void addRange(int l, int r);
-    void setCreatePosition(int pos);
-    bool overlaps(const Interval &i) const;
-};
-
-const int op_reg_0 = 5;
-const int op_reg_1 = 6;
-const int op_reg_2 = 7;
-
 const string attribute = "rv32i2p0_m2p0_a2p0_c2p0";
 class CodeGen {
    private:
     shared_ptr<Module> module;
-
-    std::map<Value *, int> inst_id;
-    map<BasicBlock *, int> basic_block_from;
-    map<BasicBlock *, int> basic_block_to;
-    map<BasicBlock *, std::set<std::string>> live_in;
-    map<std::string, Interval> intervals;
-
-    std::map<std::string, InstGen::Reg> vreg_to_reg;
-    std::map<std::string, InstGen::Addr> vreg_to_stack_slot;
-    std::map<std::string, InstGen::Addr> alloca_to_stack_slot;
-    std::map<InstGen::Reg, std::string> reg_to_vreg;
-
-    map<BasicBlock *, std::vector<std::pair<Value *, std::string>>> phi_store;
-    int stack_size;
+    unique_ptr<RiscVBackEnd> backend = make_unique<RiscVBackEnd>();
 
     map<std::string, int> GOT;
-    bool debug;
-    RiscVBackEnd *backend;
     BasicBlock *current_basic_block;
     Function *current_function;
 
@@ -69,11 +42,7 @@ class CodeGen {
     explicit CodeGen(shared_ptr<Module> module);
     [[nodiscard]] string generateModuleCode();
 
-    void lifetimeAnalysis();
-    void linearScan();
-
     [[nodiscard]] string generateFunctionCode(Function *func);
-    [[nodiscard]] string generateFunctionExitCode();
 
     [[nodiscard]] string generateBasicBlockCode(BasicBlock *bb);
     [[nodiscard]] string generateBasicBlockPostCode(BasicBlock *bb);
@@ -83,19 +52,12 @@ class CodeGen {
                                               const string &call_inst,
                                               vector<Value *> ops);
 
-    [[nodiscard]] string getLabelName(BasicBlock *bb);
-    [[nodiscard]] string getLabelName(Function *func, int type);
-
     [[nodiscard]] string generateGlobalVarsCode();
     [[nodiscard]] string generateInitializerCode(Constant *init);
     [[nodiscard]] pair<int, bool> getConstIntVal(Value *val);
 
     [[nodiscard]] string stackToReg(InstGen::Addr addr, InstGen::Reg reg);
-    [[nodiscard]] InstGen::Reg getReg(const std::string &vreg,
-                                      int fallback = 5);
-    [[nodiscard]] string vregToReg(Value *vreg, InstGen::Reg reg);
     [[nodiscard]] string regToStack(InstGen::Reg reg, InstGen::Addr addr);
-    [[nodiscard]] string regToStack(const string &vreg);
 
     string comment(const string &s);
     string comment(const string &t, const string &s);

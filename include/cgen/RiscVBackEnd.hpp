@@ -53,12 +53,14 @@ class RiscVBackEnd {
         PRINT_CHAR_ECALL = 11, PRINT_INT_ECALL = 1, READ_STRING_ECALL = 8,
         FILL_LINE_BUFFER__ECALL = 18, SBRK_ECALL = 9;
 
-    RiscVBackEnd(int vlen, int vlmax);
-    RiscVBackEnd(int vlen) : RiscVBackEnd(vlen, 128){};
-    RiscVBackEnd() : RiscVBackEnd(64, 128){};
+    RiscVBackEnd(int vlen) : vlen(vlen) {
+        /** emplace_back vector reg */
+        for (int i = 0; i < vlen / word_size / 4; i++)
+            reg_name.emplace_back(fmt::format("x{}", i));
+    }
+    RiscVBackEnd() : RiscVBackEnd(64){};
     const int word_size = 4;
     const int vlen = 64;
-    const int vlmax;
 
     /**
      * Mark the interval of a code/text section.

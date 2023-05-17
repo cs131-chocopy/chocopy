@@ -74,7 +74,13 @@ class InstGen {
         Reg getReg() const { return this->reg; }
         void setReg(Reg reg) { this->reg = reg; }
         int getOffset() const { return this->offset; }
-        string get_name() const;
+        string get_name() const {
+            if (str.empty())
+                return fmt::format("{}({})", std::to_string(this->offset),
+                                reg.get_name());
+            else
+                return str;
+        }
     };
 
     class Constant : public Value {
@@ -102,7 +108,6 @@ class InstGen {
         string get_name() const { return fmt::format("{}+{}", label, offset); }
     };
 
-    static string set_value(const Reg &target, const Constant &source);
     static string get_address(const Reg &target, const Constant &source) {
         return nullptr;
     };
