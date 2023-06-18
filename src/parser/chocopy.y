@@ -221,12 +221,12 @@ class_body :
 func_def : TOKEN_DEF identifier TOKEN_l_paren typed_var_list TOKEN_r_paren func_return_type TOKEN_colon TOKEN_NEWLINE TOKEN_INDENT func_decls stmt_list TOKEN_DEDENT {
     $$ = new parser::FuncDef(@$ = {@1, @11}, $2, $4, $6, $10, $11);
 }
-typed_var_list:  { $$ = new std::vector<std::unique_ptr<::parser::TypedVar>>(); }
+typed_var_list: { $$ = new std::vector<std::unique_ptr<::parser::TypedVar>>(); }
     | typed_var {
         $$ = new std::vector<std::unique_ptr<::parser::TypedVar>>();
         $$->emplace_back($1);
     }
-    | typed_var_list TOKEN_comma typed_var { $$ = combine($1, $3); }
+    | typed_var TOKEN_comma typed_var_list { $3->emplace($3->begin(), $1); $$ = $3; }
 func_return_type: { $$ = new parser::ClassType(@$ = yylloc, "<None>"); }
     | TOKEN_rarrow type { $$ = $2; @$ = {@1, @2}; }
 func_decls: { $$ = new std::vector<std::unique_ptr<::parser::Decl>>(); }
@@ -292,8 +292,9 @@ expr_list : { $$ = new std::vector<std::unique_ptr<::parser::Expr>>(); }
         $$ = new std::vector<std::unique_ptr<::parser::Expr>>();
         $$->emplace_back($1);
     }
-    | expr_list TOKEN_comma expr {
-        $$ = combine($1, $3);
+    | expr TOKEN_comma expr_list {
+        $3->emplace($3->begin(), $1);
+        $$ = $3;
     }
 
 cexpr :
